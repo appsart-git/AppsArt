@@ -1,0 +1,66 @@
+marca,modelo,generacion,anio_desde,anio_hasta,motorizaciones_tipicas,segmento
+Volkswagen,Gol,Trend,2008,2016,"1.4, 1.6",Sedán/hatchback chico
+Volkswagen,Gol,G6/G7,2016,2023,"1.6",Sedán/hatchback chico
+Volkswagen,Voyage,G5/G6,2008,2019,"1.6",Sedán chico
+Volkswagen,Suran,I/II,2006,2018,"1.6",Familiar chico
+Volkswagen,Fox,I/II,2004,2020,"1.6",Hatchback chico
+Volkswagen,Polo,V/VI,2003,2024,"1.6, TSI",Hatchback chico
+Volkswagen,Virtus,I,2018,2024,"1.6, TSI",Sedán mediano
+Volkswagen,Nivus,I,2020,2024,"TSI",SUV coupé
+Volkswagen,Saveiro,G5/G6/G7,2008,2024,"1.6",Pickup chica
+Volkswagen,Amarok,I/II,2010,2024,"2.0 TDI, V6 3.0 TDI",Pickup mediana
+Fiat,Uno,Nuevo Uno,2010,2021,"1.4",Hatchback chico
+Fiat,Palio,I/II/III,2001,2017,"1.4, 1.8, 1.9D",Hatchback chico
+Fiat,Siena,I/II/III,2001,2016,"1.4, 1.8, 1.9D",Sedán chico
+Fiat,Idea,I,2006,2016,"1.4, 1.8",Familiar chico
+Fiat,Punto,I/II,2008,2017,"1.4, 1.8",Hatchback mediano
+Fiat,Cronos,I,2018,2024,"1.3, 1.8",Sedán mediano
+Fiat,Mobi,I,2017,2024,"1.0",Hatchback chico
+Fiat,Toro,I,2016,2024,"1.8, 2.0 Diesel",Pickup mediana
+Fiat,Strada,I/II/III,1999,2024,"1.4, 1.8, 1.3 Multijet",Pickup chica
+Fiat,Argo,I,2017,2024,"1.3, 1.8",Hatchback mediano
+Chevrolet,Corsa,I/II,1996,2012,"1.0, 1.4, 1.6, 1.7D",Hatchback/sedán chico
+Chevrolet,Classic,I,2003,2016,"1.4, 1.6",Sedán chico
+Chevrolet,Celta,I/II,2000,2015,"1.0, 1.4",Hatchback chico
+Chevrolet,Agile,I,2009,2015,"1.4",Hatchback chico
+Chevrolet,Onix,I/II,2012,2024,"1.0, 1.4, 1.0 Turbo",Hatchback/sedán chico
+Chevrolet,Prisma,I,2013,2019,"1.4",Sedán chico
+Chevrolet,Cruze,I/II,2010,2024,"1.4 Turbo, 1.8",Sedán mediano
+Chevrolet,Spin,I,2013,2022,"1.8",Minivan
+Chevrolet,S10,II/III,2012,2024,"2.5, 2.8 Diesel",Pickup mediana
+Renault,Clio,II/III/IV,2000,2020,"1.2, 1.6, 1.5 dCi",Hatchback chico
+Renault,Twingo,I/II,1993,2014,"1.0, 1.2",Hatchback chico
+Renault,Sandero,I/II,2007,2024,"1.6, 0.9 Turbo",Hatchback mediano
+Renault,Logan,I/II,2007,2024,"1.6",Sedán mediano
+Renault,Duster,I/II,2011,2024,"1.6, 2.0, 1.5 dCi",SUV chico
+Renault,Kangoo,I/II,1999,2024,"1.6, 1.5 dCi",Utilitario
+Renault,Megane,II/III,2004,2016,"1.6, 2.0",Sedán mediano
+Renault,Fluence,I,2010,2018,"1.6, 2.0",Sedán mediano
+Renault,Kwid,I,2018,2024,"1.0",Hatchback chico
+Renault,Stepway,I/II,2014,2024,"1.6, 0.9 Turbo",Hatchback/SUV chico
+Ford,Fiesta,IV/V/VI,1996,2019,"1.4, 1.6, 1.6 TDCi",Hatchback chico
+Ford,Focus,I/II/III,1999,2018,"1.6, 1.8, 2.0",Sedán/hatchback mediano
+Ford,Ka,I/II,1997,2020,"1.0, 1.5",Hatchback chico
+Ford,EcoSport,I/II/III,2003,2022,"1.6, 2.0",SUV chico
+Ford,Ranger,II/III/IV,1998,2024,"2.2, 3.2, 3.0 Diesel",Pickup mediana
+Peugeot,206,I,1999,2013,"1.4, 1.6, 1.9D",Hatchback chico
+Peugeot,207,I,2007,2015,"1.4, 1.6",Hatchback chico
+Peugeot,208,I/II,2013,2024,"1.6",Hatchback chico
+Peugeot,307,I,2002,2012,"1.6, 2.0, 2.0 HDi",Sedán/hatchback mediano
+Peugeot,308,I/II,2011,2022,"1.6",Sedán/hatchback mediano
+Peugeot,Partner,I/II,1999,2024,"1.6, 1.9D",Utilitario
+Peugeot,2008,I/II,2015,2024,"1.6",SUV chico
+Citroen,C3,I/II,2003,2023,"1.5, 1.6",Hatchback chico
+Citroen,C4,I/Cactus,2005,2022,"1.6",Hatchback/SUV chico
+Citroen,Berlingo,I/II,1999,2024,"1.6, 1.9D",Utilitario
+Toyota,Corolla,IX/X/XI/XII,2002,2024,"1.8, 2.0",Sedán mediano
+Toyota,Etios,I,2013,2021,"1.3, 1.5",Hatchback/sedán chico
+Toyota,Hilux,VII/VIII,2005,2024,"2.4, 2.8 Diesel",Pickup mediana
+Toyota,SW4,II/III,2005,2024,"2.8 Diesel",SUV grande
+Honda,Civic,VII/VIII/IX/X,2001,2021,"1.8, 2.0",Sedán mediano
+Honda,Fit,I/II/III,2003,2021,"1.4, 1.5",Hatchback chico
+Honda,HR-V,I,2015,2024,"1.8",SUV chico
+Nissan,March,I/II,2011,2024,"1.6",Hatchback chico
+Nissan,Versa,I/II,2011,2024,"1.6",Sedán chico
+Nissan,Sentra,VI/VII,2007,2019,"1.8, 2.0",Sedán mediano
+Nissan,Frontier,II/III,2005,2024,"2.5, 2.3 Diesel",Pickup mediana

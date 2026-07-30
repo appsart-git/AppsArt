@@ -85,15 +85,14 @@ function entidadDetailHtml(tipo, id){
       <div><span class="muted" style="font-size:12.5px;">Teléfono</span><div>${esc(e.telefono||'—')}</div></div>
       <div><span class="muted" style="font-size:12.5px;">${cfg.saldoLabel}</span><div style="font-size:18px; font-weight:800;">${saldoPill(e.saldo)}</div></div>
     </div>
-    <div style="margin:16px 0 10px; display:flex; gap:10px; flex-wrap:wrap;">
+    <div style="margin:16px 0 10px; display:flex; gap:10px;">
       <button class="btn btn-primary btn-sm" data-action="registrarPago" data-tipo="${tipo}" data-id="${id}">+ Registrar pago</button>
       <button class="btn btn-sm" data-action="editarEntidad" data-tipo="${tipo}" data-id="${id}">Editar datos</button>
-      ${tipo==='clientes' ? `<button class="btn btn-sm" data-action="verEstadoCuenta" data-id="${id}">📄 Estado de cuenta</button>` : ''}
     </div>
     <h3 style="font-size:14px; margin-top:16px;">${cfg.movLabel}</h3>
     <div class="table-wrap" style="max-height:220px; overflow-y:auto;">
-      <table><thead><tr><th>Fecha</th><th>Total</th><th>Forma de pago</th><th>Saldo generado</th><th>Estado</th></tr></thead>
-      <tbody>${movs.length ? movs.map(m=>`<tr${m.anulada?' style="opacity:.55;"':''}><td>${fmtDate(m.createdAt)}</td><td>${money(m.total)}</td><td class="muted">${esc(m.formaPago)}</td><td>${money(m.saldoPendiente)}</td><td>${estadoMovPill(m)}</td></tr>`).join('') : `<tr><td colspan="5" class="empty">Sin movimientos</td></tr>`}</tbody></table>
+      <table><thead><tr><th>Fecha</th><th>Total</th><th>Forma de pago</th><th>Saldo</th></tr></thead>
+      <tbody>${movs.length ? movs.map(m=>`<tr><td>${fmtDate(m.createdAt)}</td><td>${money(m.total)}</td><td class="muted">${esc(m.formaPago)}</td><td>${money(m.saldoPendiente)}</td></tr>`).join('') : `<tr><td colspan="4" class="empty">Sin movimientos</td></tr>`}</tbody></table>
     </div>
     <h3 style="font-size:14px; margin-top:16px;">Pagos registrados</h3>
     <div class="table-wrap" style="max-height:180px; overflow-y:auto;">

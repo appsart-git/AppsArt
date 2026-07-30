@@ -1,0 +1,17 @@
+{
+  "name": "Catálogo de Productos - Alberdi",
+  "short_name": "Catálogo Alberdi",
+  "description": "Catálogo de productos cerámicos con filtros por colección, formato, línea y color",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#14171A",
+  "theme_color": "#14171A",
+  "lang": "es-AR",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

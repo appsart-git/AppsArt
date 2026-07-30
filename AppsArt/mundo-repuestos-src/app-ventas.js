@@ -7,20 +7,9 @@ function cartTotal(){ return state.cart.reduce((s,l)=> s + cartLineTotal(l), 0);
 function cartDescuentoTotal(){ return cartSubtotal() - cartTotal(); }
 
 function renderVentas(){
-  document.getElementById('main').innerHTML = `
-    <div class="section-head"><h1>Ventas</h1></div>
-    <div class="tabs">
-      <div class="tab ${state.ventasTab!=='historial'?'active':''}" data-action="ventasTab" data-tab="nueva">Nueva venta</div>
-      <div class="tab ${state.ventasTab==='historial'?'active':''}" data-action="ventasTab" data-tab="historial">Historial</div>
-    </div>
-    <div id="ventasTabBody"></div>`;
-  if(state.ventasTab === 'historial') renderVentasHistorial();
-  else renderVentaNueva();
-}
-
-function renderVentaNueva(){
   const cliente = state.ventaCliente ? findCliente(state.ventaCliente) : null;
-  document.getElementById('ventasTabBody').innerHTML = `
+  document.getElementById('main').innerHTML = `
+    <div class="section-head"><h1>Nueva venta</h1></div>
     <div style="display:grid; grid-template-columns:1.4fr 1fr; gap:18px; align-items:start;" class="ventas-grid">
       <div class="card">
         <label>Agregar producto</label>
@@ -68,7 +57,7 @@ function renderVentaNueva(){
     <style>@media(max-width:960px){.ventas-grid{grid-template-columns:1fr !important;}}</style>`;
   wireProductoPicker('vt_search','vt_results', (p) => {
     if(!p) return;
-    state.cart.push({productoId:p.id, codigoInterno:p.codigoInterno, descripcion:p.descripcion, cantidad:1, precioUnitario:Number(p.precioVenta)||0, costoUnitario:Number(p.costoUltimo)||0, descuentoPct:0, stockDisponible:Number(p.stock)||0});
+    state.cart.push({productoId:p.id, codigoInterno:p.codigoInterno, descripcion:p.descripcion, cantidad:1, precioUnitario:Number(p.precioVenta)||0, descuentoPct:0, stockDisponible:Number(p.stock)||0});
     renderVentas();
   });
   if(!cliente){
@@ -89,97 +78,7 @@ function renderVentaNueva(){
   }
 }
 
-function ventasFiltradas(){
-  const q = (state.ventasHistBusqueda||'').toLowerCase().trim();
-  return state.ventas
-    .filter(v => fechaEnRango(v.fecha, state.reporteRango))
-    .filter(v => !q || (v.clienteNombre||'').toLowerCase().includes(q) || String(v.numero).includes(q))
-    .sort((a,b)=>b.createdAt-a.createdAt);
-}
-
-function renderVentasHistorial(){
-  const list = ventasFiltradas();
-  const totalVigente = list.filter(v=>!v.anulada).reduce((s,v)=>s+v.total,0);
-  document.getElementById('ventasTabBody').innerHTML = `
-    <div class="section-head">
-      <div class="row2" style="display:flex; gap:10px; align-items:center;">
-        <select id="vh_rango" data-change="ventasHistRango">${RANGO_OPCIONES.map(r=>`<option value="${r.id}" ${state.reporteRango===r.id?'selected':''}>${r.label}</option>`).join('')}</select>
-        <input id="vh_busqueda" placeholder="Buscar por cliente o N°…" value="${esc(state.ventasHistBusqueda)}" data-input="ventasHistBusqueda" style="width:220px;">
-      </div>
-      <button class="btn" id="vh_excel" data-action="ventasHistExcel">⬇ Descargar Excel</button>
-    </div>
-    <div class="stat" style="max-width:260px; margin-bottom:16px;"><div class="label">Total del período (sin anuladas)</div><div class="value">${money(totalVigente)}</div></div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>N°</th><th>Fecha</th><th>Cliente</th><th>Total</th><th>Forma de pago</th><th>Estado</th><th></th></tr></thead>
-        <tbody>
-          ${list.length ? list.map(v=>`
-            <tr>
-              <td>${v.numero}</td>
-              <td class="muted">${esc(v.fecha)}</td>
-              <td>${esc(v.clienteNombre)}</td>
-              <td>${money(v.total)}</td>
-              <td class="muted">${esc(v.formaPago)}</td>
-              <td>${estadoMovPill(v)}</td>
-              <td style="text-align:right; white-space:nowrap;">
-                <button class="btn btn-sm" data-action="verVentaHistorial" data-id="${v.id}">Ver</button>
-                ${!v.anulada ? `<button class="btn btn-sm btn-danger" data-action="anularVenta" data-id="${v.id}">Anular</button>` : ''}
-              </td>
-            </tr>`).join('') : `<tr><td colspan="7" class="empty">No hay ventas en este período.</td></tr>`}
-        </tbody>
-      </table>
-    </div>`;
-}
-
-function anularFormHtml(tipo, id){
-  return `
-    <div class="modal-head"><h2>Anular ${tipo==='ventas'?'venta':'compra'}</h2><button class="modal-close" data-action="closeModal">&times;</button></div>
-    <p class="muted" style="font-size:13px;">Se va a revertir el stock y el saldo que generó esta ${tipo==='ventas'?'venta':'compra'}. El registro no se borra, queda marcado como anulado para mantener el historial.</p>
-    <div class="field"><label>Motivo (opcional)</label><input id="an_motivo" placeholder="Ej: se cargó mal el producto"></div>
-    <div class="modal-actions">
-      <button class="btn" data-action="closeModal">Cancelar</button>
-      <button class="btn btn-danger" data-action="${tipo==='ventas'?'confirmarAnularVenta':'confirmarAnularCompra'}" data-id="${id}">Confirmar anulación</button>
-    </div>`;
-}
-
-async function anularVentaEjecutar(id, motivo){
-  const v = state.ventas.find(x=>x.id===id);
-  if(!v || v.anulada) return;
-  const b = newBatch();
-  (v.items||[]).forEach(it => {
-    const p = it.productoId ? findProducto(it.productoId) : null;
-    if(p) b.update('productos', p.id, {stock:(Number(p.stock)||0) + Number(it.cantidad)});
-  });
-  if(v.clienteId && Number(v.saldoPendiente)>0){
-    const c = findCliente(v.clienteId);
-    if(c) b.update('clientes', c.id, {saldo:(Number(c.saldo)||0) - Number(v.saldoPendiente)});
-  }
-  b.update('ventas', id, {anulada:true, anuladaAt:Date.now(), anuladaMotivo:motivo||''});
-  markSaving();
-  await b.commit(); doneSaving();
-  toast('Venta anulada. Stock y saldo revertidos.');
-}
-
 Object.assign(actions, {
-  ventasTab(el){ state.ventasTab = el.dataset.tab; render(); },
-  ventasHistExcel(el){
-    const list = ventasFiltradas();
-    descargarTablaExcel(el, 'ventas-' + todayISO() + '.xlsx', 'Ventas',
-      ['N°','Fecha','Cliente','Total','Forma de pago','Estado'],
-      list.map(v => [v.numero, v.fecha, v.clienteNombre, v.total, v.formaPago, v.anulada?'Anulada':'Confirmada'])
-    );
-  },
-  verVentaHistorial(el){
-    const v = state.ventas.find(x=>x.id===el.dataset.id);
-    if(!v) return;
-    mostrarComprobante(v, v.clienteId ? findCliente(v.clienteId) : null);
-  },
-  anularVenta(el){ openModal(anularFormHtml('ventas', el.dataset.id)); },
-  confirmarAnularVenta(el){
-    const motivo = document.getElementById('an_motivo').value.trim();
-    closeModal();
-    anularVentaEjecutar(el.dataset.id, motivo).catch(err => { console.error(err); toast('No se pudo anular la venta.'); });
-  },
   ventaQuitarLinea(el){ state.cart.splice(Number(el.dataset.i),1); renderVentas(); },
   ventaQuitarCliente(){ state.ventaCliente = null; renderVentas(); },
   confirmarVenta(el){
@@ -207,9 +106,9 @@ Object.assign(actions, {
         numero, fecha: todayISO(),
         clienteId: cliente ? cliente.id : null,
         clienteNombre: cliente ? cliente.nombre : 'Consumidor final',
-        items: state.cart.map(l => ({productoId:l.productoId, descripcion:l.descripcion, cantidad:Number(l.cantidad), precioUnitario:Number(l.precioUnitario), costoUnitario:Number(l.costoUnitario)||0, descuentoPct:Number(l.descuentoPct)})),
+        items: state.cart.map(l => ({productoId:l.productoId, descripcion:l.descripcion, cantidad:Number(l.cantidad), precioUnitario:Number(l.precioUnitario), descuentoPct:Number(l.descuentoPct)})),
         subtotal, descuentoTotal, total, formaPago: state.ventaFormaPago, montoAbonado, saldoPendiente,
-        anulada:false, createdAt: Date.now()
+        createdAt: Date.now()
       };
       const b = newBatch();
       b.set('ventas', ventaId, ventaData);
@@ -235,5 +134,3 @@ inputActions.ventaPrecio = (el) => { state.cart[Number(el.dataset.i)].precioUnit
 inputActions.ventaDescuento = (el) => { state.cart[Number(el.dataset.i)].descuentoPct = Math.min(100, Math.max(0, Number(el.value)||0)); renderVentas(); };
 inputActions.ventaFormaPago = (el) => { state.ventaFormaPago = el.value; renderVentas(); };
 inputActions.ventaMontoAbonado = (el) => { state.ventaMontoAbonado = Number(el.value)||0; };
-inputActions.ventasHistBusqueda = (el) => { state.ventasHistBusqueda = el.value; renderVentasHistorial(); };
-inputActions.ventasHistRango = (el) => { state.reporteRango = el.value; renderVentasHistorial(); };
