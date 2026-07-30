@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Mundo Repuestos · Gestión</title>
+<meta name="theme-color" content="#0d0d0d">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d0d0d;
+  --panel:#161616;
+  --panel2:#1e1e1e;
+  --border:#2b2b2b;
+  --text:#f2f2f2;
+  --text-muted:#9a9a9a;
+  --red:#e2231a;
+  --red-dark:#a5170f;
+  --green:#3fb96a;
+  --amber:#e0a72a;
+  --blue:#4a90d9;
+  --radius:10px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:'Inter',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{font-family:'Oswald',sans-serif; letter-spacing:.02em; margin:0 0 4px;}
+a{color:var(--red);}
+button{font-family:inherit;}
+input,select,textarea{
+  font-family:inherit; font-size:16px; color:var(--text); background:var(--panel2);
+  border:1px solid var(--border); border-radius:8px; padding:9px 11px; width:100%;
+}
+input:focus,select:focus,textarea:focus{outline:1px solid var(--red);}
+label{display:block; font-size:12.5px; color:var(--text-muted); margin:0 0 4px; font-weight:600; text-transform:uppercase; letter-spacing:.03em;}
+.field{margin-bottom:12px;}
+.row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
+@media(max-width:640px){ .row2,.row3{grid-template-columns:1fr;} }
+
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  background:var(--panel2); color:var(--text); border:1px solid var(--border);
+  border-radius:8px; padding:10px 16px; font-weight:600; font-size:14px; cursor:pointer;
+  transition:.15s;
+}
+.btn:hover{border-color:#555;}
+.btn:disabled{opacity:.5; cursor:default;}
+.btn-primary{background:var(--red); border-color:var(--red); color:#fff;}
+.btn-primary:hover{background:var(--red-dark);}
+.btn-ghost{background:transparent;}
+.btn-sm{padding:6px 10px; font-size:12.5px;}
+.btn-danger{color:#ff8378; border-color:#5a2620;}
+.btn-icon{padding:8px; width:34px; height:34px;}
+
+/* ===== APP SHELL ===== */
+#setupScreen{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;}
+.setup-card{max-width:480px; width:100%; background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:28px;}
+.setup-card img.logo{width:120px; display:block; margin:0 auto 18px;}
+.setup-card p{color:var(--text-muted); font-size:14px; line-height:1.5;}
+.setup-steps{background:var(--panel2); border-radius:8px; padding:14px 16px; font-size:13px; color:var(--text-muted); margin:14px 0;}
+.setup-steps ol{margin:6px 0 0; padding-left:18px;}
+.setup-steps li{margin-bottom:4px;}
+
+#app{display:none; min-height:100vh;}
+#app.ready{display:flex;}
+.sidebar{
+  width:230px; flex-shrink:0; background:var(--panel); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; padding:18px 14px; position:sticky; top:0; height:100vh; overflow-y:auto;
+}
+.brand{display:flex; align-items:center; gap:10px; margin-bottom:18px; padding:0 4px;}
+.brand img{width:42px; height:42px; object-fit:contain; border-radius:8px;}
+.brand .name{font-family:'Oswald'; font-weight:700; font-size:15.5px; line-height:1.15;}
+.brand .name small{display:block; font-size:10.5px; color:var(--text-muted); font-weight:500; letter-spacing:.04em;}
+.nav{display:flex; flex-direction:column; gap:2px; flex:1;}
+.nav-item{
+  display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px; color:var(--text-muted);
+  cursor:pointer; font-size:14px; font-weight:600; user-select:none;
+}
+.nav-item:hover{background:var(--panel2); color:var(--text);}
+.nav-item.active{background:var(--red); color:#fff;}
+.nav-item .ico{width:18px; text-align:center;}
+.savebadge{font-size:11px; color:var(--text-muted); padding:8px 4px; display:flex; align-items:center; gap:6px;}
+.dot{width:7px; height:7px; border-radius:50%; background:var(--green); flex-shrink:0;}
+.dot.saving{background:var(--amber); animation:pulse 1s infinite;}
+@keyframes pulse{50%{opacity:.4;}}
+.brand-footer{display:flex; align-items:center; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid var(--border); opacity:.65;}
+.brand-footer span{font-size:11px; color:var(--text-muted);}
+.brand-footer img{height:34px; width:auto; display:block;}
+
+.topbar{display:none;}
+main{flex:1; min-width:0; padding:24px 28px 60px;}
+.section-head{display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:18px; flex-wrap:wrap;}
+.section-head h1{font-size:22px;}
+.searchbar{position:relative; max-width:320px; flex:1;}
+.searchbar input{padding-left:34px;}
+.searchbar .ico{position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:14px;}
+
+@media(max-width:860px){
+  .sidebar{display:none;}
+  .topbar{
+    display:flex; align-items:center; gap:8px; overflow-x:auto; position:sticky; top:0; z-index:20;
+    background:var(--panel); border-bottom:1px solid var(--border); padding:10px 12px;
+  }
+  .topbar .brand{margin:0; padding:0 6px 0 0; flex-shrink:0;}
+  .topbar .brand img{width:28px; height:28px;}
+  .topbar .brand .name{font-size:12.5px;}
+  .topbar .brand .name small{display:none;}
+  .topbar-nav{display:flex; gap:4px; flex-wrap:nowrap;}
+  .topbar-nav .nav-item{white-space:nowrap; padding:8px 10px; font-size:12.5px;}
+  #app.ready{display:block;}
+  main{padding:16px 14px 50px;}
+  .section-head h1{font-size:19px;}
+}
+
+/* ===== CARDS / TABLES ===== */
+.card{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:18px;}
+.grid-cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:20px;}
+.stat{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px;}
+.stat .label{font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.03em; font-weight:600;}
+.stat .value{font-family:'Oswald'; font-size:26px; font-weight:700; margin-top:4px;}
+.stat .value.warn{color:var(--amber);}
+.stat .value.bad{color:var(--red);}
+
+.table-wrap{width:100%; overflow-x:auto; border:1px solid var(--border); border-radius:12px;}
+table{width:100%; border-collapse:collapse; font-size:13.5px; min-width:560px;}
+th{text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--text-muted); background:var(--panel); padding:11px 12px; border-bottom:1px solid var(--border); white-space:nowrap;}
+td{padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:middle;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:var(--panel2);}
+.muted{color:var(--text-muted);}
+.pill{display:inline-block; padding:3px 9px; border-radius:99px; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.02em;}
+.pill-ok{background:rgba(63,185,106,.15); color:var(--green);}
+.pill-warn{background:rgba(224,167,42,.15); color:var(--amber);}
+.pill-bad{background:rgba(226,35,26,.15); color:var(--red);}
+.pill-info{background:rgba(74,144,217,.15); color:var(--blue);}
+.empty{padding:40px 20px; text-align:center; color:var(--text-muted); font-size:14px;}
+
+/* ===== MODAL ===== */
+.modal-backdrop{position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:flex-start; justify-content:center; padding:30px 14px; overflow-y:auto; z-index:100;}
+.modal{background:var(--panel); border:1px solid var(--border); border-radius:14px; width:100%; max-width:640px; padding:22px; margin:auto;}
+.modal.wide{max-width:920px;}
+.modal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;}
+.modal-head h2{font-size:18px;}
+.modal-close{background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer; line-height:1;}
+.modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:18px; flex-wrap:wrap;}
+
+/* ===== VENTAS / COMPRAS CART ===== */
+.cart-search-results{border:1px solid var(--border); border-radius:8px; max-height:220px; overflow-y:auto; margin-top:6px;}
+.cart-search-results .opt{padding:9px 12px; cursor:pointer; font-size:13.5px; border-bottom:1px solid var(--border);}
+.cart-search-results .opt:hover{background:var(--panel2);}
+.cart-search-results .opt:last-child{border-bottom:none;}
+.cart-line-input{width:70px; padding:6px 8px; text-align:right;}
+.totals-box{background:var(--panel2); border-radius:10px; padding:14px 16px; margin-top:14px;}
+.totals-row{display:flex; justify-content:space-between; font-size:14px; padding:3px 0;}
+.totals-row.total{font-weight:800; font-size:18px; border-top:1px solid var(--border); margin-top:6px; padding-top:10px;}
+
+/* ===== COMPROBANTE TEMPLATE (offscreen render target) ===== */
+#comprobanteTemplate{
+  position:fixed; left:-9999px; top:0; width:480px; background:#fff; color:#111;
+  font-family:'Inter',sans-serif;
+}
+.cp-head{background:#0d0d0d; color:#fff; padding:20px; text-align:center;}
+.cp-head img{width:64px; height:64px; object-fit:contain; border-radius:10px; margin-bottom:6px;}
+.cp-head h2{color:#fff; font-size:17px; margin:0;}
+.cp-head .sub{font-size:11px; color:#b8b8b8; margin-top:2px;}
+.cp-body{padding:18px 20px;}
+.cp-meta{display:flex; justify-content:space-between; font-size:12px; color:#555; margin-bottom:12px; padding-bottom:10px; border-bottom:1px dashed #ccc;}
+.cp-table{width:100%; border-collapse:collapse; font-size:12px;}
+.cp-table th{text-align:left; font-size:10px; text-transform:uppercase; color:#888; padding:5px 0; border-bottom:1px solid #ddd;}
+.cp-table td{padding:6px 0; border-bottom:1px solid #eee;}
+.cp-table td.num{text-align:right;}
+.cp-totals{margin-top:10px;}
+.cp-totals .r{display:flex; justify-content:space-between; font-size:12.5px; padding:2px 0;}
+.cp-totals .r.total{font-weight:800; font-size:16px; border-top:1px solid #333; margin-top:5px; padding-top:7px;}
+.cp-pago{margin-top:12px; padding:10px 12px; background:#f5f5f4; border-radius:8px; font-size:12px;}
+.cp-foot{padding:12px 20px; background:#0d0d0d; color:#9a9a9a; font-size:10.5px; text-align:center; display:flex; align-items:center; justify-content:center; gap:6px;}
+.cp-foot img{height:16px; width:auto; display:block; vertical-align:middle;}
+
+/* ===== TOAST ===== */
+#toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#222; border:1px solid var(--border); color:#fff; padding:12px 18px; border-radius:10px; font-size:13.5px; z-index:200; display:none; max-width:90vw;}
+
+.tabs{display:flex; gap:6px; margin-bottom:16px; border-bottom:1px solid var(--border); flex-wrap:wrap;}
+.tab{padding:9px 14px; font-size:13.5px; font-weight:600; color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent;}
+.tab.active{color:#fff; border-color:var(--red);}
+
+.ocr-drop{border:2px dashed var(--border); border-radius:12px; padding:26px; text-align:center; color:var(--text-muted); font-size:13.5px;}
+.ocr-preview{max-width:100%; max-height:260px; border-radius:8px; margin:10px auto; display:block;}
+.progress-bar{height:6px; background:var(--panel2); border-radius:99px; overflow:hidden; margin:10px 0;}
+.progress-bar .fill{height:100%; background:var(--red); width:0%; transition:.2s;}
+</style>
+</head>
+<body>
+
+<!-- ===== SETUP SCREEN (shown until Firebase config is provided) ===== -->
+<div id="setupScreen">
+  <div class="setup-card">
+    <img class="logo" src="./logo-web.jpg" alt="Mundo Repuestos">
+    <h1 style="text-align:center;">Mundo Repuestos</h1>
+    <p style="text-align:center;">Antes de arrancar, elegí cómo vas a guardar los datos.</p>
+
+    <div class="field" style="margin-top:18px;">
+      <button class="btn btn-primary" style="width:100%;" data-action="useLocalMode">Usar en este dispositivo por ahora (modo local)</button>
+    </div>
+    <p class="muted" style="font-size:12.5px;">Los datos quedan guardados solo en este navegador. Podés conectar Firebase más adelante desde Configuración sin perder lo cargado (se puede exportar/re-importar).</p>
+
+    <div style="margin:20px 0; border-top:1px solid var(--border);"></div>
+
+    <h3 style="font-size:14px;">Conectar base de datos compartida (Firebase)</h3>
+    <div class="setup-steps">
+      Para que el celular del mostrador y la PC vean el mismo stock y las mismas cuentas en tiempo real:
+      <ol>
+        <li>Entrá a <b>console.firebase.google.com</b> con una cuenta Google, creá un proyecto nuevo.</li>
+        <li>Dentro del proyecto: "Compilación" → "Firestore Database" → "Crear base de datos" (modo producción, cualquier región).</li>
+        <li>"Configuración del proyecto" (ícono de tuerca) → agregar una app Web (ícono &lt;/&gt;) → copiá el objeto <code>firebaseConfig</code> que te muestra.</li>
+        <li>Pegalo acá abajo tal cual.</li>
+      </ol>
+    </div>
+    <div class="field">
+      <label>Pegar objeto firebaseConfig</label>
+      <textarea id="fbConfigInput" rows="6" placeholder='{"apiKey": "...", "authDomain": "...", "projectId": "...", ...}'></textarea>
+    </div>
+    <button class="btn" style="width:100%;" data-action="saveFirebaseConfig">Guardar y conectar</button>
+    <p id="fbConfigError" class="muted" style="color:var(--red); display:none;"></p>
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="app">
+  <div class="topbar" id="topbar"></div>
+  <div class="sidebar" id="sidebar">
+    <div class="brand">
+      <img src="./logo-web.jpg" alt="Mundo Repuestos">
+      <div class="name">MUNDO<br>REPUESTOS<small>Gestión del negocio</small></div>
+    </div>
+    <div class="nav" id="navList"></div>
+    <div class="savebadge"><span class="dot" id="saveDot"></span><span id="saveLabel">Sincronizado</span></div>
+    <div class="brand-footer"><span>by</span><img src="./appsart-brand.png" alt="AppsArt"></div>
+  </div>
+  <main id="main"></main>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toast"></div>
+
+<!-- Off-screen comprobante render target -->
+<div id="comprobanteTemplate"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+<script>
+'use strict';
+/* ===================== CONSTANTS ===================== */
+const LS_PREFIX = 'mundoRepuestos:';
+const RUBROS = ['Motor','Frenos','Suspensión','Eléctrico','Filtros','Correas y transmisión','Escape','Refrigeración','Carrocería','Accesorios','Otro'];
+const COLLECTIONS = ['productos','clientes','proveedores','ventas','compras','pagos'];
+
+/* ===================== BACKEND MODE (Firestore or localStorage) ===================== */
+// Config real del proyecto Firebase de Mundo Repuestos: al dejarla acá, cualquier dispositivo
+// que abra este mismo archivo/link queda conectado a la base compartida sin pasos extra.
+// Para clonar esta app a otro cliente, poner DEFAULT_FIREBASE_CONFIG = null y usar la pantalla
+// inicial de configuración (pegar el config del proyecto Firebase de ese cliente).
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyA_ej_5Hba9ZMMqCyXCSumXIGHWP8ZqgxY",
+  authDomain: "mundo-repuestos-f50e8.firebaseapp.com",
+  projectId: "mundo-repuestos-f50e8",
+  storageBucket: "mundo-repuestos-f50e8.firebasestorage.app",
+  messagingSenderId: "51898167508",
+  appId: "1:51898167508:web:3b2a0a58a91af5c0b7cb41"
+};
+let backendMode = null; // 'firebase' | 'local'
+let db = null;
+const localRegistry = {}; // name -> {listeners:[]}
+
+function lsKey(name){ return LS_PREFIX + name; }
+function lsReadAll(name){ try{ return JSON.parse(localStorage.getItem(lsKey(name)) || '[]'); }catch(e){ return []; } }
+function lsWriteAll(name, arr){ localStorage.setItem(lsKey(name), JSON.stringify(arr)); }
+function lsNotify(name){
+  const data = lsReadAll(name);
+  (localRegistry[name]?.listeners || []).forEach(cb => cb(data));
+}
+function genLocalId(){ return 'local_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8); }
+
+function collectionRef(name){
+  if(backendMode === 'firebase'){
+    return {
+      onSnapshot(cb){
+        return db.collection(name).onSnapshot(snap => {
+          cb(snap.docs.map(d => Object.assign({id:d.id}, d.data())));
+        }, onFirestoreError);
+      },
+      newId(){ return db.collection(name).doc().id; },
+      add(data){ return db.collection(name).add(data).then(ref => ref.id); },
+      update(id, patch){ return db.collection(name).doc(id).update(patch); }
+    };
+  }
+  if(!localRegistry[name]) localRegistry[name] = {listeners:[]};
+  return {
+    onSnapshot(cb){
+      localRegistry[name].listeners.push(cb);
+      cb(lsReadAll(name));
+      return () => { localRegistry[name].listeners = localRegistry[name].listeners.filter(l => l!==cb); };
+    },
+    newId(){ return genLocalId(); },
+    add(data){
+      const arr = lsReadAll(name); const id = genLocalId();
+      arr.push(Object.assign({id}, data)); lsWriteAll(name, arr); lsNotify(name);
+      return Promise.resolve(id);
+    },
+    update(id, patch){
+      const arr = lsReadAll(name); const i = arr.findIndex(x=>x.id===id);
+      if(i>=0){ arr[i] = Object.assign({}, arr[i], patch); lsWriteAll(name, arr); lsNotify(name); }
+      return Promise.resolve();
+    }
+  };
+}
+
+function newBatch(){
+  if(backendMode === 'firebase'){
+    const b = db.batch();
+    return {
+      set(colName, id, data){ b.set(db.collection(colName).doc(id), data, {merge:true}); },
+      update(colName, id, patch){ b.update(db.collection(colName).doc(id), patch); },
+      commit(){ return b.commit(); }
+    };
+  }
+  const ops = [];
+  return {
+    set(colName, id, data){ ops.push({type:'set', colName, id, data}); },
+    update(colName, id, patch){ ops.push({type:'update', colName, id, patch}); },
+    commit(){
+      const touched = new Set();
+      ops.forEach(op => {
+        const arr = lsReadAll(op.colName);
+        const i = arr.findIndex(x=>x.id===op.id);
+        if(op.type==='set'){
+          if(i>=0) arr[i] = Object.assign({}, arr[i], op.data, {id:op.id});
+          else arr.push(Object.assign({id:op.id}, op.data));
+        } else if(op.type==='update'){
+          if(i>=0) arr[i] = Object.assign({}, arr[i], op.patch);
+        }
+        lsWriteAll(op.colName, arr);
+        touched.add(op.colName);
+      });
+      touched.forEach(name => lsNotify(name));
+      return Promise.resolve();
+    }
+  };
+}
+
+function configGet(){
+  if(backendMode === 'firebase') return db.collection('config').doc('negocio').get().then(d => d.exists ? d.data() : {});
+  try{ return Promise.resolve(JSON.parse(localStorage.getItem(lsKey('config_negocio')) || '{}')); }catch(e){ return Promise.resolve({}); }
+}
+function configSet(data){
+  if(backendMode === 'firebase') return db.collection('config').doc('negocio').set(data, {merge:true});
+  const cur = JSON.parse(localStorage.getItem(lsKey('config_negocio')) || '{}');
+  localStorage.setItem(lsKey('config_negocio'), JSON.stringify(Object.assign(cur, data)));
+  return Promise.resolve();
+}
+function countersGet(){
+  if(backendMode === 'firebase') return db.collection('config').doc('contadores').get().then(d => d.exists ? d.data() : {});
+  try{ return Promise.resolve(JSON.parse(localStorage.getItem(lsKey('config_contadores')) || '{}')); }catch(e){ return Promise.resolve({}); }
+}
+function onFirestoreError(err){
+  console.error('Firestore error', err);
+  toast('No se pudo conectar con la base de datos compartida. Revisá la conexión.');
+}
+
+/* ===================== STATE ===================== */
+let state = {
+  section: 'panel',
+  productos: [], clientes: [], proveedores: [], ventas: [], compras: [], pagos: [],
+  loaded: {}, negocio: {nombre:'MUNDO REPUESTOS', direccion:'', telefono:'', cuit:''},
+  contadores: {},
+  cart: [], ventaCliente: null, ventaFormaPago: 'contado', ventaMontoAbonado: 0,
+  compraCart: [], compraProveedor: null, compraFormaPago: 'contado', compraMontoAbonado: 0, compraNroFactura: '', compraOrigenOCR: false,
+  ocr: { imageDataUrl: null, processing:false, progress:0, text:'', rows:[] },
+  filtro: {productos:'', clientes:'', proveedores:''},
+  cuentaTab: 'cobrar', reporteRango: 'mes',
+  saving: false
+};
+
+function allDataLoaded(){ return COLLECTIONS.every(c => state.loaded[c]); }
+
+/* ===================== UTIL ===================== */
+function money(n){
+  n = Number(n)||0;
+  return '$' + n.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function fmtDate(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.style.display = 'block';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>{ el.style.display='none'; }, 3200);
+}
+function markSaving(){ state.saving = true; updateSaveIndicator(); }
+function doneSaving(){ state.saving = false; updateSaveIndicator(); }
+function saveError(e){ console.error('No se pudo guardar', e); state.saving = false; updateSaveIndicator(); toast('No se pudo guardar el cambio.'); }
+function updateSaveIndicator(){
+  const dot = document.getElementById('saveDot'), label = document.getElementById('saveLabel');
+  if(!dot) return;
+  dot.classList.toggle('saving', state.saving);
+  label.textContent = state.saving ? 'Guardando…' : 'Sincronizado';
+}
+function findProducto(id){ return state.productos.find(p=>p.id===id); }
+function findCliente(id){ return state.clientes.find(c=>c.id===id); }
+function findProveedor(id){ return state.proveedores.find(p=>p.id===id); }
+function nextNumero(tipo){
+  const cur = state.contadores[tipo] || 0;
+  return cur + 1;
+}
+function bumpCounter(tipo){
+  state.contadores[tipo] = nextNumero(tipo);
+  const patch = {}; patch[tipo] = state.contadores[tipo];
+  if(backendMode === 'firebase'){
+    db.collection('config').doc('contadores').set(patch, {merge:true}).catch(()=>{});
+  } else {
+    const cur = JSON.parse(localStorage.getItem(lsKey('config_contadores')) || '{}');
+    localStorage.setItem(lsKey('config_contadores'), JSON.stringify(Object.assign(cur, patch)));
+  }
+}
+function padCodigo(n){ return 'REP-' + String(n).padStart(4,'0'); }
+
+/* ===================== INIT / FIREBASE ===================== */
+function tryLoadFirebaseConfig(){
+  const raw = localStorage.getItem(lsKey('firebaseConfig'));
+  if(!raw) return DEFAULT_FIREBASE_CONFIG;
+  try{ return JSON.parse(raw); }catch(e){ return DEFAULT_FIREBASE_CONFIG; }
+}
+
+function initApp(){
+  if(localStorage.getItem(lsKey('useLocalMode'))){ backendMode = 'local'; startApp(); return; }
+  const cfg = tryLoadFirebaseConfig();
+  if(cfg){
+    try{
+      firebase.initializeApp(cfg);
+      db = firebase.firestore();
+      backendMode = 'firebase';
+    }catch(e){
+      console.error('Firebase init failed', e);
+      toast('No se pudo inicializar Firebase, usando modo local.');
+      backendMode = 'local';
+    }
+  } else {
+    const useLocal = localStorage.getItem(lsKey('useLocalMode'));
+    if(!useLocal){ showSetupScreen(); return; }
+    backendMode = 'local';
+  }
+  startApp();
+}
+
+function showSetupScreen(){
+  document.getElementById('setupScreen').style.display = 'flex';
+  document.getElementById('app').classList.remove('ready');
+}
+
+function startApp(){
+  document.getElementById('setupScreen').style.display = 'none';
+  const app = document.getElementById('app');
+  app.classList.add('ready');
+  app.style.display = backendMode ? '' : 'none';
+
+  COLLECTIONS.forEach(name => {
+    collectionRef(name).onSnapshot(data => {
+      state[name] = data;
+      state.loaded[name] = true;
+      render();
+    });
+  });
+  configGet().then(d => { state.negocio = Object.assign(state.negocio, d); render(); });
+  countersGet().then(d => { state.contadores = d || {}; });
+
+  render();
+}
+
+/* ===================== SETUP ACTIONS ===================== */
+function useLocalMode(){
+  localStorage.setItem(lsKey('useLocalMode'), '1');
+  backendMode = 'local';
+  startApp();
+}
+function saveFirebaseConfigAction(){
+  const raw = document.getElementById('fbConfigInput').value.trim();
+  const errEl = document.getElementById('fbConfigError');
+  errEl.style.display = 'none';
+  let cfg;
+  try{
+    const jsonish = raw.replace(/(\w+)\s*:/g, '"$1":').replace(/'/g, '"');
+    cfg = JSON.parse(jsonish);
+  }catch(e){
+    errEl.textContent = 'No pude leer ese texto. Pegá el objeto firebaseConfig completo, tal cual lo muestra Firebase.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if(!cfg.apiKey || !cfg.projectId){
+    errEl.textContent = 'Faltan campos (apiKey / projectId). Revisá que copiaste el objeto completo.';
+    errEl.style.display = 'block';
+    return;
+  }
+  localStorage.setItem(lsKey('firebaseConfig'), JSON.stringify(cfg));
+  localStorage.removeItem(lsKey('useLocalMode'));
+  location.reload();
+}
+
+/* ===================== NAV / RENDER ROOT ===================== */
+const NAV_ITEMS = [
+  {id:'panel', label:'Panel', ico:'📊'},
+  {id:'ventas', label:'Ventas', ico:'🛒'},
+  {id:'compras', label:'Compras', ico:'📦'},
+  {id:'productos', label:'Productos', ico:'🔧'},
+  {id:'clientes', label:'Clientes', ico:'👤'},
+  {id:'proveedores', label:'Proveedores', ico:'🏭'},
+  {id:'cuentas', label:'Cuentas corrientes', ico:'💳'},
+  {id:'reportes', label:'Reportes', ico:'📈'},
+  {id:'config', label:'Configuración', ico:'⚙️'}
+];
+
+function goSection(id){ state.section = id; closeModal(); render(); }
+
+function renderNav(){
+  const html = NAV_ITEMS.map(it => `<div class="nav-item ${state.section===it.id?'active':''}" data-action="nav" data-id="${it.id}"><span class="ico">${it.ico}</span>${it.label}</div>`).join('');
+  document.getElementById('navList').innerHTML = html;
+  document.getElementById('topbar').innerHTML = `
+    <div class="brand"><img src="./logo-web.jpg" alt="logo"><div class="name">MUNDO<br>REPUESTOS</div></div>
+    <div class="topbar-nav">${html}</div>`;
+}
+
+function render(){
+  renderNav();
+  updateSaveIndicator();
+  if(!allDataLoaded()){
+    document.getElementById('main').innerHTML = '<div class="empty">Cargando datos…</div>';
+    return;
+  }
+  const renderers = {
+    panel: renderPanel, ventas: renderVentas, compras: renderCompras, productos: renderProductos,
+    clientes: renderClientes, proveedores: renderProveedores, cuentas: renderCuentas,
+    reportes: renderReportes, config: renderConfig
+  };
+  (renderers[state.section] || renderPanel)();
+}
+
+/* ===================== DELEGATED EVENTS ===================== */
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-action]');
+  if(!el) return;
+  const action = el.dataset.action;
+  if(actions[action]) actions[action](el, e);
+});
+document.addEventListener('input', (e) => {
+  const el = e.target.closest('[data-input]');
+  if(!el) return;
+  const handler = inputActions[el.dataset.input];
+  if(handler) handler(el, e);
+});
+document.addEventListener('change', (e) => {
+  const el = e.target.closest('[data-change]');
+  if(!el) return;
+  const handler = inputActions[el.dataset.change];
+  if(handler) handler(el, e);
+});
+
+const inputActions = {};
+
+/* ===================== MODAL HELPERS ===================== */
+function openModal(html, opts){
+  opts = opts || {};
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" data-action="${opts.closeOnBackdrop===false?'':'closeModalBackdrop'}"><div class="modal ${opts.wide?'wide':''}">${html}</div></div>`;
+}
+function closeModal(){ document.getElementById('modalRoot').innerHTML = ''; }
+let _confirmCb = null;
+function confirmDialog(message, onConfirm){
+  _confirmCb = onConfirm;
+  openModal(`
+    <div class="modal-head"><h2>Confirmar</h2><button class="modal-close" data-action="closeModal">&times;</button></div>
+    <p style="color:var(--text-muted); font-size:14px;">${esc(message)}</p>
+    <div class="modal-actions">
+      <button class="btn" data-action="closeModal">Cancelar</button>
+      <button class="btn btn-danger" data-action="confirmDialogYes">Confirmar</button>
+    </div>`);
+}
+function digitsOnly(s){ return String(s||'').replace(/\D/g,''); }
+function waitImagesReady(root){
+  const imgs = Array.from(root.querySelectorAll('img'));
+  return Promise.all(imgs.map(img => img.complete ? Promise.resolve() : new Promise(res => { img.onload = res; img.onerror = res; })));
+}
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+  a.remove(); setTimeout(()=>URL.revokeObjectURL(url), 4000);
+}
+async function withBusyButton(btn, busyLabel, fn){
+  if(!btn) return fn();
+  const prev = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = busyLabel;
+  try{ return await fn(); } finally { btn.disabled = false; btn.innerHTML = prev; }
+}
+
+/* ===================== ACTIONS REGISTRY ===================== */
+const actions = {
+  nav(el){ goSection(el.dataset.id); },
+  useLocalMode(){ useLocalMode(); },
+  saveFirebaseConfig(){ saveFirebaseConfigAction(); },
+  closeModalBackdrop(el, e){ if(e.target === el) closeModal(); },
+  closeModal(){ closeModal(); },
+  confirmDialogYes(){ const cb = _confirmCb; closeModal(); if(cb) cb(); },
+};
+</script>
+<script src="./app-productos.js"></script>
+<script src="./app-clientes.js"></script>
+<script src="./app-ventas.js"></script>
+<script src="./app-compras.js"></script>
+<script src="./app-ocr.js"></script>
+<script src="./app-cuentas.js"></script>
+<script src="./app-panel.js"></script>
+<script src="./app-config.js"></script>
+<script src="./app-comprobante.js"></script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(()=>{}); });
+}
+initApp();
+</script>
+</body>
+</html>
