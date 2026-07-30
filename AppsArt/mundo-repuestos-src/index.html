@@ -174,10 +174,10 @@ tbody tr:hover{background:var(--panel2);}
 .cp-head .sub{font-size:11px; color:#b8b8b8; margin-top:2px;}
 .cp-body{padding:18px 20px;}
 .cp-meta{display:flex; justify-content:space-between; font-size:12px; color:#555; margin-bottom:12px; padding-bottom:10px; border-bottom:1px dashed #ccc;}
-.cp-table{width:100%; border-collapse:collapse; font-size:12px;}
-.cp-table th{text-align:left; font-size:10px; text-transform:uppercase; color:#888; padding:5px 0; border-bottom:1px solid #ddd;}
-.cp-table td{padding:6px 0; border-bottom:1px solid #eee;}
-.cp-table td.num{text-align:right;}
+.cp-table{width:100%; min-width:0; border-collapse:collapse; font-size:12px; table-layout:fixed;}
+.cp-table th{text-align:left; font-size:10px; text-transform:uppercase; color:#888; padding:5px 0; border-bottom:1px solid #ddd; white-space:normal; overflow-wrap:break-word;}
+.cp-table td{padding:6px 0; border-bottom:1px solid #eee; overflow-wrap:break-word;}
+.cp-table th.num, .cp-table td.num{text-align:right;}
 .cp-totals{margin-top:10px;}
 .cp-totals .r{display:flex; justify-content:space-between; font-size:12.5px; padding:2px 0;}
 .cp-totals .r.total{font-weight:800; font-size:16px; border-top:1px solid #333; margin-top:5px; padding-top:7px;}
@@ -258,6 +258,7 @@ tbody tr:hover{background:var(--panel2);}
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
 <script>
@@ -389,7 +390,8 @@ let state = {
   compraCart: [], compraProveedor: null, compraFormaPago: 'contado', compraMontoAbonado: 0, compraNroFactura: '', compraOrigenOCR: false,
   ocr: { imageDataUrl: null, processing:false, progress:0, text:'', rows:[] },
   filtro: {productos:'', clientes:'', proveedores:''},
-  cuentaTab: 'cobrar', reporteRango: 'mes',
+  cuentaTab: 'cobrar', reportesTab: 'resumen', reporteRango: 'mes',
+  ventasTab: 'nueva', ventasHistBusqueda: '', comprasHistBusqueda: '',
   saving: false
 };
 
@@ -407,6 +409,26 @@ function fmtDate(iso){
   return d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
 }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const RANGO_OPCIONES = [
+  {id:'hoy', label:'Hoy'}, {id:'semana', label:'Últimos 7 días'}, {id:'mes', label:'Este mes'},
+  {id:'anio', label:'Este año'}, {id:'todo', label:'Todo'}
+];
+function fechaDesdeParaRango(rango){
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  if(rango==='hoy') return hoy;
+  if(rango==='semana'){ const d = new Date(hoy); d.setDate(d.getDate()-6); return d; }
+  if(rango==='mes') return new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  if(rango==='anio') return new Date(hoy.getFullYear(), 0, 1);
+  return null; // 'todo'
+}
+function fechaEnRango(fechaISO, rango){
+  const desde = fechaDesdeParaRango(rango);
+  if(!desde) return true;
+  return fechaISO && new Date(fechaISO+'T00:00:00') >= desde;
+}
+function estadoMovPill(m){
+  return m.anulada ? '<span class="pill pill-bad">Anulada</span>' : '<span class="pill pill-ok">Confirmada</span>';
+}
 function toast(msg){
   const el = document.getElementById('toast');
   el.textContent = msg; el.style.display = 'block';
