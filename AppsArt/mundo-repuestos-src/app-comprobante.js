@@ -1,6 +1,133 @@
 'use strict';
 /* ===================== COMPROBANTE DE VENTA (PDF + envío por WhatsApp) ===================== */
 
+/* ===================== ESTADO DE CUENTA (PDF + envío por WhatsApp) ===================== */
+
+function estadoCuentaInnerHtml(cliente){
+  // Los pagos se registran contra el saldo total del cliente, no contra una venta puntual (no hay
+  // relación pago→venta en el modelo de datos). Por eso NO se puede mostrar un "pendiente" honesto
+  // por cada venta — se muestran las ventas a cuenta como referencia y los pagos aparte, y el único
+  // número que manda es el saldo actual real (cliente.saldo).
+  const ventasCuenta = state.ventas
+    .filter(v => !v.anulada && v.clienteId===cliente.id && v.formaPago!=='contado')
+    .sort((a,b)=>a.createdAt-b.createdAt);
+  const pagos = state.pagos
+    .filter(p => p.tipo==='cliente' && p.entidadId===cliente.id)
+    .sort((a,b)=>a.createdAt-b.createdAt);
+  const ventasRows = ventasCuenta.map(v => `
+    <tr><td>N° ${String(v.numero).padStart(5,'0')} — ${esc(v.fecha)}</td><td class="num">${money(v.total)}</td></tr>`).join('');
+  const pagosRows = pagos.map(p => `
+    <tr><td>${new Date(p.createdAt).toLocaleDateString('es-AR')}${p.nota?' — '+esc(p.nota):''}</td><td class="num">${money(p.monto)}</td></tr>`).join('');
+  const n = state.negocio;
+  return `
+    <div class="cp-head">
+      <img src="./logo-web.jpg">
+      <h2>${esc(n.nombre||'MUNDO REPUESTOS')}</h2>
+      <div class="sub">Estado de cuenta</div>
+    </div>
+    <div class="cp-body">
+      <div class="cp-meta">
+        <div>Cliente:<br><b>${esc(cliente.nombre)}</b>${cliente.telefono?'<br>'+esc(cliente.telefono):''}</div>
+        <div style="text-align:right;">Generado<br>${new Date().toLocaleDateString('es-AR')}</div>
+      </div>
+      <div class="cp-totals" style="margin-top:0;">
+        <div class="r total"><span>Saldo actual</span><span>${money(cliente.saldo)}</span></div>
+      </div>
+      <table class="cp-table" style="margin-top:16px;">
+        <thead><tr><th>Ventas a cuenta corriente</th><th class="num">Total</th></tr></thead>
+        <tbody>${ventasRows || `<tr><td colspan="2" style="text-align:center;color:#888;padding:10px 0;">Sin ventas a cuenta corriente.</td></tr>`}</tbody>
+      </table>
+      ${pagosRows ? `<table class="cp-table" style="margin-top:14px;">
+        <thead><tr><th>Pagos registrados</th><th class="num">Monto</th></tr></thead>
+        <tbody>${pagosRows}</tbody>
+      </table>` : ''}
+    </div>
+    <div class="cp-foot">by <img src="./appsart-brand.png" alt="AppsArt"></div>`;
+}
+
+function estadoCuentaFileName(cliente){ return 'estado-cuenta-' + (cliente.nombre||'cliente').toLowerCase().replace(/[^a-z0-9]+/g,'-') + '.pdf'; }
+
+async function buildEstadoCuentaPdfBlob(cliente){
+  const tpl = document.getElementById('comprobanteTemplate');
+  tpl.innerHTML = estadoCuentaInnerHtml(cliente);
+  await waitImagesReady(tpl);
+  void tpl.offsetHeight;
+  const h = tpl.scrollHeight;
+  const canvas = await html2canvas(tpl, {scale:2, backgroundColor:'#ffffff', width:480, height:h, windowWidth:480});
+  const imgData = canvas.toDataURL('image/jpeg', 0.95);
+  const {jsPDF} = window.jspdf;
+  const pdf = new jsPDF({unit:'px', format:[480, h], hotfixes:['px_scaling']});
+  pdf.addImage(imgData, 'JPEG', 0, 0, 480, h);
+  return pdf.output('blob');
+}
+
+function mostrarEstadoCuenta(cliente){
+  const waDigits = cliente.telefono ? digitsOnly(cliente.telefono) : '';
+  openModal(`
+    <div class="modal-head"><h2>Estado de cuenta — ${esc(cliente.nombre)}</h2><button class="modal-close" data-action="closeModal">&times;</button></div>
+    <div style="max-height:60vh; overflow:auto; border:1px solid var(--border); border-radius:10px;">
+      <div id="ecPreview" style="width:480px; max-width:100%; margin:0 auto; background:#fff; color:#111;">${estadoCuentaInnerHtml(cliente)}</div>
+    </div>
+    <div class="modal-actions" style="justify-content:flex-start;">
+      <button class="btn" data-action="estadoCuentaDescargar" data-cid="${cliente.id}">⬇ Descargar PDF</button>
+      <button class="btn btn-primary" data-action="estadoCuentaCompartir" data-cid="${cliente.id}">📲 Enviar por WhatsApp</button>
+      ${waDigits ? `<a class="btn" target="_blank" href="https://wa.me/${waDigits}?text=${encodeURIComponent('Hola '+cliente.nombre+', te paso tu estado de cuenta con '+state.negocio.nombre+'. Saldo pendiente: '+money(cliente.saldo))}">Abrir WhatsApp (solo texto)</a>` : ''}
+    </div>`, {wide:true});
+}
+
+Object.assign(actions, {
+  verEstadoCuenta(el){
+    const cliente = findCliente(el.dataset.id);
+    if(cliente) mostrarEstadoCuenta(cliente);
+  },
+  estadoCuentaDescargar(el){
+    const cliente = findCliente(el.dataset.cid);
+    withBusyButton(el, 'Generando…', async () => {
+      const blob = await buildEstadoCuentaPdfBlob(cliente);
+      downloadBlob(blob, estadoCuentaFileName(cliente));
+    });
+  },
+  estadoCuentaCompartir(el){
+    const cliente = findCliente(el.dataset.cid);
+    withBusyButton(el, 'Generando…', async () => {
+      try{
+        const blob = await buildEstadoCuentaPdfBlob(cliente);
+        const filename = estadoCuentaFileName(cliente);
+        const file = new File([blob], filename, {type:'application/pdf'});
+        if(navigator.canShare && navigator.canShare({files:[file]})){
+          await navigator.share({files:[file], title:'Estado de cuenta '+cliente.nombre, text:'Estado de cuenta'});
+        } else {
+          downloadBlob(blob, filename);
+          toast('Tu navegador no permite compartir directo. Se descargó el PDF para que lo adjuntes en WhatsApp.');
+        }
+      }catch(err){
+        if(err && err.name === 'AbortError') return;
+        console.error(err);
+        toast('No se pudo compartir el PDF.');
+      }
+    });
+  }
+});
+
+/* ===================== EXCEL GENÉRICO PARA TABLAS (reportes / historiales) ===================== */
+// Reportes y historiales se exportan como .xlsx (dato crudo, editable) en vez de PDF: el objetivo
+// es que el usuario pueda filtrar/sumar/armar tablas dinámicas, no solo mirar un documento fijo.
+// Los valores numéricos van como número (no como texto formateado "$1.234,56") para que Excel
+// pueda sumarlos/promediarlos directamente.
+async function descargarTablaExcel(btn, filename, sheetName, headers, rows){
+  await withBusyButton(btn, 'Generando…', async () => {
+    try{
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0,31));
+      XLSX.writeFile(wb, filename);
+    }catch(err){
+      console.error(err);
+      toast('No se pudo generar el Excel.');
+    }
+  });
+}
+
 function comprobanteInnerHtml(venta, cliente){
   const n = state.negocio;
   const items = venta.items.map(it => {
@@ -62,7 +189,7 @@ function mostrarComprobante(venta, cliente){
   openModal(`
     <div class="modal-head"><h2>Venta confirmada — Comprobante N° ${String(venta.numero).padStart(5,'0')}</h2><button class="modal-close" data-action="closeModal">&times;</button></div>
     <div style="max-height:60vh; overflow:auto; border:1px solid var(--border); border-radius:10px;">
-      <div id="cpPreview" style="width:480px; max-width:100%; margin:0 auto; background:#fff;">${comprobanteInnerHtml(venta, cliente)}</div>
+      <div id="cpPreview" style="width:480px; max-width:100%; margin:0 auto; background:#fff; color:#111;">${comprobanteInnerHtml(venta, cliente)}</div>
     </div>
     <p class="muted" style="font-size:12px; margin-top:10px;">"Enviar por WhatsApp" abre el selector para compartir el PDF (en celular). En PC no siempre se puede adjuntar automático: descargá el PDF y adjuntalo a mano, o usá el link de texto.</p>
     <div class="modal-actions" style="justify-content:flex-start;">

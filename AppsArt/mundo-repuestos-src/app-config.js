@@ -16,16 +16,16 @@ function renderConfig(){
       <div class="field"><label>CUIT (opcional)</label><input id="cfg_cuit" value="${esc(n.cuit||'')}"></div>
       <button class="btn btn-primary" data-action="guardarNegocio">Guardar datos</button>
     </div>
-    <div class="card" style="max-width:560px;">
-      <h3 style="font-size:14px;">Base de datos</h3>
-      <p class="muted" style="font-size:13px;">Modo actual: <b>${backendMode==='firebase' ? 'Firebase (compartido entre dispositivos)' : 'Local (solo este navegador)'}</b></p>
-      ${backendMode!=='firebase' ? `
+    ${backendMode!=='firebase' ? `
+      <div class="card" style="max-width:560px;">
+        <h3 style="font-size:14px;">Base de datos</h3>
+        <p class="muted" style="font-size:13px;">Modo actual: <b>Local (solo este navegador)</b></p>
         <p class="muted" style="font-size:12.5px;">Cuando quieras que el celular del mostrador y la PC vean los mismos datos en tiempo real, conectá Firebase. Antes te conviene exportar un respaldo.</p>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
           <button class="btn" data-action="exportarRespaldo">⬇ Exportar respaldo (JSON)</button>
           <button class="btn btn-primary" data-action="irAConectarFirebase">Conectar Firebase</button>
-        </div>` : `<p class="muted" style="font-size:12.5px;">Los datos se sincronizan automáticamente entre todos los dispositivos que abran este mismo link.</p>`}
-    </div>`;
+        </div>
+      </div>` : ''}`;
 }
 
 Object.assign(actions, {

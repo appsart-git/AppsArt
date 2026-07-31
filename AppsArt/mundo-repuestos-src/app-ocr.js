@@ -1,17 +1,57 @@
 'use strict';
 /* ===================== OCR DE FACTURAS DE COMPRA (Tesseract.js, 100% en el navegador) ===================== */
 
-const OCR_STOPWORDS = ['subtotal','total','iva','cuit','fecha','factura','remito','razon social','razón social','domicilio','condicion','condición','pagina','página','cae','vencimiento','moneda','cliente','vendedor','cod.iva','cod iva'];
+const OCR_STOPWORDS = [
+  'subtotal','total','iva','cuit','cuil','cut','fecha','factura','remito','razon social','razón social',
+  'domicilio','domicii','condicion','condición','condon','pagina','página','cae','vencimiento','moneda',
+  'cliente','vendedor','cod.iva','cod iva','codigo','código','cant.','detalle','p.lista','p lista','dto',
+  'neto','iibb','ing.brutos','ingresos brutos','responsable inscripto','cuenta','o.c.',
+  'pedido','cargo ped','prepar','factur','desp:','plazo','devolucion','devolución','mercader','viaja',
+  'pagos deben','cheque','orden de','importe de esta factura','dolar','billete','recib','comprometemos',
+  'aclarar','firma','autorizada','defensa del consumidor','impresion','impresión','original','provincia',
+  'establecimiento','inicio de activ'
+];
+
+// Normaliza (minúsculas + sin acentos) para que el filtro de ruido no dependa de tildes exactas.
+function ocrNormalize(s){
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+}
+
+// Muchas facturas ponen el código de producto como primer token de la línea (ej. "96NH", "AP6007").
+function extractLeadingCode(line){
+  const m = line.match(/^\s*([A-Za-z]{0,4}\d{1,7}[A-Za-z0-9]{0,4})\s+(\S.*)$/);
+  if(m && /\d/.test(m[1]) && m[1].length>=2 && m[1].length<=10){
+    return { codigo: m[1], resto: m[2] };
+  }
+  return { codigo:'', resto: line };
+}
 
 function parseInvoiceText(text){
   const lines = text.split('\n').map(l=>l.trim()).filter(l=>l.length>=4);
   const rows = [];
   for(const line of lines){
-    const low = line.toLowerCase();
-    if(OCR_STOPWORDS.some(w => low.includes(w))) continue;
+    if(OCR_STOPWORDS.some(w => ocrNormalize(line).includes(ocrNormalize(w)))) continue;
     // Descartar porcentajes (ej. "- 21,00%" de IVA) antes de buscar cantidad/precio: no son ninguno de los dos.
     const lineSinPorcentajes = line.replace(/-?\s*\d+[.,]?\d*\s*%/g, ' ');
-    const nums = lineSinPorcentajes.match(/\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?/g) || [];
+    const { codigo, resto } = extractLeadingCode(lineSinPorcentajes);
+
+    // Si hay una cantidad aislada justo al principio (antes de la descripción, después del código),
+    // separarla ahora: evita que números sueltos dentro de la descripción (ej. "Citroen C3") se
+    // confundan más adelante con la cantidad real.
+    let cantidad = 1, restoSinCantidad = resto;
+    const qtyMatch = resto.match(/^\s*(\d{1,2}(?:[.,]\d{1,2})?)\s+(?=[^\d\s])(\S.*)$/);
+    if(qtyMatch){
+      const qn = Number(qtyMatch[1].replace(',','.'));
+      if(Number.isFinite(qn) && qn > 0 && qn < 100){
+        cantidad = Math.round(qn);
+        restoSinCantidad = qtyMatch[2];
+      }
+    }
+
+    // (?<![A-Za-zÀ-ÿ]) evita agarrar números pegados a una letra (ej. "C3", motorización) como si
+    // fueran cantidad/precio.
+    const numberRe = /(?<![A-Za-zÀ-ÿ])(?:\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?)/g;
+    const nums = restoSinCantidad.match(numberRe) || [];
     if(!nums.length) continue;
     const parsedNums = nums.map(n => {
       const clean = n.includes(',') ? n.replace(/\./g,'').replace(',','.') : n;
@@ -19,20 +59,32 @@ function parseInvoiceText(text){
     }).filter(n => !isNaN(n));
     if(!parsedNums.length) continue;
 
-    let cantidad = 1, costoUnitario = 0;
-    if(parsedNums.length >= 2){
+    let costoUnitario;
+    if(cantidad > 1 && restoSinCantidad !== resto){
+      // La cantidad ya se aisló al inicio: el último número de lo que queda es el precio/total de la columna.
+      costoUnitario = parsedNums[parsedNums.length-1];
+      if(parsedNums.length >= 3){
+        costoUnitario = Math.round((costoUnitario / cantidad) * 100) / 100;
+      }
+    } else if(parsedNums.length >= 2){
+      // No se pudo aislar una cantidad al inicio: heurística de respaldo (primer/último número).
       const first = parsedNums[0], last = parsedNums[parsedNums.length-1];
       cantidad = (first > 0 && first < 100 && Number.isInteger(first)) ? first : 1;
       costoUnitario = last;
+      if(parsedNums.length >= 4 && cantidad > 1){
+        costoUnitario = Math.round((last / cantidad) * 100) / 100;
+      }
     } else {
       costoUnitario = parsedNums[0];
     }
-    let descripcion = lineSinPorcentajes;
+
+    let descripcion = restoSinCantidad;
     nums.forEach(n => { descripcion = descripcion.replace(n, ''); });
-    descripcion = descripcion.replace(/[.\-–x×$*%]+/g,' ').replace(/\s{2,}/g,' ').trim();
-    if(descripcion.length < 3) descripcion = line;
+    descripcion = descripcion.replace(/[.\-–x×$*%|]+/g,' ').replace(/\s{2,}/g,' ').trim();
+    const letterCount = (descripcion.match(/[a-zA-Zà-úÀ-Ú]/g) || []).length;
+    if(letterCount < 5) continue; // sin suficiente texto real: casi seguro es ruido (total suelto, código, etc.)
     if(costoUnitario <= 0 && cantidad === 1) continue; // pure noise line
-    rows.push({descripcion, codigoProveedor:'', cantidad, costoUnitario});
+    rows.push({descripcion, codigoProveedor:codigo, cantidad, costoUnitario});
   }
   return rows.slice(0, 40);
 }
