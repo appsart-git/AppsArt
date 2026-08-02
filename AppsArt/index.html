@@ -1,4 +1,9 @@
-﻿<title>LOTE 9 · Gestión de flota</title>
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LOTE 9 · Gestión de flota</title>
 <style>
   :root{
     --bg:#14171A; --surface:#1D2126; --surface-2:#262B32; --surface-3:#2E343C;
@@ -239,8 +244,20 @@
     .grid-2{grid-template-columns:1fr;}
     .chips-form{grid-template-columns:1fr;}
     table{white-space:nowrap;}
+    .grid-2b{grid-template-columns:1fr;}
+    .detail-title{font-size:20px;}
+    .detail-actions{width:100%;}
+    .detail-actions button{flex:1 1 auto; justify-content:center;}
+    .amount-group select.input{width:64px;}
+  }
+
+  @media (max-width: 420px){
+    .stat-value{font-size:21px;}
+    .partner-full-value{font-size:17px;}
   }
 </style>
+</head>
+<body>
 
 <div class="layout">
   <aside class="sidebar">
@@ -738,7 +755,7 @@
       return '<tr class="row-hover clickable" data-open-vehiculo="'+v.id+'">'
         + '<td><div style="display:flex;align-items:center;gap:10px">'+thumb+'<div><div class="veh-name">'+esc(v.marca)+' '+esc(v.modelo)+(v.version?' '+esc(v.version):'')+'</div><div class="veh-year">'+esc(v.anio)+'</div></div></div></td>'
         + '<td><span class="plate">'+esc(v.patente||"S/D")+'</span></td>'
-        + '<td class="mono">'+fmtDate(v.fechaCompra)+'</td>'
+        + '<td class="mono">'+(v.estado===ESTADOS.VENDIDO ? moneyFmt(v.precioVenta, v.precioVentaMoneda) : "—")+'</td>'
         + '<td class="mono">'+money(costoTotal(v))+'</td>'
         + '<td><span class="badge '+(v.estado===ESTADOS.VENDIDO?"badge-vendido":"badge-stock")+'">'+(v.estado===ESTADOS.VENDIDO?"Vendido":"En stock")+'</span></td>'
         + '<td class="mono" style="color:'+(g==null?"var(--text-muted)":g>=0?"var(--green)":"var(--red)")+'">'+(g==null?"—":money(g))+'</td>'
@@ -746,7 +763,7 @@
         + '</tr>';
     }).join("");
     return '<div class="table-wrap"><table><thead><tr>'
-      + ["Vehículo","Patente","Compra","Costo total","Estado","Resultado",""].map(function(h){return '<th>'+h+'</th>';}).join("")
+      + ["Vehículo","Patente","Precio de venta","Costo total","Estado","Resultado",""].map(function(h){return '<th>'+h+'</th>';}).join("")
       + '</tr></thead><tbody>'+rows+'</tbody></table></div>';
   }
 
@@ -849,7 +866,10 @@
     }
 
     html += '<div class="split"><div>';
-    html += '<h3 class="section-title">Participación de socios</h3><div class="list-box">';
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">'
+      + '<h3 class="section-title" style="margin:0">Participación de socios</h3>'
+      + '<button class="icon-btn" data-action="editar-participaciones" title="Editar participación de socios">'+icon("pencil",14)+'</button>'
+      + '</div><div class="list-box">';
     var parts = vehiculo.participaciones||[];
     if(parts.length===0){ html += '<div class="list-empty">Sin participaciones registradas.</div>'; }
     parts.forEach(function(p){
@@ -1207,6 +1227,8 @@
     });
     var editarFicha = main.querySelector('[data-action="editar-ficha"]');
     if(editarFicha) editarFicha.addEventListener("click", function(){ state.modal = {type:"editar-ficha", payload: state.selectedVehiculo}; renderModal(); });
+    var editarPart = main.querySelector('[data-action="editar-participaciones"]');
+    if(editarPart) editarPart.addEventListener("click", function(){ state.modal = {type:"editar-participaciones", payload: state.selectedVehiculo}; renderModal(); });
     var descargarPdf = main.querySelector('[data-action="descargar-pdf"]');
     if(descargarPdf) descargarPdf.addEventListener("click", function(){
       var v = state.data.vehiculos.find(function(x){return x.id===state.selectedVehiculo;});
@@ -1279,6 +1301,7 @@
     else if(t==="nuevo-vehiculo") root.innerHTML = modalWrap("Cargar vehículo comprado", formVehiculoHTML(), 620);
     else if(t==="vender") root.innerHTML = modalWrap("Registrar venta · "+vehTitle(state.modal.payload), formVentaHTML(state.modal.payload), 460);
     else if(t==="editar-ficha") root.innerHTML = modalWrap("Editar ficha · "+vehTitle(state.modal.payload), formEditarFichaHTML(state.modal.payload), 620);
+    else if(t==="editar-participaciones") root.innerHTML = modalWrap("Participación · "+vehTitle(state.modal.payload), formEditarParticipacionesHTML(state.modal.payload), 460);
     else if(t==="tipo-cambio") root.innerHTML = modalWrap("Tipo de cambio", formTipoCambioHTML(), 380);
     attachModalEvents();
   }
@@ -1414,6 +1437,32 @@
     html += '<h3 class="section-title" style="margin-top:8px">Ficha</h3>';
     html += detallesFieldsHTML("e", vehiculo);
     html += '<button class="btn-primary" type="submit" style="width:100%;justify-content:center;margin-top:6px">Guardar cambios</button>';
+    html += '</form>';
+    return html;
+  }
+
+  function formEditarParticipacionesHTML(vehiculoId){
+    var vehiculo = state.data.vehiculos.find(function(v){return v.id===vehiculoId;});
+    if(!vehiculo) return "";
+    var socios = state.data.socios;
+    var existentes = {};
+    (vehiculo.participaciones||[]).forEach(function(p){ existentes[p.socioId] = p.porcentaje; });
+    var totalActual = pctSum(vehiculo.participaciones);
+    var html = '<form id="formParticipaciones">';
+    if(socios.length===0){
+      html += '<div style="border:1px dashed var(--border);border-radius:8px;padding:14px;font-size:13px;color:var(--text-muted)">Todavía no hay socios cargados. Agregá socios primero desde la sección Socios.</div>';
+    } else {
+      html += '<div class="pct-head"><span class="pct-label">PARTICIPACIÓN POR SOCIO</span><span class="pct-total" id="epctTotal" style="color:'+(totalActual===100?"var(--green)":"var(--amber)")+'">'+totalActual+'% asignado</span></div>';
+      html += '<div class="list-box" style="margin-bottom:6px">';
+      socios.forEach(function(s){
+        var val = existentes[s.id]!==undefined ? existentes[s.id] : 0;
+        html += '<div class="pct-row"><div style="display:flex;align-items:center;gap:8px"><span class="dot" style="background:'+s.color+'"></span>'+esc(s.nombre)+'</div>'
+          + '<div style="display:flex;align-items:center;gap:6px"><input class="input pct-input" type="number" min="0" max="100" value="'+val+'" data-epct-socio="'+s.id+'"><span style="color:var(--text-muted);font-size:13px">%</span></div></div>';
+      });
+      html += '</div>';
+      html += '<div class="warn-line" id="epctWarn" style="display:'+(totalActual!==100?"flex":"none")+'">'+icon("alert",14)+' Podés guardar igual, pero lo ideal es que sume 100%.</div>';
+      html += '<button class="btn-primary" type="submit" style="width:100%;justify-content:center;margin-top:10px">Guardar participación</button>';
+    }
     html += '</form>';
     return html;
   }
@@ -1639,6 +1688,33 @@
       });
     }
 
+    var fPart = document.getElementById("formParticipaciones");
+    if(fPart){
+      var epctInputs = fPart.querySelectorAll("[data-epct-socio]");
+      function erecalcPct(){
+        var total = 0;
+        epctInputs.forEach(function(inp){ total += Number(inp.value)||0; });
+        var totalEl = document.getElementById("epctTotal");
+        var warnEl = document.getElementById("epctWarn");
+        if(totalEl){
+          totalEl.textContent = total+"% asignado";
+          totalEl.style.color = total===100 ? "var(--green)" : "var(--amber)";
+        }
+        if(warnEl) warnEl.style.display = (total!==100 && epctInputs.length>0) ? "flex" : "none";
+      }
+      epctInputs.forEach(function(inp){ inp.addEventListener("input", erecalcPct); });
+      fPart.addEventListener("submit", function(e){
+        e.preventDefault();
+        var participaciones = [];
+        epctInputs.forEach(function(inp){
+          var val = Number(inp.value)||0;
+          if(val>0) participaciones.push({ socioId: inp.getAttribute("data-epct-socio"), porcentaje: val });
+        });
+        updateVehiculoFields(state.modal.payload, { participaciones: participaciones });
+        closeModal();
+      });
+    }
+
     var fTipoCambio = document.getElementById("formTipoCambio");
     if(fTipoCambio){
       fTipoCambio.addEventListener("submit", function(e){
@@ -1658,3 +1734,5 @@
   initRealtime();
 })();
 </script>
+</body>
+</html>

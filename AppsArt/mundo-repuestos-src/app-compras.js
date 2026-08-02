@@ -133,7 +133,7 @@ function renderComprasHistorial(){
           ${list.length ? list.map(c=>`
             <tr>
               <td class="muted">${esc(c.fecha)}</td>
-              <td>${esc(c.proveedorNombre)}</td>
+              <td>${esc(c.proveedorNombre)}${c.sinStock?' <span class="pill pill-info">Sin stock</span>':''}</td>
               <td class="muted">${esc(c.nroFacturaProveedor||'—')}</td>
               <td>${money(c.total)}</td>
               <td class="muted">${esc(c.formaPago)}</td>
@@ -149,12 +149,14 @@ function renderComprasHistorial(){
 }
 
 function compraDetalleHtml(compra){
+  const ventaVinculada = compra.ventaVinculadaId ? state.ventas.find(v=>v.id===compra.ventaVinculadaId) : null;
   return `
     <div class="modal-head"><h2>Compra — ${esc(compra.proveedorNombre)}</h2><button class="modal-close" data-action="closeModal">&times;</button></div>
     <div class="row2" style="margin-bottom:14px;">
       <div><span class="muted" style="font-size:12.5px;">Fecha</span><div>${esc(compra.fecha)}</div></div>
       <div><span class="muted" style="font-size:12.5px;">Estado</span><div>${estadoMovPill(compra)}</div></div>
     </div>
+    ${compra.sinStock ? `<p class="muted" style="font-size:12.5px; background:var(--panel2); padding:8px 10px; border-radius:8px;">Venta sin stock: se compró directo para despachar al cliente, no pasó por el stock.${ventaVinculada?` Venta vinculada: N° ${String(ventaVinculada.numero).padStart(5,'0')}.`:''}</p>` : ''}
     <div class="table-wrap">
       <table>
         <thead><tr><th>Producto</th><th>Cant.</th><th>Costo unit.</th><th>Subtotal</th></tr></thead>
@@ -174,14 +176,16 @@ async function anularCompraEjecutar(id, motivo){
   if(!c || c.anulada) return;
   const b = newBatch();
   let stockNegativo = false;
-  (c.items||[]).forEach(it => {
-    const p = it.productoId ? findProducto(it.productoId) : null;
-    if(p){
-      const nuevoStock = (Number(p.stock)||0) - Number(it.cantidad);
-      if(nuevoStock < 0) stockNegativo = true;
-      b.update('productos', p.id, {stock:nuevoStock});
-    }
-  });
+  if(!c.sinStock){
+    (c.items||[]).forEach(it => {
+      const p = it.productoId ? findProducto(it.productoId) : null;
+      if(p){
+        const nuevoStock = (Number(p.stock)||0) - Number(it.cantidad);
+        if(nuevoStock < 0) stockNegativo = true;
+        b.update('productos', p.id, {stock:nuevoStock});
+      }
+    });
+  } // compra de "venta sin stock" nunca sumó stock, no hay nada que descontar al anularla
   if(c.proveedorId && Number(c.saldoPendiente)>0){
     const p = findProveedor(c.proveedorId);
     if(p) b.update('proveedores', p.id, {saldo:(Number(p.saldo)||0) - Number(c.saldoPendiente)});
