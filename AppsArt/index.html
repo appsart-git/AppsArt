@@ -417,6 +417,8 @@
     selectedVehiculo: null,
     saving: false,
     filtro: "todos",
+    busqueda: "",
+    busquedaStock: "",
     tipoCambio: 1000
   };
 
@@ -721,7 +723,23 @@
     }
 
     if(stock.length>0){
-      html += '<div><h3 class="section-title">Vehículos en stock</h3>' + vehiculoTable(stock) + '</div>';
+      var qStock = (state.busquedaStock||"").trim().toLowerCase();
+      var stockFiltrado = stock;
+      if(qStock){
+        stockFiltrado = stock.filter(function(v){
+          var hay = [v.marca, v.modelo, v.version, v.patente, v.anio, v.color, v.vendedor].join(" ").toLowerCase();
+          return hay.indexOf(qStock) >= 0;
+        });
+      }
+      html += '<div>';
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">'
+        + '<h3 class="section-title" style="margin:0">Vehículos en stock</h3>'
+        + '<input class="input" id="buscarStockPanel" type="search" placeholder="Buscar por marca, modelo, patente…" value="'+esc(state.busquedaStock||"")+'" style="max-width:260px">'
+        + '</div>';
+      html += stockFiltrado.length
+        ? vehiculoTable(stockFiltrado)
+        : '<div class="list-empty" style="padding:24px;text-align:center;border:1px dashed var(--border);border-radius:10px">No se encontraron vehículos con esa búsqueda.</div>';
+      html += '</div>';
     }
     return html;
   }
@@ -781,14 +799,29 @@
     var filtrados = vehiculos.filter(function(v){
       return state.filtro==="todos" ? true : state.filtro==="stock" ? v.estado===ESTADOS.STOCK : v.estado===ESTADOS.VENDIDO;
     });
+    var q = (state.busqueda||"").trim().toLowerCase();
+    if(q){
+      filtrados = filtrados.filter(function(v){
+        var hay = [v.marca, v.modelo, v.version, v.patente, v.anio, v.color, v.vendedor].join(" ").toLowerCase();
+        return hay.indexOf(q) >= 0;
+      });
+    }
 
-    html += '<div class="filters">';
+    html += '<div class="filters" style="justify-content:space-between;flex-wrap:wrap">';
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap">';
     [["todos","Todos"],["stock","En stock"],["vendidos","Vendidos"]].forEach(function(f){
       var active = state.filtro===f[0];
       html += '<button class="btn-ghost'+(active?" active":"")+'" style="padding:7px 14px;font-size:13px" data-filtro="'+f[0]+'">'+f[1]+'</button>';
     });
     html += '</div>';
-    html += vehiculoTable(filtrados);
+    html += '<input class="input" id="buscarVehiculo" type="search" placeholder="Buscar por marca, modelo, patente…" value="'+esc(state.busqueda||"")+'" style="max-width:260px">';
+    html += '</div>';
+
+    if(filtrados.length===0){
+      html += '<div class="list-empty" style="padding:24px;text-align:center;border:1px dashed var(--border);border-radius:10px">No se encontraron vehículos con estos filtros.</div>';
+    } else {
+      html += vehiculoTable(filtrados);
+    }
     return html;
   }
 
@@ -1203,11 +1236,35 @@
     var main = document.getElementById("main");
 
     main.querySelectorAll("[data-open-vehiculo]").forEach(function(el){
-      el.addEventListener("click", function(){ state.selectedVehiculo = el.getAttribute("data-open-vehiculo"); render(); });
+      el.addEventListener("click", function(){
+        state.selectedVehiculo = el.getAttribute("data-open-vehiculo");
+        state.tab = "vehiculos";
+        render();
+      });
     });
     main.querySelectorAll("[data-filtro]").forEach(function(el){
       el.addEventListener("click", function(){ state.filtro = el.getAttribute("data-filtro"); render(); });
     });
+
+    var buscarInput = main.querySelector("#buscarVehiculo");
+    if(buscarInput){
+      buscarInput.addEventListener("input", function(){
+        state.busqueda = buscarInput.value;
+        render();
+        var inp = document.getElementById("buscarVehiculo");
+        if(inp){ inp.focus(); var pos = inp.value.length; inp.setSelectionRange(pos, pos); }
+      });
+    }
+
+    var buscarStockPanel = main.querySelector("#buscarStockPanel");
+    if(buscarStockPanel){
+      buscarStockPanel.addEventListener("input", function(){
+        state.busquedaStock = buscarStockPanel.value;
+        render();
+        var inp = document.getElementById("buscarStockPanel");
+        if(inp){ inp.focus(); var pos = inp.value.length; inp.setSelectionRange(pos, pos); }
+      });
+    }
 
     var nuevoVeh = main.querySelector('[data-action="nuevo-vehiculo"]');
     if(nuevoVeh) nuevoVeh.addEventListener("click", function(){ state.modal = {type:"nuevo-vehiculo"}; renderModal(); });

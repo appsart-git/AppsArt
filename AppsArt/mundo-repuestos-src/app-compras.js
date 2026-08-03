@@ -32,7 +32,9 @@ function renderCompraManual(){
             <tbody>
               ${state.compraCart.length ? state.compraCart.map((l,i)=>`
                 <tr>
-                  <td>${esc(l.descripcion)} ${l.esNuevo?'<span class="pill pill-info">Nuevo</span>':''}${l.origenOCR?'<span class="pill pill-warn">OCR</span>':''}<div class="muted" style="font-size:11px;">${esc(l.codigoProveedor||'')}</div></td>
+                  <td>${esc(l.descripcion)} ${l.esNuevo?'<span class="pill pill-info">Nuevo</span>':''}${l.origenOCR?'<span class="pill pill-warn">OCR</span>':''}<div class="muted" style="font-size:11px;">${esc(l.codigoProveedor||'')}</div>
+                    <input type="text" placeholder="Vehículo (marca y modelo)" value="${esc(l.vehiculo||'')}" data-input="compraVehiculo" data-i="${i}" style="margin-top:5px; font-size:12px; padding:5px 8px;">
+                  </td>
                   <td><input class="cart-line-input" type="number" min="1" step="1" value="${l.cantidad}" data-change="compraCantidad" data-i="${i}"></td>
                   <td><input class="cart-line-input" type="number" min="0" step="0.01" value="${l.costoUnitario}" data-change="compraCosto" data-i="${i}"></td>
                   <td>${money(compraLineTotal(l))}</td>
@@ -67,7 +69,7 @@ function renderCompraManual(){
     <style>@media(max-width:960px){.compras-grid{grid-template-columns:1fr !important;}}</style>`;
   wireProductoPicker('cp_search','cp_results', (p) => {
     if(!p) return;
-    state.compraCart.push({productoId:p.id, codigoProveedor:p.codigoProveedor, descripcion:p.descripcion, cantidad:1, costoUnitario:Number(p.costoUltimo)||0, esNuevo:false});
+    state.compraCart.push({productoId:p.id, codigoProveedor:p.codigoProveedor, descripcion:p.descripcion, cantidad:1, costoUnitario:Number(p.costoUltimo)||0, esNuevo:false, vehiculo:''});
     renderCompras();
   });
   if(!proveedor){
@@ -100,6 +102,7 @@ function nuevoRenglonFormHtml(){
       <div class="field"><label>Cantidad</label><input id="nr_cantidad" type="number" min="1" step="1" value="1"></div>
       <div class="field"><label>Costo unitario</label><input id="nr_costo" type="number" min="0" step="0.01" value="0"></div>
     </div>
+    <div class="field"><label>Vehículo (opcional)</label><input id="nr_vehiculo" placeholder="Ej: Fiat Cronos 2020 — dejalo vacío si es un insumo genérico"></div>
     <div class="modal-actions">
       <button class="btn" data-action="closeModal">Cancelar</button>
       <button class="btn btn-primary" data-action="agregarRenglonNuevo">Agregar al carrito</button>
@@ -160,7 +163,7 @@ function compraDetalleHtml(compra){
     <div class="table-wrap">
       <table>
         <thead><tr><th>Producto</th><th>Cant.</th><th>Costo unit.</th><th>Subtotal</th></tr></thead>
-        <tbody>${(compra.items||[]).map(it=>`<tr><td>${esc(it.descripcion)}</td><td>${it.cantidad}</td><td>${money(it.costoUnitario)}</td><td>${money(Number(it.cantidad)*Number(it.costoUnitario))}</td></tr>`).join('')}</tbody>
+        <tbody>${(compra.items||[]).map(it=>`<tr><td>${esc(it.descripcion)}${it.vehiculo?`<div class="muted" style="font-size:11px;">Vehículo: ${esc(it.vehiculo)}</div>`:''}</td><td>${it.cantidad}</td><td>${money(it.costoUnitario)}</td><td>${money(Number(it.cantidad)*Number(it.costoUnitario))}</td></tr>`).join('')}</tbody>
       </table>
     </div>
     <div class="totals-box">
@@ -228,7 +231,8 @@ Object.assign(actions, {
       rubro: document.getElementById('nr_rubro').value,
       descripcion,
       cantidad: Math.max(1, Number(document.getElementById('nr_cantidad').value)||1),
-      costoUnitario: Math.max(0, Number(document.getElementById('nr_costo').value)||0)
+      costoUnitario: Math.max(0, Number(document.getElementById('nr_costo').value)||0),
+      vehiculo: document.getElementById('nr_vehiculo').value.trim()
     });
     closeModal(); renderCompras();
   },
@@ -255,11 +259,11 @@ Object.assign(actions, {
             ubicacion:'', activo:true, createdAt: Date.now()
           });
           bumpCounter('producto');
-          resolvedItems.push({productoId:newId, descripcion:l.descripcion, cantidad:Number(l.cantidad), costoUnitario:Number(l.costoUnitario)});
+          resolvedItems.push({productoId:newId, descripcion:l.descripcion, cantidad:Number(l.cantidad), costoUnitario:Number(l.costoUnitario), vehiculo:(l.vehiculo||'').trim()});
         } else {
           const p = findProducto(l.productoId);
           if(p) b.update('productos', p.id, {stock:(Number(p.stock)||0)+Number(l.cantidad), costoUltimo:Number(l.costoUnitario)});
-          resolvedItems.push({productoId:l.productoId, descripcion:l.descripcion, cantidad:Number(l.cantidad), costoUnitario:Number(l.costoUnitario)});
+          resolvedItems.push({productoId:l.productoId, descripcion:l.descripcion, cantidad:Number(l.cantidad), costoUnitario:Number(l.costoUnitario), vehiculo:(l.vehiculo||'').trim()});
         }
       });
       const compraId = collectionRef('compras').newId();
@@ -285,5 +289,6 @@ inputActions.compraCosto = (el) => { state.compraCart[Number(el.dataset.i)].cost
 inputActions.compraFormaPago = (el) => { state.compraFormaPago = el.value; renderCompras(); };
 inputActions.compraMontoAbonado = (el) => { state.compraMontoAbonado = Number(el.value)||0; };
 inputActions.compraNroFactura = (el) => { state.compraNroFactura = el.value; };
+inputActions.compraVehiculo = (el) => { state.compraCart[Number(el.dataset.i)].vehiculo = el.value; };
 inputActions.comprasHistBusqueda = (el) => { state.comprasHistBusqueda = el.value; renderComprasHistorial(); };
 inputActions.comprasHistRango = (el) => { state.reporteRango = el.value; renderComprasHistorial(); };

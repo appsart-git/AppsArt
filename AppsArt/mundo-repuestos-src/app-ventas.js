@@ -39,6 +39,7 @@ function renderVentaNueva(){
                           <input type="checkbox" data-action="ventaToggleSinStock" data-i="${i}" ${l.sinStock?'checked':''} style="width:auto;">
                           Venta sin stock
                         </label>`}
+                    <input type="text" placeholder="Vehículo (marca y modelo)" value="${esc(l.vehiculo||'')}" data-input="ventaVehiculo" data-i="${i}" style="margin-top:5px; font-size:12px; padding:5px 8px;">
                   </td>
                   <td><input class="cart-line-input" type="number" min="1" step="1" value="${l.cantidad}" data-change="ventaCantidad" data-i="${i}"></td>
                   <td><input class="cart-line-input" type="number" min="0" step="0.01" value="${l.precioUnitario}" data-change="ventaPrecio" data-i="${i}"></td>
@@ -99,6 +100,7 @@ function renderVentaNueva(){
     state.cart.push({
       productoId:p.id, codigoInterno:p.codigoInterno, descripcion:p.descripcion, cantidad:1,
       precioUnitario:Number(p.precioVenta)||0, costoUnitario:Number(p.costoUltimo)||0, descuentoPct:0, stockDisponible:Number(p.stock)||0,
+      vehiculo:'',
       sinStock:false, sinStockProveedorId:null, sinStockProveedorNombre:'', sinStockCosto:0, sinStockFormaPago:'contado'
     });
     renderVentas();
@@ -153,6 +155,7 @@ function ventaNuevoProductoFormHtml(){
       <div class="field"><label>Código proveedor/fabricante (opcional)</label><input id="np_codigo"></div>
       <div class="field"><label>Rubro</label><select id="np_rubro">${RUBROS.map(r=>`<option>${r}</option>`).join('')}</select></div>
     </div>
+    <div class="field"><label>Vehículo (opcional)</label><input id="np_vehiculo" placeholder="Ej: Fiat Cronos 2020 — dejalo vacío si es un insumo genérico"></div>
     <div class="row2">
       <div class="field"><label>Cantidad</label><input id="np_cantidad" type="number" min="1" step="1" value="1"></div>
       <div class="field"><label>Precio de venta (al cliente)</label><input id="np_precioVenta" type="number" min="0" step="0.01" value="0"></div>
@@ -212,7 +215,8 @@ function renderVentasHistorial(){
               <td>${estadoMovPill(v)}</td>
               <td style="text-align:right; white-space:nowrap;">
                 <button class="btn btn-sm" data-action="verVentaHistorial" data-id="${v.id}">Ver</button>
-                ${!v.anulada ? `<button class="btn btn-sm btn-danger" data-action="anularVenta" data-id="${v.id}">Anular</button>` : ''}
+                ${!v.anulada ? `<button class="btn btn-sm" data-action="editarVenta" data-id="${v.id}">Editar</button>
+                <button class="btn btn-sm btn-danger" data-action="anularVenta" data-id="${v.id}">Anular</button>` : ''}
               </td>
             </tr>`).join('') : `<tr><td colspan="7" class="empty">No hay ventas en este período.</td></tr>`}
         </tbody>
@@ -229,6 +233,58 @@ function anularFormHtml(tipo, id){
       <button class="btn" data-action="closeModal">Cancelar</button>
       <button class="btn btn-danger" data-action="${tipo==='ventas'?'confirmarAnularVenta':'confirmarAnularCompra'}" data-id="${id}">Confirmar anulación</button>
     </div>`;
+}
+
+function editarVentaFormHtml(id){
+  const v = state.ventas.find(x=>x.id===id);
+  const tieneSinStock = v && (v.items||[]).some(it=>it.sinStock);
+  return `
+    <div class="modal-head"><h2>Editar venta N° ${v?String(v.numero).padStart(5,'0'):''}</h2><button class="modal-close" data-action="closeModal">&times;</button></div>
+    <p class="muted" style="font-size:13px;">No se edita en el lugar: se anula esta venta${tieneSinStock?' (y la compra que generó por venta sin stock)':''} y se precarga el mismo carrito en "Nueva venta" para que corrijas lo que haga falta y confirmes de nuevo.</p>
+    <div class="modal-actions">
+      <button class="btn" data-action="closeModal">Cancelar</button>
+      <button class="btn btn-primary" data-action="confirmarEditarVenta" data-id="${id}">Anular y corregir</button>
+    </div>`;
+}
+
+async function editarVentaEjecutar(id){
+  const v = state.ventas.find(x=>x.id===id);
+  if(!v || v.anulada) return;
+
+  const cart = (v.items||[]).map(it => {
+    const p = it.productoId ? findProducto(it.productoId) : null;
+    const line = {
+      productoId: it.productoId, codigoInterno: p?p.codigoInterno:'', descripcion: it.descripcion,
+      cantidad: Number(it.cantidad), precioUnitario: Number(it.precioUnitario),
+      costoUnitario: Number(it.costoUnitario)||0, descuentoPct: Number(it.descuentoPct)||0,
+      stockDisponible: p?Number(p.stock)||0:0, vehiculo: it.vehiculo||'',
+      sinStock: !!it.sinStock, sinStockProveedorId:null, sinStockProveedorNombre:'',
+      sinStockCosto: Number(it.costoUnitario)||0, sinStockFormaPago:'contado'
+    };
+    if(it.sinStock){
+      const compraVinculada = state.compras.find(c => c.ventaVinculadaId===id && !c.anulada && (c.items||[]).some(ci=>ci.productoId===it.productoId));
+      if(compraVinculada){
+        line.sinStockProveedorId = compraVinculada.proveedorId;
+        line.sinStockProveedorNombre = compraVinculada.proveedorNombre;
+        line.sinStockFormaPago = compraVinculada.formaPago;
+      }
+    }
+    return line;
+  });
+  const comprasVinculadas = state.compras.filter(c => c.ventaVinculadaId===id && !c.anulada);
+
+  await anularVentaEjecutar(id, 'Editada para corrección');
+  for(const c of comprasVinculadas){
+    await anularCompraEjecutar(c.id, 'Venta editada para corrección');
+  }
+
+  state.cart = cart;
+  state.ventaCliente = v.clienteId;
+  state.ventaFormaPago = v.formaPago;
+  state.ventaMontoAbonado = v.formaPago==='parcial' ? Number(v.montoAbonado)||0 : 0;
+  state.ventasTab = 'nueva';
+  goSection('ventas');
+  toast('Venta anulada. Corregí los datos y confirmá de nuevo.');
 }
 
 async function anularVentaEjecutar(id, motivo){
@@ -269,6 +325,12 @@ Object.assign(actions, {
     const motivo = document.getElementById('an_motivo').value.trim();
     closeModal();
     anularVentaEjecutar(el.dataset.id, motivo).catch(err => { console.error(err); toast('No se pudo anular la venta.'); });
+  },
+  editarVenta(el){ openModal(editarVentaFormHtml(el.dataset.id)); },
+  confirmarEditarVenta(el){
+    const id = el.dataset.id;
+    closeModal();
+    editarVentaEjecutar(id).catch(err => { console.error(err); toast('No se pudo editar la venta.'); });
   },
   ventaQuitarLinea(el){ state.cart.splice(Number(el.dataset.i),1); renderVentas(); },
   ventaQuitarCliente(){ state.ventaCliente = null; renderVentas(); },
@@ -312,6 +374,7 @@ Object.assign(actions, {
       rubro: document.getElementById('np_rubro').value,
       codigoInterno:'', descripcion, cantidad,
       precioUnitario: precioVenta, costoUnitario: costo, descuentoPct:0, stockDisponible:0,
+      vehiculo: document.getElementById('np_vehiculo').value.trim(),
       sinStock:true, sinStockProveedorId:proveedor.id, sinStockProveedorNombre:proveedor.nombre,
       sinStockCosto:costo, sinStockFormaPago: document.getElementById('np_formaPago').value
     });
@@ -374,6 +437,7 @@ Object.assign(actions, {
           precioUnitario:Number(l.precioUnitario),
           costoUnitario: l.sinStock ? Number(l.sinStockCosto)||0 : Number(l.costoUnitario)||0,
           descuentoPct:Number(l.descuentoPct),
+          vehiculo: (l.vehiculo||'').trim(),
           sinStock: !!l.sinStock
         })),
         subtotal, descuentoTotal, total, formaPago: state.ventaFormaPago, montoAbonado, saldoPendiente,
@@ -405,7 +469,7 @@ Object.assign(actions, {
         const compraId = collectionRef('compras').newId();
         b.set('compras', compraId, {
           fecha: todayISO(), proveedorId: proveedor.id, proveedorNombre: proveedor.nombre,
-          items: [{productoId:resolvedProductoIds[i], descripcion:l.descripcion, cantidad:Number(l.cantidad), costoUnitario:Number(l.sinStockCosto)}],
+          items: [{productoId:resolvedProductoIds[i], descripcion:l.descripcion, cantidad:Number(l.cantidad), costoUnitario:Number(l.sinStockCosto), vehiculo:(l.vehiculo||'').trim()}],
           total: compraTotal, formaPago: l.sinStockFormaPago, montoAbonado: compraMontoAbonado, saldoPendiente: compraSaldoPendiente,
           origenOCR:false, sinStock:true, ventaVinculadaId: ventaId, nroFacturaProveedor:'',
           anulada:false, createdAt: Date.now()
@@ -432,5 +496,6 @@ inputActions.ventaFormaPago = (el) => { state.ventaFormaPago = el.value; renderV
 inputActions.ventaMontoAbonado = (el) => { state.ventaMontoAbonado = Number(el.value)||0; };
 inputActions.ventasHistBusqueda = (el) => { state.ventasHistBusqueda = el.value; renderVentasHistorial(); };
 inputActions.ventasHistRango = (el) => { state.reporteRango = el.value; renderVentasHistorial(); };
+inputActions.ventaVehiculo = (el) => { state.cart[Number(el.dataset.i)].vehiculo = el.value; };
 inputActions.ventaSinStockCosto = (el) => { state.cart[Number(el.dataset.i)].sinStockCosto = Math.max(0, Number(el.value)||0); };
 inputActions.ventaSinStockFormaPago = (el) => { state.cart[Number(el.dataset.i)].sinStockFormaPago = el.value; };

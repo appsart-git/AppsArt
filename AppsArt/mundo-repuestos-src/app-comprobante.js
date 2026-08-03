@@ -133,7 +133,7 @@ function comprobanteInnerHtml(venta, cliente){
   const items = venta.items.map(it => {
     const sub = (Number(it.cantidad)||0)*(Number(it.precioUnitario)||0)*(1-(Number(it.descuentoPct)||0)/100);
     return `<tr>
-      <td>${esc(it.descripcion)}${it.descuentoPct?`<div style="font-size:10px;color:#888;">Desc. ${it.descuentoPct}%</div>`:''}</td>
+      <td>${esc(it.descripcion)}${it.vehiculo?`<div style="font-size:10px;color:#888;">Vehículo: ${esc(it.vehiculo)}</div>`:''}${it.descuentoPct?`<div style="font-size:10px;color:#888;">Desc. ${it.descuentoPct}%</div>`:''}</td>
       <td class="num">${it.cantidad}</td>
       <td class="num">${money(it.precioUnitario)}</td>
       <td class="num">${money(sub)}</td>

@@ -176,9 +176,9 @@ Object.assign(actions, {
         (p.descripcion.toLowerCase() === r.descripcion.toLowerCase())
       ));
       if(match){
-        state.compraCart.push({productoId:match.id, codigoProveedor:match.codigoProveedor, descripcion:match.descripcion, cantidad:Number(r.cantidad)||1, costoUnitario:Number(r.costoUnitario)||0, esNuevo:false, origenOCR:true});
+        state.compraCart.push({productoId:match.id, codigoProveedor:match.codigoProveedor, descripcion:match.descripcion, cantidad:Number(r.cantidad)||1, costoUnitario:Number(r.costoUnitario)||0, esNuevo:false, origenOCR:true, vehiculo:''});
       } else {
-        state.compraCart.push({productoId:null, esNuevo:true, origenOCR:true, codigoProveedor:r.codigoProveedor, descripcion:r.descripcion, rubro:'Otro', cantidad:Number(r.cantidad)||1, costoUnitario:Number(r.costoUnitario)||0});
+        state.compraCart.push({productoId:null, esNuevo:true, origenOCR:true, codigoProveedor:r.codigoProveedor, descripcion:r.descripcion, rubro:'Otro', cantidad:Number(r.cantidad)||1, costoUnitario:Number(r.costoUnitario)||0, vehiculo:''});
       }
     });
     state.compraOrigenOCR = true;
