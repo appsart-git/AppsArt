@@ -172,11 +172,8 @@ function comprobanteInnerHtml(venta, cliente){
       </div>
       <div class="cp-pago">
         Forma de pago: <b>${pagoTxt}</b>
-        ${venta.saldoPendiente>0
-          ? `<br>Abonado: ${money(venta.montoAbonado)} — Saldo pendiente: <b>${money(venta.saldoClienteTotal || venta.saldoPendiente)}</b>`
-          : (Number(venta.saldoClienteTotal)>0 ? `<br>Saldo pendiente de cuenta corriente: <b>${money(venta.saldoClienteTotal)}</b>` : '')}
+        ${venta.saldoPendiente>0 ? `<br>Abonado: ${money(venta.montoAbonado)} — Saldo pendiente: <b>${money(venta.saldoPendiente)}</b>` : ''}
       </div>
-      <p style="text-align:center; font-size:10px; color:#999; margin:16px 0 0;">Documento no válido como factura.</p>
     </div>
     <div class="cp-foot">by <img src="./appsart-brand.png" alt="AppsArt"></div>`;
 }
