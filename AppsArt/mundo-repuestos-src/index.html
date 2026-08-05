@@ -294,6 +294,25 @@ function lsNotify(name){
 }
 function genLocalId(){ return 'local_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8); }
 
+// Lee el saldo actual directo del servidor (no de state.clientes/state.proveedores, que se actualiza
+// con una demora vía el listener). Necesario para calcular totales de cuenta corriente sin arrastrar
+// datos viejos si se cargan varias ventas/compras seguidas rápido para la misma entidad.
+async function leerSaldoFresco(tipo, id){
+  if(!id) return 0;
+  if(backendMode === 'firebase'){
+    try{
+      const snap = await db.collection(tipo).doc(id).get({source:'server'});
+      return snap.exists ? (Number(snap.data().saldo)||0) : 0;
+    }catch(e){
+      const snap = await db.collection(tipo).doc(id).get();
+      return snap.exists ? (Number(snap.data().saldo)||0) : 0;
+    }
+  }
+  const arr = lsReadAll(tipo);
+  const e = arr.find(x=>x.id===id);
+  return e ? (Number(e.saldo)||0) : 0;
+}
+
 function collectionRef(name){
   if(backendMode === 'firebase'){
     return {

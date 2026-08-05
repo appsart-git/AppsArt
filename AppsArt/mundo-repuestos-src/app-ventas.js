@@ -405,6 +405,14 @@ Object.assign(actions, {
     if(saldoPendiente > 0 && !cliente){ toast('Para vender a cuenta corriente / parcial necesitás elegir un cliente.'); return; }
 
     withBusyButton(el, 'Guardando…', async () => {
+      // Saldo total de la cuenta corriente del cliente inmediatamente después de esta venta — se guarda
+      // como foto fija en el comprobante para que "Saldo pendiente" muestre la deuda total. Se calcula
+      // siempre que haya cliente (aunque esta venta sea contado, por si ya tenía deuda de antes) y se
+      // lee fresco del servidor (no de state.clientes) para que no arrastre un valor viejo si se cargan
+      // varias ventas seguidas para el mismo cliente.
+      const saldoClienteAntes = cliente ? await leerSaldoFresco('clientes', cliente.id) : 0;
+      const saldoClienteTotal = cliente ? saldoClienteAntes + saldoPendiente : 0;
+
       const numero = nextNumero('venta');
       const ventaId = collectionRef('ventas').newId();
       const b = newBatch();
@@ -440,7 +448,7 @@ Object.assign(actions, {
           vehiculo: (l.vehiculo||'').trim(),
           sinStock: !!l.sinStock
         })),
-        subtotal, descuentoTotal, total, formaPago: state.ventaFormaPago, montoAbonado, saldoPendiente,
+        subtotal, descuentoTotal, total, formaPago: state.ventaFormaPago, montoAbonado, saldoPendiente, saldoClienteTotal,
         anulada:false, createdAt: Date.now()
       };
       b.set('ventas', ventaId, ventaData);
