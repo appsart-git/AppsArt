@@ -1,0 +1,62 @@
+# FUENTE VERSIONADA de este workflow. GitHub Actions solo lee workflows desde
+# .github/workflows/ en la RAÍZ REAL del repo (que no es esta carpeta local — ver
+# la nota en el plan / REQUISITOS.md). Copiar este archivo tal cual a:
+#   .github/workflows/asistente-redes-generar.yml
+# en la raíz real del repo (vía la interfaz web de GitHub o un clone aparte).
+name: Asistente de Redes — Generar contenido
+
+on:
+  schedule:
+    - cron: '0 12 * * *'  # 12:00 UTC ≈ 09:00 Argentina (UTC-3)
+  workflow_dispatch:
+    inputs:
+      dryRun:
+        description: 'Dry run (no gasta en las APIs de pago, solo valida Firestore/Storage/Hosting/ntfy)'
+        type: boolean
+        default: false
+      soloCuenta:
+        description: 'Slug de una sola cuenta a procesar (vacío = todas las que estén vencidas por cadencia)'
+        type: string
+        default: ''
+
+jobs:
+  generar:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: AppsArt/asistente-redes
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y ffmpeg
+
+      - name: Instalar dependencias del generador
+        working-directory: AppsArt/asistente-redes/generador
+        run: npm install
+
+      - name: Generar contenido (llama a Claude / gpt-image-1 / Runway / ElevenLabs, sube a Firebase)
+        working-directory: AppsArt/asistente-redes/generador
+        env:
+          DRY_RUN: ${{ github.event.inputs.dryRun || 'false' }}
+          SOLO_CUENTA: ${{ github.event.inputs.soloCuenta || '' }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          RUNWAY_API_KEY: ${{ secrets.RUNWAY_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: node src/main.js
+
+      - name: Guardar credencial de Firebase para el deploy del dashboard
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > /tmp/firebase-service-account.json
+
+      - name: Deploy del dashboard a Firebase Hosting
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-service-account.json
+        run: npx firebase-tools deploy --only hosting --project ${{ secrets.FIREBASE_PROJECT_ID }} --non-interactive

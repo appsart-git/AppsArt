@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Asistente de Redes · AppsArt</title>
+<meta name="theme-color" content="#0d0d0d">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icons/favicon-32.png">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0d0d0d;
+  --panel:#161616;
+  --panel2:#1e1e1e;
+  --border:#2b2b2b;
+  --text:#f2f2f2;
+  --text-muted:#9a9a9a;
+  --accent:#d9762f;
+  --accent-dark:#a85a22;
+  --green:#3fb96a;
+  --amber:#e0a72a;
+  --blue:#4a90d9;
+  --red:#e2231a;
+  --radius:10px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:'Inter',system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{font-family:'Oswald',sans-serif; letter-spacing:.02em; margin:0 0 4px;}
+a{color:var(--accent);}
+button{font-family:inherit;}
+input,select,textarea{
+  font-family:inherit; font-size:16px; color:var(--text); background:var(--panel2);
+  border:1px solid var(--border); border-radius:8px; padding:9px 11px; width:100%;
+}
+input:focus,select:focus,textarea:focus{outline:1px solid var(--accent);}
+label{display:block; font-size:12.5px; color:var(--text-muted); margin:0 0 4px; font-weight:600; text-transform:uppercase; letter-spacing:.03em;}
+.field{margin-bottom:12px;}
+.row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
+@media(max-width:640px){ .row2,.row3{grid-template-columns:1fr;} }
+
+.btn{
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  background:var(--panel2); color:var(--text); border:1px solid var(--border);
+  border-radius:8px; padding:10px 16px; font-weight:600; font-size:14px; cursor:pointer;
+  transition:.15s;
+}
+.btn:hover{border-color:#555;}
+.btn:disabled{opacity:.5; cursor:default;}
+.btn-primary{background:var(--accent); border-color:var(--accent); color:#fff;}
+.btn-primary:hover{background:var(--accent-dark);}
+.btn-ghost{background:transparent;}
+.btn-sm{padding:6px 10px; font-size:12.5px;}
+.btn-danger{color:#ff8378; border-color:#5a2620;}
+.btn-icon{padding:8px; width:34px; height:34px;}
+
+/* ===== APP SHELL ===== */
+#setupScreen{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;}
+.setup-card{max-width:520px; width:100%; background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:28px;}
+.setup-card img.logo{width:220px; max-width:100%; display:block; margin:0 auto 18px;}
+.setup-card p{color:var(--text-muted); font-size:14px; line-height:1.5;}
+.setup-steps{background:var(--panel2); border-radius:8px; padding:14px 16px; font-size:13px; color:var(--text-muted); margin:14px 0;}
+.setup-steps ol{margin:6px 0 0; padding-left:18px;}
+.setup-steps li{margin-bottom:4px;}
+
+#app{display:none; min-height:100vh;}
+#app.ready{display:flex;}
+.sidebar{
+  width:230px; flex-shrink:0; background:var(--panel); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; padding:18px 14px; position:sticky; top:0; height:100vh; overflow-y:auto;
+}
+.brand{display:flex; align-items:center; gap:10px; margin-bottom:18px; padding:0 4px;}
+.brand img{width:42px; height:42px; object-fit:contain; border-radius:8px;}
+.brand .name{font-family:'Oswald'; font-weight:700; font-size:14.5px; line-height:1.15;}
+.brand .name small{display:block; font-size:10.5px; color:var(--text-muted); font-weight:500; letter-spacing:.04em;}
+.nav{display:flex; flex-direction:column; gap:2px; flex:1;}
+.nav-item{
+  display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px; color:var(--text-muted);
+  cursor:pointer; font-size:14px; font-weight:600; user-select:none;
+}
+.nav-item:hover{background:var(--panel2); color:var(--text);}
+.nav-item.active{background:var(--accent); color:#fff;}
+.nav-item .ico{width:18px; text-align:center;}
+.savebadge{font-size:11px; color:var(--text-muted); padding:8px 4px; display:flex; align-items:center; gap:6px;}
+.dot{width:7px; height:7px; border-radius:50%; background:var(--green); flex-shrink:0;}
+.dot.saving{background:var(--amber); animation:pulse 1s infinite;}
+@keyframes pulse{50%{opacity:.4;}}
+.brand-footer{display:flex; align-items:center; gap:8px; margin-top:14px; padding-top:14px; border-top:1px solid var(--border); opacity:.65;}
+.brand-footer span{font-size:11px; color:var(--text-muted);}
+.brand-footer img{height:34px; width:auto; display:block;}
+
+.topbar{display:none;}
+main{flex:1; min-width:0; padding:24px 28px 60px;}
+.section-head{display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:18px; flex-wrap:wrap;}
+.section-head h1{font-size:22px;}
+
+@media(max-width:860px){
+  .sidebar{display:none;}
+  .topbar{
+    display:flex; align-items:center; gap:8px; overflow-x:auto; position:sticky; top:0; z-index:20;
+    background:var(--panel); border-bottom:1px solid var(--border); padding:10px 12px;
+  }
+  .topbar .brand{margin:0; padding:0 6px 0 0; flex-shrink:0;}
+  .topbar .brand img{width:28px; height:28px;}
+  .topbar .brand .name{font-size:12.5px;}
+  .topbar .brand .name small{display:none;}
+  .topbar-nav{display:flex; gap:4px; flex-wrap:nowrap;}
+  .topbar-nav .nav-item{white-space:nowrap; padding:8px 10px; font-size:12.5px;}
+  #app.ready{display:block;}
+  main{padding:16px 14px 50px;}
+  .section-head h1{font-size:19px;}
+}
+
+/* ===== CARDS ===== */
+.card{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:18px;}
+.grid-cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:20px;}
+.stat{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:16px;}
+.stat .label{font-size:12px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.03em; font-weight:600;}
+.stat .value{font-family:'Oswald'; font-size:26px; font-weight:700; margin-top:4px;}
+
+.empty{padding:40px 20px; text-align:center; color:var(--text-muted); font-size:14px;}
+.muted{color:var(--text-muted);}
+.pill{display:inline-block; padding:3px 9px; border-radius:99px; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.02em;}
+.pill-ok{background:rgba(63,185,106,.15); color:var(--green);}
+.pill-warn{background:rgba(224,167,42,.15); color:var(--amber);}
+.pill-bad{background:rgba(226,35,26,.15); color:var(--red);}
+.pill-info{background:rgba(74,144,217,.15); color:var(--blue);}
+.pill-accent{background:rgba(217,118,47,.18); color:var(--accent);}
+
+.tabs{display:flex; gap:6px; margin-bottom:16px; border-bottom:1px solid var(--border); flex-wrap:wrap;}
+.tab{padding:9px 14px; font-size:13.5px; font-weight:600; color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; white-space:nowrap;}
+.tab.active{color:#fff; border-color:var(--accent);}
+.chiprow{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
+.chip{padding:6px 13px; border-radius:99px; font-size:12.5px; font-weight:600; color:var(--text-muted); background:var(--panel2); border:1px solid var(--border); cursor:pointer;}
+.chip.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+
+/* ===== CONTENIDO CARDS (revisión / historial) ===== */
+.contenido-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px;}
+.cnt-card{background:var(--panel); border:1px solid var(--border); border-radius:14px; overflow:hidden; display:flex; flex-direction:column;}
+.cnt-media{width:100%; aspect-ratio:4/5; background:#000; display:flex; align-items:center; justify-content:center; overflow:hidden;}
+.cnt-media img, .cnt-media video{width:100%; height:100%; object-fit:cover; display:block;}
+.cnt-media .cnt-noimg{color:var(--text-muted); font-size:12.5px; padding:20px; text-align:center;}
+.cnt-body{padding:14px; display:flex; flex-direction:column; gap:8px; flex:1;}
+.cnt-top{display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;}
+.cnt-cuenta{font-weight:700; font-size:13px;}
+.cnt-tema{font-size:12px; color:var(--text-muted);}
+.cnt-caption{font-size:13.5px; line-height:1.45; white-space:pre-wrap; max-height:110px; overflow-y:auto;}
+.cnt-actions{display:flex; gap:6px; flex-wrap:wrap; margin-top:auto; padding-top:8px;}
+.cnt-fecha{font-size:11px; color:var(--text-muted);}
+
+/* ===== MODAL ===== */
+.modal-backdrop{position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:flex-start; justify-content:center; padding:30px 14px; overflow-y:auto; z-index:100;}
+.modal{background:var(--panel); border:1px solid var(--border); border-radius:14px; width:100%; max-width:640px; padding:22px; margin:auto;}
+.modal.wide{max-width:920px;}
+.modal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;}
+.modal-head h2{font-size:18px;}
+.modal-close{background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer; line-height:1;}
+.modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:18px; flex-wrap:wrap;}
+
+/* ===== TOAST ===== */
+#toast{position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#222; border:1px solid var(--border); color:#fff; padding:12px 18px; border-radius:10px; font-size:13.5px; z-index:200; display:none; max-width:90vw;}
+
+.table-wrap{width:100%; overflow-x:auto; border:1px solid var(--border); border-radius:12px;}
+table{width:100%; border-collapse:collapse; font-size:13.5px; min-width:560px;}
+th{text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--text-muted); background:var(--panel); padding:11px 12px; border-bottom:1px solid var(--border); white-space:nowrap;}
+td{padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:middle;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:var(--panel2);}
+</style>
+</head>
+<body>
+
+<!-- ===== SETUP SCREEN (shown until Firebase config is provided) ===== -->
+<div id="setupScreen">
+  <div class="setup-card">
+    <img class="logo" src="./logo-wordmark.png" alt="AppsArt">
+    <h1 style="text-align:center;">Asistente de Redes</h1>
+    <p style="text-align:center;">Antes de arrancar, elegí cómo vas a guardar los datos.</p>
+
+    <div class="field" style="margin-top:18px;">
+      <button class="btn btn-primary" style="width:100%;" data-action="useLocalMode">Usar en este dispositivo por ahora (modo local)</button>
+    </div>
+    <p class="muted" style="font-size:12.5px;">Los datos quedan guardados solo en este navegador — sirve para probar la app antes de conectar Firebase. Podés conectar Firebase más adelante desde Configuración.</p>
+
+    <div style="margin:20px 0; border-top:1px solid var(--border);"></div>
+
+    <h3 style="font-size:14px;">Conectar Firebase (Firestore + Storage)</h3>
+    <div class="setup-steps">
+      Para que el generador (GitHub Actions) y este dashboard compartan los mismos datos:
+      <ol>
+        <li>Entrá a <b>console.firebase.google.com</b>, creá un proyecto nuevo.</li>
+        <li>"Compilación" → "Firestore Database" → "Crear base de datos" (modo producción).</li>
+        <li>"Compilación" → "Storage" → "Comenzar" (guarda ahí las imágenes/videos generados).</li>
+        <li>"Configuración del proyecto" (ícono de tuerca) → agregar una app Web (ícono &lt;/&gt;) → copiá el objeto <code>firebaseConfig</code>.</li>
+        <li>Pegalo acá abajo tal cual.</li>
+      </ol>
+    </div>
+    <div class="field">
+      <label>Pegar objeto firebaseConfig</label>
+      <textarea id="fbConfigInput" rows="6" placeholder='{"apiKey": "...", "authDomain": "...", "projectId": "...", ...}'></textarea>
+    </div>
+    <button class="btn" style="width:100%;" data-action="saveFirebaseConfig">Guardar y conectar</button>
+    <p id="fbConfigError" class="muted" style="color:var(--red); display:none;"></p>
+  </div>
+</div>
+
+<!-- ===== APP ===== -->
+<div id="app">
+  <div class="topbar" id="topbar"></div>
+  <div class="sidebar" id="sidebar">
+    <div class="brand">
+      <img src="./icons/icon-192.png" alt="Asistente de Redes">
+      <div class="name">ASISTENTE<br>DE REDES<small>by AppsArt</small></div>
+    </div>
+    <div class="nav" id="navList"></div>
+    <div class="savebadge"><span class="dot" id="saveDot"></span><span id="saveLabel">Sincronizado</span></div>
+    <div class="brand-footer"><span>by</span><img src="./appsart-brand.png" alt="AppsArt"></div>
+  </div>
+  <main id="main"></main>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+<script>
+'use strict';
+/* ===================== CONSTANTS ===================== */
+const LS_PREFIX = 'asistenteRedes:';
+const COLLECTIONS = ['cuentas','contenido','runsLog'];
+const MEDIA_TYPES = [
+  {id:'imagen', label:'Solo imagen'},
+  {id:'imagen+video', label:'Imagen + video con locución'}
+];
+const ESTADOS = [
+  {id:'pendiente', label:'Pendiente'},
+  {id:'aprobado', label:'Aprobado'},
+  {id:'descartado', label:'Descartado'},
+  {id:'publicado', label:'Publicado'},
+  {id:'error', label:'Error'}
+];
+
+/* ===================== BACKEND MODE (Firestore o localStorage) ===================== */
+// No hay DEFAULT_FIREBASE_CONFIG hardcodeado a propósito: cada instalación (la del usuario,
+// o la de un futuro cliente de AppsArt) pega su propio config en la pantalla de setup.
+// Eso es lo que hace que este mismo código sirva de base reusable sin tocar nada.
+const DEFAULT_FIREBASE_CONFIG = null;
+let backendMode = null; // 'firebase' | 'local'
+let db = null;
+const localRegistry = {};
+
+function lsKey(name){ return LS_PREFIX + name; }
+function lsReadAll(name){ try{ return JSON.parse(localStorage.getItem(lsKey(name)) || '[]'); }catch(e){ return []; } }
+function lsWriteAll(name, arr){ localStorage.setItem(lsKey(name), JSON.stringify(arr)); }
+function lsNotify(name){
+  const data = lsReadAll(name);
+  (localRegistry[name]?.listeners || []).forEach(cb => cb(data));
+}
+function genLocalId(){ return 'local_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8); }
+
+function collectionRef(name){
+  if(backendMode === 'firebase'){
+    return {
+      onSnapshot(cb){
+        return db.collection(name).onSnapshot(snap => {
+          cb(snap.docs.map(d => Object.assign({id:d.id}, d.data())));
+        }, onFirestoreError);
+      },
+      newId(){ return db.collection(name).doc().id; },
+      add(data){ return db.collection(name).add(data).then(ref => ref.id); },
+      update(id, patch){ return db.collection(name).doc(id).update(patch); },
+      remove(id){ return db.collection(name).doc(id).delete(); }
+    };
+  }
+  if(!localRegistry[name]) localRegistry[name] = {listeners:[]};
+  return {
+    onSnapshot(cb){
+      localRegistry[name].listeners.push(cb);
+      cb(lsReadAll(name));
+      return () => { localRegistry[name].listeners = localRegistry[name].listeners.filter(l => l!==cb); };
+    },
+    newId(){ return genLocalId(); },
+    add(data){
+      const arr = lsReadAll(name); const id = genLocalId();
+      arr.push(Object.assign({id}, data)); lsWriteAll(name, arr); lsNotify(name);
+      return Promise.resolve(id);
+    },
+    update(id, patch){
+      const arr = lsReadAll(name); const i = arr.findIndex(x=>x.id===id);
+      if(i>=0){ arr[i] = Object.assign({}, arr[i], patch); lsWriteAll(name, arr); lsNotify(name); }
+      return Promise.resolve();
+    },
+    remove(id){
+      const arr = lsReadAll(name).filter(x=>x.id!==id);
+      lsWriteAll(name, arr); lsNotify(name);
+      return Promise.resolve();
+    }
+  };
+}
+
+function configGet(){
+  if(backendMode === 'firebase') return db.collection('config').doc('app').get().then(d => d.exists ? d.data() : {});
+  try{ return Promise.resolve(JSON.parse(localStorage.getItem(lsKey('config_app')) || '{}')); }catch(e){ return Promise.resolve({}); }
+}
+function configSet(data){
+  if(backendMode === 'firebase') return db.collection('config').doc('app').set(data, {merge:true});
+  const cur = JSON.parse(localStorage.getItem(lsKey('config_app')) || '{}');
+  localStorage.setItem(lsKey('config_app'), JSON.stringify(Object.assign(cur, data)));
+  return Promise.resolve();
+}
+function onFirestoreError(err){
+  console.error('Firestore error', err);
+  toast('No se pudo conectar con la base de datos. Revisá la conexión.');
+}
+
+/* ===================== STATE ===================== */
+let state = {
+  section: 'revision',
+  cuentas: [], contenido: [], runsLog: [],
+  loaded: {},
+  appConfig: {ntfyTopic:''},
+  filtroRevisionCuenta: 'todas', filtroRevisionEstado: 'pendiente',
+  filtroHistorialCuenta: 'todas', filtroHistorialEstado: 'todos',
+  saving: false
+};
+
+function allDataLoaded(){ return COLLECTIONS.every(c => state.loaded[c]); }
+
+/* ===================== UTIL ===================== */
+function fmtDate(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+}
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function slugify(s){
+  return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+}
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.style.display = 'block';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>{ el.style.display='none'; }, 3200);
+}
+function markSaving(){ state.saving = true; updateSaveIndicator(); }
+function doneSaving(){ state.saving = false; updateSaveIndicator(); }
+function saveError(e){ console.error('No se pudo guardar', e); state.saving = false; updateSaveIndicator(); toast('No se pudo guardar el cambio.'); }
+function updateSaveIndicator(){
+  const dot = document.getElementById('saveDot'), label = document.getElementById('saveLabel');
+  if(!dot) return;
+  dot.classList.toggle('saving', state.saving);
+  label.textContent = state.saving ? 'Guardando…' : 'Sincronizado';
+}
+function findCuenta(id){ return state.cuentas.find(c=>c.id===id); }
+function pillEstado(estado){
+  const map = {pendiente:'pill-warn', aprobado:'pill-ok', descartado:'pill-bad', publicado:'pill-info', error:'pill-bad'};
+  const labelMap = Object.fromEntries(ESTADOS.map(e=>[e.id,e.label]));
+  return `<span class="pill ${map[estado]||'pill-info'}">${esc(labelMap[estado]||estado)}</span>`;
+}
+
+/* ===================== INIT / FIREBASE ===================== */
+function tryLoadFirebaseConfig(){
+  const raw = localStorage.getItem(lsKey('firebaseConfig'));
+  if(!raw) return DEFAULT_FIREBASE_CONFIG;
+  try{ return JSON.parse(raw); }catch(e){ return DEFAULT_FIREBASE_CONFIG; }
+}
+
+function initApp(){
+  if(localStorage.getItem(lsKey('useLocalMode'))){ backendMode = 'local'; startApp(); return; }
+  const cfg = tryLoadFirebaseConfig();
+  if(cfg){
+    try{
+      firebase.initializeApp(cfg);
+      db = firebase.firestore();
+      backendMode = 'firebase';
+    }catch(e){
+      console.error('Firebase init failed', e);
+      toast('No se pudo inicializar Firebase, usando modo local.');
+      backendMode = 'local';
+    }
+  } else {
+    showSetupScreen(); return;
+  }
+  startApp();
+}
+
+function showSetupScreen(){
+  document.getElementById('setupScreen').style.display = 'flex';
+  document.getElementById('app').classList.remove('ready');
+}
+
+function startApp(){
+  document.getElementById('setupScreen').style.display = 'none';
+  const app = document.getElementById('app');
+  app.classList.add('ready');
+  app.style.display = backendMode ? '' : 'none';
+
+  COLLECTIONS.forEach(name => {
+    collectionRef(name).onSnapshot(data => {
+      state[name] = data;
+      state.loaded[name] = true;
+      render();
+    });
+  });
+  configGet().then(d => { state.appConfig = Object.assign(state.appConfig, d); render(); });
+
+  render();
+}
+
+/* ===================== SETUP ACTIONS ===================== */
+function useLocalMode(){
+  localStorage.setItem(lsKey('useLocalMode'), '1');
+  backendMode = 'local';
+  startApp();
+}
+function saveFirebaseConfigAction(){
+  const raw = document.getElementById('fbConfigInput').value.trim();
+  const errEl = document.getElementById('fbConfigError');
+  errEl.style.display = 'none';
+  let cfg;
+  try{
+    const jsonish = raw.replace(/(\w+)\s*:/g, '"$1":').replace(/'/g, '"');
+    cfg = JSON.parse(jsonish);
+  }catch(e){
+    errEl.textContent = 'No pude leer ese texto. Pegá el objeto firebaseConfig completo, tal cual lo muestra Firebase.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if(!cfg.apiKey || !cfg.projectId){
+    errEl.textContent = 'Faltan campos (apiKey / projectId). Revisá que copiaste el objeto completo.';
+    errEl.style.display = 'block';
+    return;
+  }
+  localStorage.setItem(lsKey('firebaseConfig'), JSON.stringify(cfg));
+  localStorage.removeItem(lsKey('useLocalMode'));
+  location.reload();
+}
+
+/* ===================== NAV / RENDER ROOT ===================== */
+const NAV_ITEMS = [
+  {id:'revision', label:'Revisión', ico:'🔍'},
+  {id:'cuentas', label:'Cuentas', ico:'🗂️'},
+  {id:'historial', label:'Historial', ico:'🕒'},
+  {id:'config', label:'Configuración', ico:'⚙️'}
+];
+
+function goSection(id){ state.section = id; closeModal(); render(); }
+
+function renderNav(){
+  const html = NAV_ITEMS.map(it => `<div class="nav-item ${state.section===it.id?'active':''}" data-action="nav" data-id="${it.id}"><span class="ico">${it.ico}</span>${it.label}</div>`).join('');
+  document.getElementById('navList').innerHTML = html;
+  document.getElementById('topbar').innerHTML = `
+    <div class="brand"><img src="./icons/icon-192.png" alt="logo"><div class="name">ASISTENTE<br>DE REDES</div></div>
+    <div class="topbar-nav">${html}</div>`;
+}
+
+function render(){
+  renderNav();
+  updateSaveIndicator();
+  if(!allDataLoaded()){
+    document.getElementById('main').innerHTML = '<div class="empty">Cargando datos…</div>';
+    return;
+  }
+  const renderers = {
+    revision: renderRevision, cuentas: renderCuentas, historial: renderHistorial, config: renderConfig
+  };
+  (renderers[state.section] || renderRevision)();
+}
+
+/* ===================== DELEGATED EVENTS ===================== */
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-action]');
+  if(!el) return;
+  const action = el.dataset.action;
+  if(actions[action]) actions[action](el, e);
+});
+document.addEventListener('input', (e) => {
+  const el = e.target.closest('[data-input]');
+  if(!el) return;
+  const handler = inputActions[el.dataset.input];
+  if(handler) handler(el, e);
+});
+document.addEventListener('change', (e) => {
+  const el = e.target.closest('[data-change]');
+  if(!el) return;
+  const handler = inputActions[el.dataset.change];
+  if(handler) handler(el, e);
+});
+
+const inputActions = {};
+
+/* ===================== MODAL HELPERS ===================== */
+function openModal(html, opts){
+  opts = opts || {};
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" data-action="${opts.closeOnBackdrop===false?'':'closeModalBackdrop'}"><div class="modal ${opts.wide?'wide':''}">${html}</div></div>`;
+}
+function closeModal(){ document.getElementById('modalRoot').innerHTML = ''; }
+let _confirmCb = null;
+function confirmDialog(message, onConfirm){
+  _confirmCb = onConfirm;
+  openModal(`
+    <div class="modal-head"><h2>Confirmar</h2><button class="modal-close" data-action="closeModal">&times;</button></div>
+    <p style="color:var(--text-muted); font-size:14px;">${esc(message)}</p>
+    <div class="modal-actions">
+      <button class="btn" data-action="closeModal">Cancelar</button>
+      <button class="btn btn-danger" data-action="confirmDialogYes">Confirmar</button>
+    </div>`);
+}
+function downloadUrl(url, filename){
+  const a = document.createElement('a');
+  a.href = url; a.download = filename || ''; a.target = '_blank'; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+async function withBusyButton(btn, busyLabel, fn){
+  if(!btn) return fn();
+  const prev = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = busyLabel;
+  try{ return await fn(); } finally { btn.disabled = false; btn.innerHTML = prev; }
+}
+
+/* ===================== ACTIONS REGISTRY ===================== */
+const actions = {
+  nav(el){ goSection(el.dataset.id); },
+  useLocalMode(){ useLocalMode(); },
+  saveFirebaseConfig(){ saveFirebaseConfigAction(); },
+  closeModalBackdrop(el, e){ if(e.target === el) closeModal(); },
+  closeModal(){ closeModal(); },
+  confirmDialogYes(){ const cb = _confirmCb; closeModal(); if(cb) cb(); },
+};
+</script>
+<script src="./app-cuentas.js"></script>
+<script src="./app-revision.js"></script>
+<script src="./app-historial.js"></script>
+<script src="./app-config.js"></script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').catch(()=>{}); });
+}
+initApp();
+</script>
+</body>
+</html>
