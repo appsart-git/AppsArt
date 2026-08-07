@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Multiescapes — Gestión de taller</title>
+
+<!-- PWA: hace que se pueda instalar como app en iOS y Android -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0d0d0d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Multiescapes">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --black-950:#0b0b0b;
+    --black-900:#161616;
+    --black-800:#262523;
+    --steel-600:#5c5854;
+    --red-500:#e2222d;
+    --red-600:#c8202b;
+    --red-700:#931019;
+    --paper:#f5f5f4;
+    --ink-900:#1a1817;
+    --ink-600:#57524f;
+    --ink-300:#e7d9d9;
+    --line:#e2ddda;
+    --white:#ffffff;
+    --bg:#eceef0;
+    --panel2:#f6f3f2;
+    --green:#1e8a4c;
+    --amber:#c8860d;
+    --radius:12px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    font-family:'Inter',sans-serif;
+    color:var(--ink-900);
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.02em;}
+  a{color:inherit;}
+
+  /* ---------- BUTTONS / FIELDS (compartido en toda la app) ---------- */
+  .btn{
+    border:none; border-radius:10px; padding:11px 18px; font-family:'Inter',sans-serif;
+    font-weight:600; font-size:14px; cursor:pointer; transition:transform .1s ease, opacity .15s ease;
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .btn:active{transform:scale(.97);}
+  .btn-primary{background:var(--red-600); color:#fff;}
+  .btn-primary:hover{opacity:.92;}
+  .btn-ghost{background:#fff; color:var(--black-900); border:1px solid var(--line);}
+  .btn-danger{background:transparent; color:#b3261e; border:1px solid #e3b8b8; padding:9px 13px; font-size:13px;}
+  .btn-share{background:var(--black-900); color:#fff;}
+  .btn-share:hover{opacity:.92;}
+  .btn-sm{padding:7px 11px; font-size:12.5px;}
+  .btn-icon{padding:7px 9px;}
+  .btn[disabled]{opacity:.6; cursor:default; transform:none !important;}
+  .btn-block{width:100%; justify-content:center;}
+  .btn-row{display:flex; gap:10px;}
+  .btn-row .btn{flex:1;}
+
+  .field{margin-bottom:12px;}
+  .field label{
+    display:block; font-size:11.5px; font-weight:600; color:var(--ink-600);
+    text-transform:uppercase; letter-spacing:.04em; margin-bottom:5px;
+  }
+  .field input, .field select, .field textarea{
+    width:100%; padding:12px 11px; border:1.5px solid var(--line); border-radius:9px;
+    font-family:'Inter',sans-serif; font-size:16px; color:var(--ink-900); background:#fbfcfd;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{
+    outline:none; border-color:var(--red-500); background:#fff;
+  }
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;}
+  @media(max-width:520px){ .row2, .row3{grid-template-columns:1fr;} }
+
+  .panel{
+    background:#fff; border-radius:16px; padding:18px;
+    box-shadow:0 1px 2px rgba(15,15,15,.06), 0 8px 24px -12px rgba(15,15,15,.12);
+  }
+  .panel + .panel{margin-top:16px;}
+  .panel h2{
+    font-size:14px; color:var(--black-900); margin:0 0 14px; padding-bottom:10px;
+    border-bottom:2px solid var(--paper); display:flex; align-items:center; justify-content:space-between; gap:8px;
+  }
+  .muted{color:var(--ink-600);}
+  .small{font-size:12.5px;}
+
+  .logo-display{
+    border:1.5px solid var(--line); border-radius:12px; padding:14px; text-align:center;
+    background:var(--paper);
+  }
+  .logo-display img{max-height:64px; max-width:100%; object-fit:contain;}
+
+  .photo-drop{
+    border:1.5px dashed var(--line); border-radius:12px; padding:10px; text-align:center;
+    cursor:pointer; background:var(--paper); min-height:90px;
+    display:flex; align-items:center; justify-content:center; overflow:hidden;
+  }
+  .photo-drop img{width:100%; height:120px; object-fit:cover; border-radius:8px;}
+  .photo-drop .hint{font-size:12.5px; color:var(--ink-600);}
+
+  .item-card{
+    border:1.5px solid var(--line); border-radius:11px; padding:12px; margin-bottom:10px; background:#fbfcfd;
+  }
+  .item-card-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+  .item-card-head span{font-size:12px; font-weight:700; color:var(--steel-600); text-transform:uppercase; letter-spacing:.04em;}
+  .add-row-btn{
+    width:100%; padding:13px; border-radius:9px; border:1.5px dashed var(--steel-600);
+    background:#fff; color:var(--steel-600); font-weight:600; font-size:14px; cursor:pointer;
+  }
+  .add-row-btn:hover{background:#f6f0ee;}
+  .part-icon-preview{
+    width:34px; height:34px; border-radius:8px; background:var(--black-900);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+
+  /* ---------- SETUP SCREEN ---------- */
+  .setup-screen{
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
+    background:var(--black-950);
+  }
+  .setup-card{
+    background:#fff; border-radius:18px; padding:26px 22px; max-width:460px; width:100%;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,.5);
+  }
+  .setup-logo{display:block; max-width:220px; margin:0 auto 18px;}
+  .setup-card h1{font-size:20px; text-align:center; margin:0 0 4px;}
+  .setup-card > p.muted{text-align:center; margin:0 0 16px;}
+  .setup-divider{text-align:center; color:var(--ink-600); font-size:12px; text-transform:uppercase; letter-spacing:.08em; margin:18px 0;}
+  .setup-steps{font-size:13px; color:var(--ink-600); padding-left:18px; margin:0 0 14px;}
+  .setup-steps li{margin-bottom:6px;}
+  .setup-card textarea{font-family:monospace; font-size:12.5px;}
+  .error-text{color:#b3261e; font-size:12.5px; margin:-6px 0 12px;}
+
+  /* ---------- APP SHELL ---------- */
+  .app-shell{display:none; min-height:100vh; padding-bottom:76px;}
+  .app-shell.ready{display:block;}
+  .topbar{
+    position:sticky; top:0; z-index:20; background:var(--black-950); color:#fff;
+    display:flex; align-items:center; justify-content:space-between; padding:10px 16px;
+  }
+  .topbar .brand img{height:30px; display:block;}
+  .save-indicator{display:flex; align-items:center; gap:7px; font-size:11.5px; color:rgba(255,255,255,.75);}
+  .save-indicator .dot{width:8px; height:8px; border-radius:50%; background:var(--green);}
+  .save-indicator .dot.saving{background:var(--amber); animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+
+  #main{max-width:1180px; margin:0 auto; padding:16px 14px 24px;}
+  .section-head{display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:16px;}
+  .section-head h1{font-size:18px; margin:0; color:var(--black-900);}
+
+  .searchbar{
+    display:flex; align-items:center; gap:8px; background:#fff; border:1.5px solid var(--line);
+    border-radius:10px; padding:9px 12px; flex:1; min-width:180px;
+  }
+  .searchbar .ico{opacity:.6;}
+  .searchbar input{border:none; outline:none; font-size:14px; width:100%; background:transparent;}
+
+  .filters-row{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;}
+  .filters-row .field{margin-bottom:0; min-width:150px; flex:1;}
+
+  .table-wrap{background:#fff; border-radius:14px; overflow-x:auto; box-shadow:0 1px 2px rgba(15,15,15,.06), 0 8px 24px -12px rgba(15,15,15,.1);}
+  table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  th{text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-600); padding:12px 14px; border-bottom:1.5px solid var(--line); white-space:nowrap;}
+  td{padding:12px 14px; border-bottom:1px solid var(--line); vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  .empty{padding:26px; text-align:center; color:var(--ink-600); font-size:13.5px;}
+
+  .pill{display:inline-block; padding:3px 10px; border-radius:999px; font-size:11.5px; font-weight:700;}
+  .pill-red{background:#fbe3e4; color:var(--red-700);}
+  .pill-ok{background:#e1f3e8; color:var(--green);}
+  .pill-muted{background:var(--panel2); color:var(--ink-600);}
+
+  .card-list{display:flex; flex-direction:column; gap:10px;}
+  .row-card{background:#fff; border-radius:12px; padding:12px 14px; box-shadow:0 1px 2px rgba(15,15,15,.06), 0 8px 24px -12px rgba(15,15,15,.1); cursor:pointer;}
+  .row-card .top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px;}
+  .row-card b{font-size:14.5px;}
+  .row-card .meta{font-size:12.5px; color:var(--ink-600); margin-top:3px;}
+
+  /* ---------- NAV (sidebar desktop / bottom-nav mobile) ---------- */
+  .sidebar{display:none;}
+  .bottom-nav{
+    position:fixed; left:0; right:0; bottom:0; z-index:30; background:#fff;
+    border-top:1px solid var(--line); display:flex; padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+    box-shadow:0 -6px 18px rgba(15,15,15,.08);
+  }
+  .bn-item{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 2px;
+    border-radius:10px; color:var(--ink-600); font-size:10.5px; font-weight:600; cursor:pointer;
+  }
+  .bn-item .ico{font-size:19px; line-height:1;}
+  .bn-item.active{color:var(--red-600); background:#fbecec;}
+
+  @media(min-width:860px){
+    .bottom-nav{display:none;}
+    .app-shell{display:none; padding-bottom:0;}
+    .app-shell.ready{display:flex;}
+    .sidebar{
+      display:flex; flex-direction:column; gap:3px; width:200px; flex-shrink:0;
+      background:var(--black-950); padding:14px 10px; min-height:100vh;
+    }
+    .sd-item{
+      display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:9px;
+      color:rgba(255,255,255,.72); font-size:13.5px; font-weight:600; cursor:pointer;
+    }
+    .sd-item .ico{font-size:16px;}
+    .sd-item.active{background:var(--red-600); color:#fff;}
+    .sd-item:hover:not(.active){background:rgba(255,255,255,.08);}
+    .topbar{display:none;}
+    #main{flex:1; max-width:none; padding:22px 26px;}
+  }
+
+  /* ---------- item lists (informe) ---------- */
+  .layout{display:grid; grid-template-columns:1fr; gap:18px;}
+  .layout > *{min-width:0;}
+  @media(min-width:980px){ .layout{grid-template-columns: 420px 1fr;} }
+
+  .preview-wrap{background:#c9c6c4; border-radius:16px; padding:18px; overflow:hidden;}
+  #report{
+    width:820px; background:var(--paper); overflow:hidden;
+    border-radius:14px; box-shadow:0 20px 50px -20px rgba(10,10,10,.4);
+    transform-origin: top left;
+  }
+  .r-header{display:grid; grid-template-columns:1fr 1.15fr; min-height:230px;}
+  .r-header-photo{background:#151312; position:relative; min-height:180px;}
+  .r-header-photo .photo-bg{position:absolute; inset:0; background-size:cover; background-position:center; background-repeat:no-repeat;}
+  .r-header-photo .placeholder{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#8a8280; font-size:13px; text-align:center; padding:20px;}
+  .r-header-info{background:linear-gradient(160deg, var(--black-900), var(--black-950)); color:#fff; padding:22px 24px; position:relative;}
+  .r-eyebrow{font-size:12.5px; letter-spacing:.14em; color:var(--red-500); font-weight:700;}
+  .r-title{font-size:30px; line-height:1.05; margin:5px 0 16px; font-weight:700;}
+  .r-logo-strip{display:flex; background:#fff; border-radius:9px; padding:10px 16px; margin-bottom:16px; width:100%; box-sizing:border-box;}
+  .r-logo-strip img{width:100%; height:auto; display:block;}
+  .r-vehicle{display:flex; align-items:center; gap:10px; margin-bottom:14px;}
+  .r-vehicle-name{font-size:12.5px; letter-spacing:.06em; color:var(--ink-300); text-transform:uppercase;}
+  .r-vehicle-model{font-size:21px; font-weight:700; line-height:1.1;}
+  .r-specs{display:flex; flex-direction:column; gap:9px; margin-top:4px;}
+  .r-spec{display:flex; align-items:center; gap:10px; font-size:13.5px;}
+  .r-spec .ic{width:26px; height:26px; border-radius:7px; background:rgba(255,255,255,.08); display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .r-spec b{font-weight:600; color:#fff;}
+  .r-spec span.lbl{color:var(--ink-300);}
+
+  .r-section{padding:20px 24px;}
+  .r-section-head{display:flex; align-items:center; gap:10px; background:linear-gradient(100deg,var(--black-900),var(--steel-600)); color:#fff; padding:11px 16px; border-radius:10px; margin-bottom:14px;}
+  .r-section-head.green{background:linear-gradient(100deg,var(--red-700),var(--red-500));}
+  .r-section-head.red{background:linear-gradient(100deg,#3a1414,var(--red-700));}
+  .r-section-head .ic{width:28px; height:28px; border-radius:8px; background:rgba(255,255,255,.16); display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .r-section-head h3{margin:0; font-size:15px; font-weight:600; letter-spacing:.03em;}
+
+  .r-trabajos{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px;}
+  .r-trabajos li{display:flex; gap:10px; font-size:14.5px; line-height:1.4; color:var(--ink-900);}
+  .r-trabajos li .check{width:19px; height:19px; border-radius:50%; background:var(--red-500); flex-shrink:0; margin-top:2px; display:flex; align-items:center; justify-content:center;}
+
+  .r-two-col{display:grid; grid-template-columns:1.4fr 1fr; gap:16px;}
+  .r-parts-table{width:100%; border-collapse:collapse; font-size:13px;}
+  .r-parts-table th{text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-600); padding:0 8px 8px; border-bottom:1.5px solid var(--line);}
+  .r-parts-table td{padding:9px 8px; border-bottom:1px solid var(--line); vertical-align:middle;}
+  .r-parts-table tr:last-child td{border-bottom:none;}
+  .r-part-name{display:flex; align-items:center; gap:10px;}
+  .r-part-icon{width:40px; height:40px; border-radius:9px; background:#eee; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; flex-shrink:0;}
+  .r-part-desc b{display:block; font-size:13.5px; color:var(--ink-900);}
+  .r-part-cost{font-weight:700; white-space:nowrap;}
+
+  .r-cost-card{background:#fff; border-radius:12px; border:1px solid var(--line); overflow:hidden;}
+  .r-cost-row{display:flex; justify-content:space-between; padding:12px 16px; font-size:14.5px; border-bottom:1px solid var(--line);}
+  .r-cost-row.total{background:var(--paper); font-weight:700; font-size:16px; color:var(--red-600);}
+
+  .r-info-card{background:#fff; border-radius:12px; border:1px solid var(--line); padding:16px;}
+  .r-info-card .row{display:flex; gap:10px; align-items:flex-start; font-size:13.5px; margin-bottom:10px; color:var(--ink-900);}
+  .r-info-card .row:last-child{margin-bottom:0;}
+
+  .r-obs-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:9px;}
+  .r-obs-list li{display:flex; gap:8px; font-size:13.5px; color:var(--ink-900);}
+  .r-obs-list li:before{content:"•"; color:var(--red-700); font-weight:700;}
+
+  .r-footer{background:var(--black-950); color:#fff; padding:16px 24px; text-align:center;}
+  .r-footer b{display:block; font-size:14px; letter-spacing:.04em;}
+  .r-footer span{color:var(--red-500); font-size:12.5px; font-weight:600; letter-spacing:.03em;}
+  .r-footer .made-by{display:block; margin-top:8px; font-size:10px; color:rgba(255,255,255,.4); font-weight:500; letter-spacing:.03em;}
+
+  .empty-note{font-size:13px; color:var(--ink-600); text-align:center; padding:10px 0;}
+  .sticky-actions{position:sticky; bottom:76px; background:#fff; border-top:1px solid var(--line); padding:12px 14px; display:flex; flex-direction:column; gap:6px; margin-top:18px; border-radius:14px; box-shadow:0 -6px 18px rgba(15,15,15,.06);}
+  @media(min-width:860px){ .sticky-actions{bottom:0;} }
+  .print-hint{font-size:12px; color:var(--ink-600); text-align:center; margin-top:2px;}
+
+  @media print{
+    html, body{background:#fff; -webkit-print-color-adjust:exact !important; print-color-adjust:exact !important;}
+    *{-webkit-print-color-adjust:exact !important; print-color-adjust:exact !important;}
+    .topbar,.sidebar,.bottom-nav,.form-col,.sticky-actions,.print-hint{display:none !important;}
+    .layout{display:block;}
+    .preview-wrap{background:#fff; padding:0; border-radius:0; display:block; height:auto !important; overflow:visible !important;}
+    #report{width:820px; max-width:none; box-shadow:none; border-radius:0; margin:0; transform:none !important;}
+  }
+
+  /* ---------- MODAL / TOAST ---------- */
+  .modal-backdrop{position:fixed; inset:0; background:rgba(10,10,10,.55); z-index:100; display:flex; align-items:flex-end; justify-content:center;}
+  @media(min-width:640px){ .modal-backdrop{align-items:center;} }
+  .modal{background:#fff; width:100%; max-width:520px; max-height:88vh; overflow-y:auto; border-radius:16px 16px 0 0; padding:20px;}
+  @media(min-width:640px){ .modal{border-radius:16px;} }
+  .modal.wide{max-width:760px;}
+  .modal-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;}
+  .modal-head h2{font-size:16px; margin:0;}
+  .modal-close{background:none; border:none; font-size:22px; line-height:1; cursor:pointer; color:var(--ink-600);}
+  .modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:18px;}
+
+  .toast{position:fixed; left:50%; bottom:calc(88px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:var(--black-950); color:#fff; padding:11px 18px; border-radius:10px; font-size:13.5px; display:none; z-index:200; box-shadow:0 10px 30px rgba(0,0,0,.3);}
+  @media(min-width:860px){ .toast{bottom:26px;} }
+</style>
+</head>
+<body>
+
+<!-- ===== SETUP SCREEN (se muestra hasta que se elige modo local o se conecta Firebase) ===== -->
+<div id="setupScreen" class="setup-screen">
+  <div class="setup-card">
+    <img src="./logo-multiescapes.png" class="setup-logo" alt="Multiescapes">
+    <h1>Gestión de taller</h1>
+    <p class="muted">Elegí cómo querés arrancar.</p>
+    <button class="btn btn-primary btn-block" data-action="useLocalMode">📱 Usar solo en este dispositivo</button>
+    <p class="muted small" style="text-align:center; margin-top:8px;">Los datos quedan guardados solo en este navegador. Podés conectar Firebase más adelante desde Configuración sin perder lo cargado.</p>
+    <div class="setup-divider">o</div>
+    <h3 style="font-size:14px;">Conectar base de datos compartida (Firebase)</h3>
+    <ol class="setup-steps">
+      <li>Entrá a <b>console.firebase.google.com</b> con una cuenta Google y creá un proyecto nuevo (gratis).</li>
+      <li>"Configuración del proyecto" (ícono de tuerca) → agregar app Web (&lt;/&gt;) → copiá el objeto <code>firebaseConfig</code> que te muestra.</li>
+      <li>En el menú del proyecto, activá <b>Firestore Database</b> (modo producción está bien).</li>
+    </ol>
+    <div class="field"><label>Pegar objeto firebaseConfig</label><textarea id="fbConfigInput" rows="6" placeholder='{"apiKey": "...", "authDomain": "...", "projectId": "...", ...}'></textarea></div>
+    <p class="error-text" id="fbConfigError" style="display:none;"></p>
+    <button class="btn btn-block" data-action="saveFirebaseConfig">Guardar y conectar</button>
+  </div>
+</div>
+
+<!-- ===== APP SHELL ===== -->
+<div id="app" class="app-shell">
+  <header class="topbar">
+    <div class="brand"><img src="./logo-multiescapes.png" alt="Multiescapes"></div>
+    <div class="save-indicator"><span class="dot" id="saveDot"></span><span id="saveLabel">Sincronizado</span></div>
+  </header>
+
+  <aside class="sidebar" id="sidebarNav"></aside>
+
+  <main id="main"></main>
+
+  <nav class="bottom-nav" id="bottomNav"></nav>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toast" class="toast"></div>
+
+<!-- Firebase (Firestore en tiempo real) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<!-- Generación de PDF real y en una sola página, del lado del navegador -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+'use strict';
+/* ===================== BACKEND: Firebase o localStorage, misma interfaz para ambos ===================== */
+
+// IMPORTANTE: a diferencia de Mundo Repuestos (que trae un firebaseConfig por defecto ya conectado a
+// su propio proyecto), Multiescapes todavía no tiene un proyecto de Firebase propio. Por eso queda en
+// null: la pantalla de setup se muestra siempre hasta que se pegue un firebaseConfig real o se elija
+// modo local explícitamente. Cuando el cliente tenga su proyecto, pegar el config en la pantalla de
+// setup lo guarda en localStorage — no hace falta tocar este archivo.
+const DEFAULT_FIREBASE_CONFIG = null;
+
+const LS_PREFIX = 'multiescapes:';
+function lsKey(name){ return LS_PREFIX + name; }
+
+let backendMode = null; // 'firebase' | 'local'
+let db = null;
+const localRegistry = {};
+
+function lsReadAll(name){ try{ return JSON.parse(localStorage.getItem(lsKey(name)) || '[]'); }catch(e){ return []; } }
+function lsWriteAll(name, arr){ localStorage.setItem(lsKey(name), JSON.stringify(arr)); }
+function lsNotify(name){
+  const data = lsReadAll(name);
+  (localRegistry[name] && localRegistry[name].listeners || []).forEach(cb => cb(data));
+}
+function genLocalId(){ return 'local_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8); }
+
+function collectionRef(name){
+  if(backendMode === 'firebase'){
+    return {
+      onSnapshot(cb){
+        return db.collection(name).onSnapshot(snap => {
+          cb(snap.docs.map(d => Object.assign({id:d.id}, d.data())));
+        }, onFirestoreError);
+      },
+      newId(){ return db.collection(name).doc().id; },
+      add(data){ return db.collection(name).add(data).then(ref => ref.id); },
+      update(id, patch){ return db.collection(name).doc(id).update(patch); }
+    };
+  }
+  if(!localRegistry[name]) localRegistry[name] = {listeners:[]};
+  return {
+    onSnapshot(cb){
+      localRegistry[name].listeners.push(cb);
+      cb(lsReadAll(name));
+      return () => { localRegistry[name].listeners = localRegistry[name].listeners.filter(l => l!==cb); };
+    },
+    newId(){ return genLocalId(); },
+    add(data){
+      const arr = lsReadAll(name); const id = genLocalId();
+      arr.push(Object.assign({id}, data)); lsWriteAll(name, arr); lsNotify(name);
+      return Promise.resolve(id);
+    },
+    update(id, patch){
+      const arr = lsReadAll(name); const i = arr.findIndex(x=>x.id===id);
+      if(i>=0){ arr[i] = Object.assign({}, arr[i], patch); lsWriteAll(name, arr); lsNotify(name); }
+      return Promise.resolve();
+    }
+  };
+}
+
+function newBatch(){
+  if(backendMode === 'firebase'){
+    const b = db.batch();
+    return {
+      set(colName, id, data){ b.set(db.collection(colName).doc(id), data, {merge:true}); },
+      update(colName, id, patch){ b.update(db.collection(colName).doc(id), patch); },
+      commit(){ return b.commit(); }
+    };
+  }
+  const ops = [];
+  return {
+    set(colName, id, data){ ops.push({type:'set', colName, id, data}); },
+    update(colName, id, patch){ ops.push({type:'update', colName, id, patch}); },
+    commit(){
+      const touched = new Set();
+      ops.forEach(op => {
+        const arr = lsReadAll(op.colName);
+        const i = arr.findIndex(x=>x.id===op.id);
+        if(op.type==='set'){
+          if(i>=0) arr[i] = Object.assign({}, arr[i], op.data, {id:op.id});
+          else arr.push(Object.assign({id:op.id}, op.data));
+        } else if(op.type==='update'){
+          if(i>=0) arr[i] = Object.assign({}, arr[i], op.patch);
+        }
+        lsWriteAll(op.colName, arr);
+        touched.add(op.colName);
+      });
+      touched.forEach(name => lsNotify(name));
+      return Promise.resolve();
+    }
+  };
+}
+
+function configGet(){
+  if(backendMode === 'firebase') return db.collection('config').doc('negocio').get().then(d => d.exists ? d.data() : {});
+  try{ return Promise.resolve(JSON.parse(localStorage.getItem(lsKey('config_negocio')) || '{}')); }catch(e){ return Promise.resolve({}); }
+}
+function configSet(data){
+  if(backendMode === 'firebase') return db.collection('config').doc('negocio').set(data, {merge:true});
+  const cur = JSON.parse(localStorage.getItem(lsKey('config_negocio')) || '{}');
+  localStorage.setItem(lsKey('config_negocio'), JSON.stringify(Object.assign(cur, data)));
+  return Promise.resolve();
+}
+function onFirestoreError(err){
+  console.error('Firestore error', err);
+  toast('No se pudo conectar con la base de datos compartida. Revisá la conexión.');
+}
+
+/* ===================== ESTADO GLOBAL ===================== */
+const COLLECTIONS = ['clientes','vehiculos','trabajos'];
+let state = {
+  section: 'informe',
+  clientes: [], vehiculos: [], trabajos: [],
+  loaded: {},
+  negocio: {nombre:'MULTIESCAPES', direccion:'', telefono:''},
+  filtro: {clientes:''},
+  filtroTrabajos: {query:'', desde:'', hasta:''},
+  saving:false
+};
+function allDataLoaded(){ return COLLECTIONS.every(c => state.loaded[c]); }
+
+/* ===================== ACTIONS / INPUT ACTIONS (delegación de eventos) ===================== */
+const actions = {
+  nav(el){ goSection(el.dataset.id); },
+  useLocalMode(){ useLocalMode(); },
+  saveFirebaseConfig(){ saveFirebaseConfigAction(); },
+  closeModalBackdrop(el, e){ if(e.target === el) closeModal(); },
+  closeModal(){ closeModal(); },
+  confirmDialogYes(){ const cb = _confirmCb; closeModal(); if(cb) cb(); }
+};
+const inputActions = {};
+
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-action]');
+  if(!el) return;
+  const action = el.dataset.action;
+  if(actions[action]) actions[action](el, e);
+});
+// data-action vive en <div>/<tr> además de <button> (nav, tarjetas de lista, filas de tabla);
+// esto los hace operables por teclado/lector de pantalla igual que un botón real.
+document.addEventListener('keydown', (e) => {
+  if(e.key !== 'Enter' && e.key !== ' ') return;
+  const el = e.target.closest('[data-action]');
+  if(!el || el.tagName === 'BUTTON' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return;
+  e.preventDefault();
+  el.click();
+});
+document.addEventListener('input', (e) => {
+  const el = e.target.closest('[data-input]');
+  if(!el) return;
+  const handler = inputActions[el.dataset.input];
+  if(handler) handler(el, e);
+});
+document.addEventListener('change', (e) => {
+  const el = e.target.closest('[data-change]');
+  if(!el) return;
+  const handler = inputActions[el.dataset.change];
+  if(handler) handler(el, e);
+});
+
+/* ===================== MODAL / TOAST / SAVE INDICATOR ===================== */
+function openModal(html, opts){
+  opts = opts || {};
+  document.getElementById('modalRoot').innerHTML = `<div class="modal-backdrop" data-action="${opts.closeOnBackdrop===false?'':'closeModalBackdrop'}"><div class="modal ${opts.wide?'wide':''}">${html}</div></div>`;
+}
+function closeModal(){ document.getElementById('modalRoot').innerHTML = ''; }
+let _confirmCb = null;
+function confirmDialog(message, onConfirm){
+  _confirmCb = onConfirm;
+  openModal(`
+    <div class="modal-head"><h2>Confirmar</h2><button class="modal-close" data-action="closeModal">&times;</button></div>
+    <p class="muted" style="font-size:14px;">${esc(message)}</p>
+    <div class="modal-actions">
+      <button class="btn" data-action="closeModal">Cancelar</button>
+      <button class="btn btn-danger" style="background:var(--red-600); color:#fff; border:none;" data-action="confirmDialogYes">Confirmar</button>
+    </div>`);
+}
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.style.display = 'block';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>{ el.style.display='none'; }, 3200);
+}
+function markSaving(){ state.saving = true; updateSaveIndicator(); }
+function doneSaving(){ state.saving = false; updateSaveIndicator(); }
+function saveError(e){ console.error('No se pudo guardar', e); state.saving = false; updateSaveIndicator(); toast('No se pudo guardar el cambio.'); }
+function updateSaveIndicator(){
+  const dot = document.getElementById('saveDot'), label = document.getElementById('saveLabel');
+  if(!dot) return;
+  dot.classList.toggle('saving', state.saving);
+  label.textContent = state.saving ? 'Guardando…' : 'Sincronizado';
+}
+
+/* ===================== HELPERS COMPARTIDOS ===================== */
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function money(n){ n = Math.round(n||0); return '$' + n.toLocaleString('es-AR'); }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function fmtDate(v){
+  if(!v) return '—';
+  const d = typeof v === 'number' ? new Date(v) : new Date(v + 'T00:00:00');
+  if(isNaN(d)) return '—';
+  return d.toLocaleDateString('es-AR');
+}
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+async function withBusyButton(btn, busyLabel, fn){
+  const original = btn.innerHTML;
+  btn.disabled = true; btn.innerHTML = busyLabel;
+  try{ await fn(); }
+  finally{ btn.disabled = false; btn.innerHTML = original; }
+}
+
+/* ===================== NAVEGACIÓN ===================== */
+const NAV_ITEMS = [
+  {id:'informe', label:'Nuevo informe', ico:'🧾'},
+  {id:'clientes', label:'Clientes', ico:'👤'},
+  {id:'trabajos', label:'Trabajos', ico:'🔧'},
+  {id:'config', label:'Config.', ico:'⚙️'}
+];
+function goSection(id){ state.section = id; closeModal(); render(); window.scrollTo(0,0); }
+
+function renderNav(){
+  document.getElementById('bottomNav').innerHTML = NAV_ITEMS.map(it => `
+    <div class="bn-item ${state.section===it.id?'active':''}" data-action="nav" data-id="${it.id}" role="button" tabindex="0" aria-current="${state.section===it.id?'page':'false'}">
+      <span class="ico">${it.ico}</span>${it.label}
+    </div>`).join('');
+  document.getElementById('sidebarNav').innerHTML = NAV_ITEMS.map(it => `
+    <div class="sd-item ${state.section===it.id?'active':''}" data-action="nav" data-id="${it.id}" role="button" tabindex="0" aria-current="${state.section===it.id?'page':'false'}">
+      <span class="ico">${it.ico}</span>${it.label}
+    </div>`).join('');
+}
+
+function render(){
+  renderNav();
+  updateSaveIndicator();
+  if(!allDataLoaded()){
+    document.getElementById('main').innerHTML = '<div class="empty">Cargando datos…</div>';
+    return;
+  }
+  const renderers = { informe: renderInforme, clientes: renderClientes, trabajos: renderTrabajos, config: renderConfig };
+  (renderers[state.section] || renderInforme)();
+}
+
+/* ===================== SETUP / ARRANQUE ===================== */
+function tryLoadFirebaseConfig(){
+  const raw = localStorage.getItem(lsKey('firebaseConfig'));
+  if(raw){ try{ return JSON.parse(raw); }catch(e){ /* ignorar */ } }
+  return DEFAULT_FIREBASE_CONFIG;
+}
+function showSetupScreen(){
+  document.getElementById('setupScreen').style.display = 'flex';
+  document.getElementById('app').classList.remove('ready');
+}
+function initApp(){
+  if(localStorage.getItem(lsKey('useLocalMode'))){ backendMode = 'local'; startApp(); return; }
+  const cfg = tryLoadFirebaseConfig();
+  if(cfg){
+    try{
+      firebase.initializeApp(cfg);
+      db = firebase.firestore();
+      backendMode = 'firebase';
+      startApp();
+    }catch(e){
+      console.error('Firebase init failed', e);
+      showSetupScreen();
+    }
+  } else {
+    showSetupScreen();
+  }
+}
+function useLocalMode(){
+  localStorage.setItem(lsKey('useLocalMode'), '1');
+  backendMode = 'local';
+  startApp();
+}
+function saveFirebaseConfigAction(){
+  const raw = document.getElementById('fbConfigInput').value.trim();
+  const errEl = document.getElementById('fbConfigError');
+  errEl.style.display = 'none';
+  let cfg;
+  try{
+    const jsonish = raw.replace(/(\w+)\s*:/g, '"$1":').replace(/'/g, '"');
+    cfg = JSON.parse(jsonish);
+  }catch(e){
+    errEl.textContent = 'No pude leer ese texto. Pegá el objeto firebaseConfig completo, tal cual lo muestra Firebase.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if(!cfg.apiKey || !cfg.projectId){
+    errEl.textContent = 'Faltan campos (apiKey / projectId). Revisá que copiaste el objeto completo.';
+    errEl.style.display = 'block';
+    return;
+  }
+  localStorage.setItem(lsKey('firebaseConfig'), JSON.stringify(cfg));
+  localStorage.removeItem(lsKey('useLocalMode'));
+  location.reload();
+}
+function startApp(){
+  document.getElementById('setupScreen').style.display = 'none';
+  const app = document.getElementById('app');
+  app.classList.add('ready');
+
+  COLLECTIONS.forEach(name => {
+    collectionRef(name).onSnapshot(data => {
+      state[name] = data;
+      state.loaded[name] = true;
+      render();
+    });
+  });
+  configGet().then(d => { state.negocio = Object.assign(state.negocio, d); render(); });
+
+  render();
+}
+</script>
+<script src="./app-config.js"></script>
+<script src="./app-clientes.js"></script>
+<script src="./app-informe.js"></script>
+<script src="./app-trabajos.js"></script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(()=>{ /* si falla, la app igual funciona online */ });
+  });
+}
+initApp();
+</script>
+</body>
+</html>
