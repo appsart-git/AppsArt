@@ -17,16 +17,13 @@ function renderConfig(){
     </div>
     <div class="panel" style="max-width:520px;">
       <h2>Base de datos</h2>
-      <p class="muted small" style="margin-top:-8px;">Modo actual: <b>${backendMode==='firebase' ? 'Compartido (Firebase)' : 'Local (solo este navegador)'}</b></p>
+      <p class="muted small" style="margin-top:-8px;">Modo actual: <b>${backendMode==='firebase' ? 'Compartida entre dispositivos' : 'Local (solo este dispositivo)'}</b></p>
       ${backendMode==='firebase' ? `
-        <p class="muted small">Todos los dispositivos que tengan este mismo firebaseConfig ven y editan los mismos datos en tiempo real.</p>
+        <p class="muted small">El mostrador y el celular del taller ven y editan los mismos clientes y trabajos en tiempo real.</p>
       ` : `
-        <p class="muted small">Cuando quieras que el celular del taller y otra PC vean los mismos clientes y trabajos, conectá Firebase. Antes te conviene exportar un respaldo.</p>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="btn" data-action="exportarRespaldo">⬇ Exportar respaldo (JSON)</button>
-          <button class="btn btn-primary" data-action="irAConectarFirebase">Conectar Firebase</button>
-        </div>
+        <p class="muted small">Por ahora los datos quedan guardados solo en este dispositivo. La base de datos compartida la activamos nosotros como parte del servicio — no hace falta que hagas nada acá.</p>
       `}
+      <button class="btn" data-action="exportarRespaldo">⬇ Exportar respaldo (JSON)</button>
     </div>`;
 }
 
@@ -47,10 +44,5 @@ Object.assign(actions, {
     dump.negocio = state.negocio;
     const blob = new Blob([JSON.stringify(dump, null, 2)], {type:'application/json'});
     downloadBlob(blob, 'multiescapes-respaldo-' + todayISO() + '.json');
-  },
-  irAConectarFirebase(){
-    localStorage.removeItem(lsKey('useLocalMode'));
-    showSetupScreen();
-    document.getElementById('app').classList.remove('ready');
   }
 });

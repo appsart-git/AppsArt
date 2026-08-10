@@ -125,23 +125,6 @@
     display:flex; align-items:center; justify-content:center; flex-shrink:0;
   }
 
-  /* ---------- SETUP SCREEN ---------- */
-  .setup-screen{
-    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
-    background:var(--black-950);
-  }
-  .setup-card{
-    background:#fff; border-radius:18px; padding:26px 22px; max-width:460px; width:100%;
-    box-shadow:0 30px 60px -20px rgba(0,0,0,.5);
-  }
-  .setup-logo{display:block; max-width:220px; margin:0 auto 18px;}
-  .setup-card h1{font-size:20px; text-align:center; margin:0 0 4px;}
-  .setup-card > p.muted{text-align:center; margin:0 0 16px;}
-  .setup-divider{text-align:center; color:var(--ink-600); font-size:12px; text-transform:uppercase; letter-spacing:.08em; margin:18px 0;}
-  .setup-steps{font-size:13px; color:var(--ink-600); padding-left:18px; margin:0 0 14px;}
-  .setup-steps li{margin-bottom:6px;}
-  .setup-card textarea{font-family:monospace; font-size:12.5px;}
-  .error-text{color:#b3261e; font-size:12.5px; margin:-6px 0 12px;}
 
   /* ---------- APP SHELL ---------- */
   .app-shell{display:none; min-height:100vh; padding-bottom:76px;}
@@ -319,27 +302,6 @@
 </head>
 <body>
 
-<!-- ===== SETUP SCREEN (se muestra hasta que se elige modo local o se conecta Firebase) ===== -->
-<div id="setupScreen" class="setup-screen">
-  <div class="setup-card">
-    <img src="./logo-multiescapes.png" class="setup-logo" alt="Multiescapes">
-    <h1>Gestión de taller</h1>
-    <p class="muted">Elegí cómo querés arrancar.</p>
-    <button class="btn btn-primary btn-block" data-action="useLocalMode">📱 Usar solo en este dispositivo</button>
-    <p class="muted small" style="text-align:center; margin-top:8px;">Los datos quedan guardados solo en este navegador. Podés conectar Firebase más adelante desde Configuración sin perder lo cargado.</p>
-    <div class="setup-divider">o</div>
-    <h3 style="font-size:14px;">Conectar base de datos compartida (Firebase)</h3>
-    <ol class="setup-steps">
-      <li>Entrá a <b>console.firebase.google.com</b> con una cuenta Google y creá un proyecto nuevo (gratis).</li>
-      <li>"Configuración del proyecto" (ícono de tuerca) → agregar app Web (&lt;/&gt;) → copiá el objeto <code>firebaseConfig</code> que te muestra.</li>
-      <li>En el menú del proyecto, activá <b>Firestore Database</b> (modo producción está bien).</li>
-    </ol>
-    <div class="field"><label>Pegar objeto firebaseConfig</label><textarea id="fbConfigInput" rows="6" placeholder='{"apiKey": "...", "authDomain": "...", "projectId": "...", ...}'></textarea></div>
-    <p class="error-text" id="fbConfigError" style="display:none;"></p>
-    <button class="btn btn-block" data-action="saveFirebaseConfig">Guardar y conectar</button>
-  </div>
-</div>
-
 <!-- ===== APP SHELL ===== -->
 <div id="app" class="app-shell">
   <header class="topbar">
@@ -368,11 +330,11 @@
 'use strict';
 /* ===================== BACKEND: Firebase o localStorage, misma interfaz para ambos ===================== */
 
-// IMPORTANTE: a diferencia de Mundo Repuestos (que trae un firebaseConfig por defecto ya conectado a
-// su propio proyecto), Multiescapes todavía no tiene un proyecto de Firebase propio. Por eso queda en
-// null: la pantalla de setup se muestra siempre hasta que se pegue un firebaseConfig real o se elija
-// modo local explícitamente. Cuando el cliente tenga su proyecto, pegar el config en la pantalla de
-// setup lo guarda en localStorage — no hace falta tocar este archivo.
+// A diferencia de Mundo Repuestos, acá no hay pantalla de setup ni elección para el taller: la base
+// de datos es un servicio que nosotros administramos como parte del abono, no algo que el cliente
+// configure. Mientras Multiescapes no tenga su proyecto de Firebase, esto queda en null y la app
+// arranca sola en modo local (sin avisar ni preguntar nada). Cuando creemos el proyecto real, se
+// pega ese firebaseConfig acá mismo — nada más pasa a conectarse automáticamente para todos.
 const DEFAULT_FIREBASE_CONFIG = null;
 
 const LS_PREFIX = 'multiescapes:';
@@ -488,8 +450,6 @@ function allDataLoaded(){ return COLLECTIONS.every(c => state.loaded[c]); }
 /* ===================== ACTIONS / INPUT ACTIONS (delegación de eventos) ===================== */
 const actions = {
   nav(el){ goSection(el.dataset.id); },
-  useLocalMode(){ useLocalMode(); },
-  saveFirebaseConfig(){ saveFirebaseConfigAction(); },
   closeModalBackdrop(el, e){ if(e.target === el) closeModal(); },
   closeModal(){ closeModal(); },
   confirmDialogYes(){ const cb = _confirmCb; closeModal(); if(cb) cb(); }
@@ -612,62 +572,32 @@ function render(){
   (renderers[state.section] || renderInforme)();
 }
 
-/* ===================== SETUP / ARRANQUE ===================== */
+/* ===================== ARRANQUE ===================== */
+// Sin pantalla de elección: si hay un firebaseConfig (nuestro, cargado más abajo o guardado por
+// nosotros en localStorage al desplegar), la app se conecta sola a la base compartida. Si no, arranca
+// en modo local sin avisar — el taller nunca ve ni decide nada de esto.
 function tryLoadFirebaseConfig(){
   const raw = localStorage.getItem(lsKey('firebaseConfig'));
   if(raw){ try{ return JSON.parse(raw); }catch(e){ /* ignorar */ } }
   return DEFAULT_FIREBASE_CONFIG;
 }
-function showSetupScreen(){
-  document.getElementById('setupScreen').style.display = 'flex';
-  document.getElementById('app').classList.remove('ready');
-}
 function initApp(){
-  if(localStorage.getItem(lsKey('useLocalMode'))){ backendMode = 'local'; startApp(); return; }
   const cfg = tryLoadFirebaseConfig();
   if(cfg){
     try{
       firebase.initializeApp(cfg);
       db = firebase.firestore();
       backendMode = 'firebase';
-      startApp();
     }catch(e){
-      console.error('Firebase init failed', e);
-      showSetupScreen();
+      console.error('Firebase init failed, usando modo local', e);
+      backendMode = 'local';
     }
   } else {
-    showSetupScreen();
+    backendMode = 'local';
   }
-}
-function useLocalMode(){
-  localStorage.setItem(lsKey('useLocalMode'), '1');
-  backendMode = 'local';
   startApp();
 }
-function saveFirebaseConfigAction(){
-  const raw = document.getElementById('fbConfigInput').value.trim();
-  const errEl = document.getElementById('fbConfigError');
-  errEl.style.display = 'none';
-  let cfg;
-  try{
-    const jsonish = raw.replace(/(\w+)\s*:/g, '"$1":').replace(/'/g, '"');
-    cfg = JSON.parse(jsonish);
-  }catch(e){
-    errEl.textContent = 'No pude leer ese texto. Pegá el objeto firebaseConfig completo, tal cual lo muestra Firebase.';
-    errEl.style.display = 'block';
-    return;
-  }
-  if(!cfg.apiKey || !cfg.projectId){
-    errEl.textContent = 'Faltan campos (apiKey / projectId). Revisá que copiaste el objeto completo.';
-    errEl.style.display = 'block';
-    return;
-  }
-  localStorage.setItem(lsKey('firebaseConfig'), JSON.stringify(cfg));
-  localStorage.removeItem(lsKey('useLocalMode'));
-  location.reload();
-}
 function startApp(){
-  document.getElementById('setupScreen').style.display = 'none';
   const app = document.getElementById('app');
   app.classList.add('ready');
 
