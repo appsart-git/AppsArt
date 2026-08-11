@@ -281,7 +281,7 @@ function informeMarkup(){
           <div class="r-footer">
             <b>SERVICIO REALIZADO CON EQUIPAMIENTO PROFESIONAL</b>
             <span>ESCAPES, SILENCIADORES Y CAÑERÍAS A MEDIDA</span>
-            <span class="made-by">by AppsArt</span>
+            <span class="made-by">by <img src="./appsart-brand.png" alt="AppsArt"></span>
           </div>
         </div>
       </div>

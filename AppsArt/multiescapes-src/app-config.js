@@ -24,7 +24,8 @@ function renderConfig(){
         <p class="muted small">Por ahora los datos quedan guardados solo en este dispositivo. La base de datos compartida la activamos nosotros como parte del servicio — no hace falta que hagas nada acá.</p>
       `}
       <button class="btn" data-action="exportarRespaldo">⬇ Exportar respaldo (JSON)</button>
-    </div>`;
+    </div>
+    <div class="config-credit">by <img src="./appsart-brand-claro.png" alt="AppsArt"></div>`;
 }
 
 Object.assign(actions, {
