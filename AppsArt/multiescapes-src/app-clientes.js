@@ -53,6 +53,7 @@ function renderClientes(){
               <td class="muted">${tCount}</td>
               <td style="text-align:right; white-space:nowrap;">
                 <button class="btn btn-sm btn-icon" data-action="editarCliente" data-id="${c.id}" title="Editar">✏️</button>
+                <button class="btn btn-sm btn-icon" data-action="eliminarCliente" data-id="${c.id}" title="Eliminar">🗑️</button>
               </td>
             </tr>`;
           }).join('') : `<tr><td colspan="5" class="empty">Todavía no hay clientes cargados.</td></tr>`}
@@ -106,8 +107,9 @@ function clienteDetailHtml(id){
       <div><span class="muted small">Teléfono</span><div>${esc(c.telefono||'—')}</div></div>
       <div><span class="muted small">Dirección</span><div>${esc(c.direccion||'—')}</div></div>
     </div>
-    <div style="margin:16px 0 10px;">
+    <div style="margin:16px 0 10px; display:flex; gap:8px; flex-wrap:wrap;">
       <button class="btn btn-sm" data-action="editarCliente" data-id="${id}">Editar datos</button>
+      <button class="btn-danger" data-action="eliminarCliente" data-id="${id}">Eliminar cliente</button>
     </div>
 
     <h3 style="font-size:14px; margin-top:18px; display:flex; justify-content:space-between; align-items:center;">
@@ -122,7 +124,10 @@ function clienteDetailHtml(id){
           <td class="muted">${esc(v.marca||'—')}</td>
           <td class="muted">${esc(v.modelo||'—')}</td>
           <td class="muted">${esc(v.anio||'—')}</td>
-          <td style="text-align:right;"><button class="btn btn-sm btn-icon" data-action="editarVehiculo" data-id="${v.id}" data-cliente="${id}" title="Editar">✏️</button></td>
+          <td style="text-align:right; white-space:nowrap;">
+            <button class="btn btn-sm btn-icon" data-action="editarVehiculo" data-id="${v.id}" data-cliente="${id}" title="Editar">✏️</button>
+            <button class="btn btn-sm btn-icon" data-action="eliminarVehiculo" data-id="${v.id}" data-cliente="${id}" title="Eliminar">🗑️</button>
+          </td>
         </tr>`).join('') : `<tr><td colspan="5" class="empty">Sin vehículos cargados.</td></tr>`}</tbody></table>
     </div>
 
@@ -186,6 +191,43 @@ Object.assign(actions, {
     }
     toast('Vehículo guardado.');
     setTimeout(()=>openModal(clienteDetailHtml(clienteId), {wide:true}), 50);
+  },
+  eliminarCliente(el){
+    const id = el.dataset.id;
+    const c = state.clientes.find(x=>x.id===id);
+    if(!c) return;
+    const vs = vehiculosDeCliente(id);
+    const trabajos = trabajosDeCliente(id);
+    const partes = [];
+    if(vs.length) partes.push(`${vs.length} vehículo${vs.length===1?'':'s'}`);
+    if(trabajos.length) partes.push(`${trabajos.length} trabajo${trabajos.length===1?'':'s'}`);
+    const advertencia = partes.length ? ` También tiene ${partes.join(' y ')} cargados — se van a eliminar junto con el cliente.` : '';
+    confirmDialog(`¿Eliminar a ${c.nombre}?${advertencia} No se puede deshacer.`, () => {
+      closeModal(); markSaving();
+      Promise.all([
+        collectionRef('clientes').remove(id),
+        ...vs.map(v=>collectionRef('vehiculos').remove(v.id)),
+        ...trabajos.map(t=>collectionRef('trabajos').remove(t.id))
+      ]).then(() => { doneSaving(); toast('Cliente eliminado.'); }).catch(saveError);
+    });
+  },
+  eliminarVehiculo(el){
+    const id = el.dataset.id;
+    const clienteId = el.dataset.cliente;
+    const v = state.vehiculos.find(x=>x.id===id);
+    if(!v) return;
+    const trabajos = state.trabajos.filter(t=>t.vehiculoId===id);
+    const advertencia = trabajos.length ? ` Tiene ${trabajos.length} trabajo${trabajos.length===1?'':'s'} cargado${trabajos.length===1?'':'s'} — se van a eliminar junto con el vehículo.` : '';
+    confirmDialog(`¿Eliminar el vehículo ${esc(vehiculoLabel(v))}?${advertencia} No se puede deshacer.`, () => {
+      markSaving();
+      Promise.all([
+        collectionRef('vehiculos').remove(id),
+        ...trabajos.map(t=>collectionRef('trabajos').remove(t.id))
+      ]).then(() => {
+        doneSaving(); toast('Vehículo eliminado.');
+        setTimeout(()=>openModal(clienteDetailHtml(clienteId), {wide:true}), 50);
+      }).catch(saveError);
+    });
   }
 });
 

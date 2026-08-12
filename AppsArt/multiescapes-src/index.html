@@ -158,6 +158,12 @@
   .filters-row{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;}
   .filters-row .field{margin-bottom:0; min-width:150px; flex:1;}
 
+  .trabajos-summary{
+    display:flex; gap:16px; flex-wrap:wrap; background:#fff; border-radius:12px; padding:12px 16px; margin-bottom:14px;
+    font-size:13px; color:var(--ink-600); box-shadow:0 1px 2px rgba(15,15,15,.06), 0 8px 24px -12px rgba(15,15,15,.1);
+  }
+  .trabajos-summary b{color:var(--black-900);}
+
   .table-wrap{background:#fff; border-radius:14px; overflow-x:auto; box-shadow:0 1px 2px rgba(15,15,15,.06), 0 8px 24px -12px rgba(15,15,15,.1);}
   table{width:100%; border-collapse:collapse; font-size:13.5px;}
   th{text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-600); padding:12px 14px; border-bottom:1.5px solid var(--line); white-space:nowrap;}
@@ -378,7 +384,8 @@ function collectionRef(name){
       },
       newId(){ return db.collection(name).doc().id; },
       add(data){ return db.collection(name).add(data).then(ref => ref.id); },
-      update(id, patch){ return db.collection(name).doc(id).update(patch); }
+      update(id, patch){ return db.collection(name).doc(id).update(patch); },
+      remove(id){ return db.collection(name).doc(id).delete(); }
     };
   }
   if(!localRegistry[name]) localRegistry[name] = {listeners:[]};
@@ -397,6 +404,11 @@ function collectionRef(name){
     update(id, patch){
       const arr = lsReadAll(name); const i = arr.findIndex(x=>x.id===id);
       if(i>=0){ arr[i] = Object.assign({}, arr[i], patch); lsWriteAll(name, arr); lsNotify(name); }
+      return Promise.resolve();
+    },
+    remove(id){
+      const arr = lsReadAll(name).filter(x=>x.id!==id);
+      lsWriteAll(name, arr); lsNotify(name);
       return Promise.resolve();
     }
   };

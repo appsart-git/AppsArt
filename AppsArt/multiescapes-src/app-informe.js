@@ -619,26 +619,32 @@ Object.assign(actions, {
     else doReset();
   },
   cargarTrabajoEnInforme(el){
-    const t = state.trabajos.find(x=>x.id===el.dataset.id);
-    if(!t) return;
-    const c = state.clientes.find(x=>x.id===t.clienteId);
-    const v = state.vehiculos.find(x=>x.id===t.vehiculoId);
-    const inf = blankInforme();
-    inf.clienteId = t.clienteId || null;
-    inf.vehiculoId = t.vehiculoId || null;
-    inf.trabajos = (t.trabajosRealizados && t.trabajosRealizados.length) ? t.trabajosRealizados.slice() : [''];
-    inf.repuestos = (t.repuestos && t.repuestos.length) ? t.repuestos.map(r=>Object.assign({},r)) : [{nombre:'',marca:'',costo:0}];
-    inf.obs = (t.observaciones && t.observaciones.length) ? t.observaciones.slice() : [''];
-    inf.fields.fecha = t.fecha || todayISO();
-    inf.fields.manoobra = String(t.manoObra||0);
-    if(c){ inf.fields.responsable = c.nombre||''; inf.fields.telefono = c.telefono||''; inf.fields.direccion = c.direccion||''; }
-    if(v){ Object.assign(inf.fields, vehiculoToFields(v)); }
-    state.informe = inf;
+    if(!cargarTrabajoComoInforme(el.dataset.id)) return;
     closeModal();
     goSection('informe');
     toast('Informe recargado. La foto original no se guardó en la base — podés agregar una nueva si hace falta.');
   }
 });
+
+/* ---------- carga un trabajo del historial como el informe activo (reutilizado por la acción de arriba y por el PDF directo desde Trabajos) ---------- */
+function cargarTrabajoComoInforme(id){
+  const t = state.trabajos.find(x=>x.id===id);
+  if(!t) return false;
+  const c = state.clientes.find(x=>x.id===t.clienteId);
+  const v = state.vehiculos.find(x=>x.id===t.vehiculoId);
+  const inf = blankInforme();
+  inf.clienteId = t.clienteId || null;
+  inf.vehiculoId = t.vehiculoId || null;
+  inf.trabajos = (t.trabajosRealizados && t.trabajosRealizados.length) ? t.trabajosRealizados.slice() : [''];
+  inf.repuestos = (t.repuestos && t.repuestos.length) ? t.repuestos.map(r=>Object.assign({},r)) : [{nombre:'',marca:'',costo:0}];
+  inf.obs = (t.observaciones && t.observaciones.length) ? t.observaciones.slice() : [''];
+  inf.fields.fecha = t.fecha || todayISO();
+  inf.fields.manoobra = String(t.manoObra||0);
+  if(c){ inf.fields.responsable = c.nombre||''; inf.fields.telefono = c.telefono||''; inf.fields.direccion = c.direccion||''; }
+  if(v){ Object.assign(inf.fields, vehiculoToFields(v)); }
+  state.informe = inf;
+  return true;
+}
 inputActions.informe_marca = (el) => {
   state.informe.fields.marca = el.value;
   populateModelosList(el.value === 'Otra' ? '' : el.value, '');

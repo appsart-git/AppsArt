@@ -1,7 +1,7 @@
 // Subir la versión de CACHE_NAME en cada deploy que toque HTML/JS fuerza a limpiar la caché vieja
 // (ver 'activate' más abajo) — si no, un service worker con caché desactualizada puede quedar
 // sirviendo código viejo indefinidamente a usuarios que ya habían abierto la app antes.
-const CACHE_NAME = 'multiescapes-v4';
+const CACHE_NAME = 'multiescapes-v6';
 const APP_SHELL = [
   './',
   './index.html',

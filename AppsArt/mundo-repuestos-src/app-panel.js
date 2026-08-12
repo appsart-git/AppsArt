@@ -63,7 +63,7 @@ function renderPanel(){
       <div class="stat"><div class="label">Ventas del mes</div><div class="value">${money(vMes.reduce((s,v)=>s+v.total,0))}</div><div class="muted" style="font-size:12px;">${vMes.length} venta(s)</div></div>
       <div class="stat"><div class="label">Por cobrar</div><div class="value bad">${money(totalCobrar())}</div></div>
       <div class="stat"><div class="label">Por pagar</div><div class="value warn">${money(totalPagar())}</div></div>
-      <div class="stat"><div class="label">Stock bajo mínimo</div><div class="value ${stockBajo.length?'warn':''}">${stockBajo.length}</div></div>
+      <div class="stat"><div class="label">IVA del mes (21%)</div><div class="value">${money(vMes.reduce((s,v)=>s+v.total,0) * 0.21)}</div></div>
     </div>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px;" class="panel-grid">
       <div class="card">
@@ -122,6 +122,7 @@ function renderReporteResumen(){
     <div class="grid-cards">
       <div class="stat"><div class="label">Ventas de hoy</div><div class="value">${money(ventasHoy().reduce((s,v)=>s+v.total,0))}</div></div>
       <div class="stat"><div class="label">Ventas del mes</div><div class="value">${money(ventasDelMes().reduce((s,v)=>s+v.total,0))}</div></div>
+      <div class="stat"><div class="label">IVA del mes (21%)</div><div class="value">${money(ventasDelMes().reduce((s,v)=>s+v.total,0) * 0.21)}</div></div>
       <div class="stat"><div class="label">Compras del mes</div><div class="value">${money(comprasDelMes().reduce((s,c)=>s+c.total,0))}</div></div>
     </div>
     <div class="card" style="margin-bottom:18px;">
