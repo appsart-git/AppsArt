@@ -1,4 +1,4 @@
-const functions = require("firebase-functions");
+const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
@@ -25,24 +25,20 @@ async function notificarAdmins(title, body, url) {
   await Promise.all(invalidos.map((t) => admin.firestore().collection("adminTokens").doc(t).delete()));
 }
 
-exports.onEnfermeroCreado = functions.firestore
-  .document("enfermeros/{id}")
-  .onCreate(async (snap) => {
-    const data = snap.data();
-    await notificarAdmins(
-      "Nuevo enfermero registrado",
-      `${data.nombre || "Un enfermero"} se registró y está pendiente de aprobación.`,
-      "/admin.html"
-    );
-  });
+exports.onEnfermeroCreado = onDocumentCreated("enfermeros/{id}", async (event) => {
+  const data = event.data.data();
+  await notificarAdmins(
+    "Nuevo enfermero registrado",
+    `${data.nombre || "Un enfermero"} se registró y está pendiente de aprobación.`,
+    "/admin.html"
+  );
+});
 
-exports.onPedidoCreado = functions.firestore
-  .document("pedidos/{id}")
-  .onCreate(async (snap) => {
-    const data = snap.data();
-    await notificarAdmins(
-      "Nuevo pedido",
-      `${data.pacienteNombre || "Un paciente"} pidió ${data.tipoServicio || "un servicio"}.`,
-      "/admin.html"
-    );
-  });
+exports.onPedidoCreado = onDocumentCreated("pedidos/{id}", async (event) => {
+  const data = event.data.data();
+  await notificarAdmins(
+    "Nuevo pedido",
+    `${data.pacienteNombre || "Un paciente"} pidió ${data.tipoServicio || "un servicio"}.`,
+    "/admin.html"
+  );
+});
