@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>CuidaHoy (demo) — Enfermeros a domicilio</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="demo-banner"><strong>MODO DEMO</strong> — versión de prueba de AppsArt, no usar con datos reales.</div>
+
+  <div class="page">
+    <header class="header">
+      <div class="brand">
+        <div class="brand-icon">♥</div>
+        <div class="brand-name">CuidaHoy <span class="muted" style="font-weight:500;">(nombre provisorio)</span></div>
+      </div>
+    </header>
+
+    <main class="container">
+      <section style="text-align:center; padding:24px 0 32px;">
+        <h1 style="font-size:26px; line-height:1.3; margin-bottom:10px;">
+          Enfermeros matriculados, <span style="color:var(--teal);">a domicilio</span>
+        </h1>
+        <p class="muted" style="font-size:15px; line-height:1.5;">
+          Curaciones, inyecciones, control de signos vitales y cuidado post-operatorio,
+          con enfermeros verificados en tu zona.
+        </p>
+      </section>
+
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <a href="paciente.html?vista=registro" class="btn-primary">Pedir un enfermero</a>
+        <a href="enfermero.html?vista=registro" class="btn-ghost">Sumarme como enfermero</a>
+      </div>
+
+      <div style="text-align:center; margin-top:18px; font-size:15px;">
+        ¿Ya tenés cuenta?
+        <a href="paciente.html?vista=login" style="color:var(--teal-dark); font-weight:700; text-decoration:underline;">Iniciar sesión como paciente</a>
+        ·
+        <a href="enfermero.html?vista=login" style="color:var(--teal-dark); font-weight:700; text-decoration:underline;">como enfermero</a>
+      </div>
+
+      <section style="margin-top:40px; display:flex; flex-direction:column; gap:14px;">
+        <div class="card" style="display:flex; gap:14px; align-items:flex-start;">
+          <div style="font-size:20px;">🛡️</div>
+          <div>
+            <div style="font-weight:600; margin-bottom:4px;">Matrícula verificada</div>
+            <div class="muted">Todos los enfermeros pasan por una revisión manual antes de quedar activos.</div>
+          </div>
+        </div>
+        <div class="card" style="display:flex; gap:14px; align-items:flex-start;">
+          <div style="font-size:20px;">📍</div>
+          <div>
+            <div style="font-weight:600; margin-bottom:4px;">Por zona y horario</div>
+            <div class="muted">Elegís tu zona y el horario que necesitás, sin vueltas.</div>
+          </div>
+        </div>
+        <div class="card" style="display:flex; gap:14px; align-items:flex-start;">
+          <div style="font-size:20px;">⚕️</div>
+          <div>
+            <div style="font-weight:600; margin-bottom:4px;">Cuidado profesional</div>
+            <div class="muted">Curaciones, inyecciones, control post-operatorio y más.</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer style="text-align:center; padding:18px; font-size:12.5px;" class="muted">
+      <a href="admin.html" style="color:var(--teal-dark); font-weight:600;">Acceso administrador</a>
+    </footer>
+
+    <div class="by-appsart">by AppsArt</div>
+  </div>
+</body>
+</html>

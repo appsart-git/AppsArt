@@ -1,0 +1,11 @@
+{
+  "name": "cuidahoy-functions",
+  "description": "Avisos push a los admins cuando se registra un enfermero o llega un pedido nuevo",
+  "engines": { "node": "20" },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-admin": "^12.1.0",
+    "firebase-functions": "^5.0.0"
+  },
+  "private": true
+}

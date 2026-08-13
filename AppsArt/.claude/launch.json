@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "app-enfermeros",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "app-enfermeros", "run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "enfermeros-demo",
+      "url": "http://localhost:8899"
+    }
+  ]
+}
