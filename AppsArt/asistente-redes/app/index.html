@@ -425,13 +425,38 @@ function useLocalMode(){
   backendMode = 'local';
   startApp();
 }
+/* Firebase muestra el snippet completo (import, comentarios, initializeApp(...)),
+   no solo el objeto — así que hay que aislar el literal {...} de firebaseConfig
+   contando llaves, en vez de asumir que todo el texto pegado ya es JSON. */
+function extraerObjetoFirebaseConfig(raw){
+  const marcador = raw.indexOf('firebaseConfig');
+  const desde = marcador >= 0 ? raw.slice(marcador) : raw;
+  const inicio = desde.indexOf('{');
+  if(inicio === -1) throw new Error('no se encontró el objeto firebaseConfig');
+  let profundidad = 0, fin = -1;
+  for(let i = inicio; i < desde.length; i++){
+    if(desde[i] === '{') profundidad++;
+    else if(desde[i] === '}'){
+      profundidad--;
+      if(profundidad === 0){ fin = i; break; }
+    }
+  }
+  if(fin === -1) throw new Error('el objeto firebaseConfig quedó sin cerrar');
+  return desde.slice(inicio, fin + 1);
+}
 function saveFirebaseConfigAction(){
   const raw = document.getElementById('fbConfigInput').value.trim();
   const errEl = document.getElementById('fbConfigError');
   errEl.style.display = 'none';
   let cfg;
   try{
-    const jsonish = raw.replace(/(\w+)\s*:/g, '"$1":').replace(/'/g, '"');
+    const objeto = extraerObjetoFirebaseConfig(raw);
+    // Solo convierte a comillas las claves que siguen a "{" o "," — así no confunde
+    // los ":" que puede tener un valor (ej. el appId trae "1:83...:web:...").
+    const jsonish = objeto
+      .replace(/([{,]\s*)([A-Za-z0-9_$]+)\s*:/g, '$1"$2":')
+      .replace(/'/g, '"')
+      .replace(/,\s*}/g, '}');
     cfg = JSON.parse(jsonish);
   }catch(e){
     errEl.textContent = 'No pude leer ese texto. Pegá el objeto firebaseConfig completo, tal cual lo muestra Firebase.';
