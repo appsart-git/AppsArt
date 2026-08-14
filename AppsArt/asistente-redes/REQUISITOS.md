@@ -59,15 +59,15 @@ Uso inicial: personal, para las 4 cuentas propias. **Intención explícita: prod
 Código base ya escrito y el dashboard probado en modo local (sin Firebase):
 - `app/` — dashboard estático (Revisión, Cuentas, Historial, Configuración), probado end-to-end en modo local con datos de prueba. Incluye `seed-cuentas.json` con los 4 perfiles de arriba, importable desde la pantalla Cuentas.
 - `generador/` — pipeline Node (Claude → gpt-image-1 → Runway+ElevenLabs+ffmpeg solo para Tecno Art → sube a Firebase Storage/Firestore → ntfy). No se pudo probar en ejecución real porque no hay Node instalable en esta PC — se prueba recién dentro de GitHub Actions (ver checklist abajo).
-- `.github-workflow/asistente-redes-generar.yml` — fuente versionada del workflow. **Falta copiarlo a mano** a `.github/workflows/asistente-redes-generar.yml` en la raíz real del repo de GitHub (no existe ese path dentro de esta carpeta local — ver nota en el plan).
+- `.github-workflow/asistente-redes-generar.yml` — fuente versionada del workflow. **Ya copiado** a `.github/workflows/asistente-redes-generar.yml` en la raíz real del repo de GitHub (2026-08-14).
 - `firebase.json` — config de Hosting (sirve `app/` como sitio estático), sin `.firebaserc` a propósito: el project id se pasa por secret (`FIREBASE_PROJECT_ID`) para que la misma config sirva para un futuro cliente sin editar archivos.
 
 ## Checklist para dejarlo andando de punta a punta
 
-1. Crear un proyecto en console.firebase.google.com con Firestore + Storage + Hosting habilitados.
+1. Crear un proyecto en console.firebase.google.com con Firestore + Storage + Hosting habilitados. **(en progreso — parcial)**
 2. Pegar su `firebaseConfig` en la pantalla de Configuración del dashboard (`app/index.html`, primera vez que se abre).
 3. Cargar las 4 cuentas iniciales desde la pantalla Cuentas → "Importar las 4 iniciales" (lee `seed-cuentas.json`).
-4. Copiar `.github-workflow/asistente-redes-generar.yml` a `.github/workflows/` en la raíz real del repo de GitHub.
+4. ~~Copiar `.github-workflow/asistente-redes-generar.yml` a `.github/workflows/` en la raíz real del repo de GitHub.~~ **Hecho (2026-08-14).**
 5. Cargar estos secrets en el repo (Settings → Secrets and variables → Actions):
    `FIREBASE_SERVICE_ACCOUNT`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_PROJECT_ID`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `RUNWAY_API_KEY`, `ELEVENLABS_API_KEY`, `NTFY_TOPIC`.
 6. Instalar la app **ntfy** en el celular y suscribirse al topic elegido (el mismo valor que `NTFY_TOPIC`).
