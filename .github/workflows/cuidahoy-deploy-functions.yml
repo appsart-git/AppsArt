@@ -31,4 +31,4 @@ jobs:
       - name: Deploy de las Cloud Functions
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/cuidahoy-service-account.json
-        run: npx firebase-tools deploy --only functions --project cuidahoy-6442d --non-interactive
+        run: npx firebase-tools deploy --only functions --project cuidahoy-6442d --non-interactive --force
