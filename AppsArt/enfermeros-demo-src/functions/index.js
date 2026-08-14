@@ -1,12 +1,12 @@
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
 
-async function notificarAdmins(title, body, url) {
-  const tokensSnap = await admin.firestore().collection("adminTokens").get();
-  if (tokensSnap.empty) return;
-  const tokens = tokensSnap.docs.map((d) => d.id);
+// tokensCollection: "adminTokens" (todos los admins) o "enfermeroTokens" (filtrado por uid)
+async function notificarTokens(tokensCollection, tokenDocs, title, body, url) {
+  if (tokenDocs.empty) return;
+  const tokens = tokenDocs.docs.map((d) => d.id);
 
   const response = await admin.messaging().sendEachForMulticast({
     notification: { title, body },
@@ -22,7 +22,21 @@ async function notificarAdmins(title, body, url) {
       invalidos.push(tokens[i]);
     }
   });
-  await Promise.all(invalidos.map((t) => admin.firestore().collection("adminTokens").doc(t).delete()));
+  await Promise.all(invalidos.map((t) => admin.firestore().collection(tokensCollection).doc(t).delete()));
+}
+
+async function notificarAdmins(title, body, url) {
+  const tokensSnap = await admin.firestore().collection("adminTokens").get();
+  await notificarTokens("adminTokens", tokensSnap, title, body, url);
+}
+
+async function notificarEnfermero(enfermeroId, title, body, url) {
+  const tokensSnap = await admin
+    .firestore()
+    .collection("enfermeroTokens")
+    .where("uid", "==", enfermeroId)
+    .get();
+  await notificarTokens("enfermeroTokens", tokensSnap, title, body, url);
 }
 
 exports.onEnfermeroCreado = onDocumentCreated("enfermeros/{id}", async (event) => {
@@ -40,5 +54,20 @@ exports.onPedidoCreado = onDocumentCreated("pedidos/{id}", async (event) => {
     "Nuevo pedido",
     `${data.pacienteNombre || "Un paciente"} pidió ${data.tipoServicio || "un servicio"}.`,
     "/admin.html"
+  );
+});
+
+exports.onPedidoAsignado = onDocumentUpdated("pedidos/{id}", async (event) => {
+  const antes = event.data.before.data();
+  const despues = event.data.after.data();
+  // Solo avisar cuando enfermeroId pasa de vacío/otro valor a uno nuevo — no en cada
+  // edición del pedido (cambiar el estado o el pago no debe volver a disparar el aviso).
+  if (!despues.enfermeroId || despues.enfermeroId === antes.enfermeroId) return;
+
+  await notificarEnfermero(
+    despues.enfermeroId,
+    "Te asignaron un pedido",
+    `${despues.tipoServicio || "Servicio"} — ${despues.zona || ""} · ${despues.fecha || ""} ${despues.horario || ""}`.trim(),
+    "/enfermero.html"
   );
 });

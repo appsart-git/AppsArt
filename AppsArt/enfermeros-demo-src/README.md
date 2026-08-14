@@ -154,13 +154,16 @@ permisos, la solución rápida para la etapa de demo es dejar `allow read: if re
 != null;` (cualquier usuario logueado puede ver cualquier matrícula) y endurecerlo antes
 de manejar datos reales.
 
-## Avisos push para admins (enfermero/pedido nuevo)
+## Avisos push (enfermero/pedido nuevo para admins; pedido asignado para el enfermero)
 
 Cuando se crea un enfermero o un pedido, una Cloud Function le manda un push a todos los
-admins que hayan activado los avisos — llega aunque el celular esté bloqueado o el sitio
-no esté abierto. Es la primera pieza de este proyecto que corre en un servidor (Cloud
-Functions) en vez de ser solo archivos estáticos, así que el setup tiene más pasos que el
-resto:
+admins que hayan activado los avisos. Cuando un pedido pasa de "sin asignar" a asignado a
+un enfermero puntual, esa misma Cloud Function le manda el push solo a **ese** enfermero
+(token guardado en `enfermeroTokens/{token}`, filtrado por `uid` — a diferencia de
+`adminTokens`, que le llega a todos los admins por igual). Llega aunque el celular esté
+bloqueado o el sitio no esté abierto. Es la primera pieza de este proyecto que corre en un
+servidor (Cloud Functions) en vez de ser solo archivos estáticos, así que el setup tiene
+más pasos que el resto:
 
 1. **Generar la clave VAPID** (pública, no es secreta): Firebase Console → ícono de
    tuerca → "Configuración del proyecto" → pestaña "Cloud Messaging" → sección
@@ -183,13 +186,14 @@ resto:
    "CuidaHoy — Deploy Cloud Functions" → "Run workflow" (el primer despliegue de Cloud
    Functions puede tardar unos minutos y a veces pide habilitar alguna API de Google Cloud
    la primera vez — si falla, el log del workflow dice cuál).
-6. **En el panel admin**: entrar a `admin.html`, aparece un botón "🔔 Activar avisos de
-   enfermero/pedido nuevo" — tocarlo y aceptar el permiso del navegador. En iPhone, para
-   que funcione con la app cerrada hace falta haber agregado el sitio a la pantalla de
-   inicio primero (y tener iOS 16.4 o más nuevo).
+6. **En el panel admin y en el panel del enfermero** (una vez aprobado): aparece un botón
+   "🔔 Activar avisos" — tocarlo y aceptar el permiso del navegador. En iPhone, para que
+   funcione con la app cerrada hace falta haber agregado el sitio a la pantalla de inicio
+   primero (y tener iOS 16.4 o más nuevo).
 
-Los tokens de dispositivo quedan guardados en la colección `adminTokens` de Firestore
-(ya cubierta por las reglas simples de la sección anterior).
+Los tokens de dispositivo quedan guardados en las colecciones `adminTokens` /
+`enfermeroTokens` de Firestore (ya cubiertas por las reglas simples de la sección
+anterior).
 
 ## Lo que falta para el MVP completo (no incluido en este demo)
 
@@ -203,11 +207,10 @@ Los tokens de dispositivo quedan guardados en la colección `adminTokens` de Fir
   tratamiento de datos sensibles de salud (Ley 25.326).
 - **Entrada por WhatsApp / QR / dominio corto**: tal como se conversó, la app web
   necesita estos canales porque no pasa por tiendas de aplicaciones.
-- **Notificaciones al paciente/enfermero** cuando cambia el estado de un pedido — ya
-  existe el aviso push a los *admins* cuando entra un enfermero o pedido nuevo (ver
-  sección anterior), pero falta el aviso en la otra dirección (avisarle al paciente
-  cuando le asignan un enfermero, o al enfermero cuando le cancelan un turno). Se
-  resolvería sumando más triggers a la misma Cloud Function.
+- **Notificación al paciente** cuando cambia el estado de su pedido (asignado, confirmado,
+  etc.) — ya existen los avisos push a los *admins* (enfermero/pedido nuevo) y al
+  *enfermero* (cuando le asignan un pedido), pero falta avisarle al paciente. Se
+  resolvería sumando otro trigger a la misma Cloud Function, mismo patrón que el resto.
 - **Calificaciones** de paciente/enfermero al finalizar un servicio — no tiene UI todavía.
 
 ## Nombre y marca

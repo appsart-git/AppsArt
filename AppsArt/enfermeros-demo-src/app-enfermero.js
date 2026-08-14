@@ -1,3 +1,7 @@
+/* Misma clave pública VAPID que usa el panel admin (Firebase Console → Cloud
+   Messaging → "Certificados push web"). No es secreta. */
+const VAPID_KEY = "BNc-010QEq_zR6X9kRULDI6vVy1DnGp3h5jktuCKilePX-4dNrfr2cRKWRNoE2SO4Pt0CbxyHUFWr0ZeXKQD4k4";
+
 const ZONAS = ["CABA Norte", "CABA Sur", "CABA Centro", "GBA Norte", "GBA Oeste", "GBA Sur"];
 const ESTADO_LABELS = {
   pendiente: "Pendiente",
@@ -182,6 +186,7 @@ function renderDashboard(enfermero) {
           </div>
         </div>`
           : `
+        <div id="push-status" style="margin-bottom:16px;"></div>
         <div style="font-weight:600; margin-bottom:10px; font-size:14px;" class="muted">Tus turnos asignados</div>
         <div id="lista-turnos" style="display:flex; flex-direction:column; gap:10px;">
           <div class="muted">Cargando…</div>
@@ -195,6 +200,7 @@ function renderDashboard(enfermero) {
   document.getElementById("btn-logout").addEventListener("click", () => EnfApp.auth.signOut());
 
   if (enfermero.estado === "aprobado") {
+    renderPushStatus();
     const uid = EnfApp.auth.currentUser.uid;
     if (unsubTurnos) unsubTurnos();
     unsubTurnos = EnfApp.db
@@ -231,6 +237,7 @@ function renderListaTurnos(turnos) {
           ${badgeHTML(p.estado)}
         </div>
         <div class="muted" style="font-size:13.5px; margin-top:6px;">${escapeHTML(p.zona)} · ${escapeHTML(p.fecha)} · ${escapeHTML(p.horario)}</div>
+        ${p.direccion ? `<div style="font-size:13.5px; margin-top:4px; font-weight:600;">📍 ${escapeHTML(p.direccion)}</div>` : ""}
         ${p.notas ? `<div class="muted" style="font-size:13.5px; margin-top:6px;">${escapeHTML(p.notas)}</div>` : ""}
       </div>
     `
@@ -253,6 +260,63 @@ function traducirErrorAuth(err) {
   if (code.includes("weak-password")) return "La contraseña debe tener al menos 6 caracteres.";
   if (code.includes("invalid-email")) return "El email no es válido.";
   return err.message;
+}
+
+/* ===================== Avisos push ===================== */
+function renderPushStatus() {
+  const el = document.getElementById("push-status");
+  if (!el) return;
+  const soportado = "Notification" in window && "serviceWorker" in navigator;
+  if (!soportado) {
+    el.innerHTML = `<div class="muted" style="font-size:13px;">Este navegador no soporta avisos push.</div>`;
+    return;
+  }
+  if (Notification.permission === "granted") {
+    el.innerHTML = `<div class="muted" style="font-size:13px;">🔔 Avisos activados en este dispositivo.</div>`;
+    return;
+  }
+  el.innerHTML = `
+    <button class="btn-ghost" id="btn-activar-avisos" style="width:auto; padding:10px 14px; font-size:13.5px;">
+      🔔 Activar avisos de pedido asignado
+    </button>
+    <div id="push-error" class="error-text" style="display:none; margin-top:8px;"></div>
+  `;
+  document.getElementById("btn-activar-avisos").addEventListener("click", activarAvisosPush);
+}
+
+async function activarAvisosPush() {
+  const errEl = document.getElementById("push-error");
+  if (errEl) errEl.style.display = "none";
+  try {
+    const permiso = await Notification.requestPermission();
+    if (permiso !== "granted") {
+      if (errEl) {
+        errEl.textContent = "No se activaron los avisos — tenés que permitirlo en el navegador.";
+        errEl.style.display = "block";
+      }
+      return;
+    }
+    const registration = await navigator.serviceWorker.register("firebase-messaging-sw.js");
+    const messaging = firebase.messaging();
+    const token = await messaging.getToken({
+      vapidKey: VAPID_KEY,
+      serviceWorkerRegistration: registration,
+    });
+    await EnfApp.db.collection("enfermeroTokens").doc(token).set({
+      uid: EnfApp.auth.currentUser.uid,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    messaging.onMessage((payload) => {
+      const { title, body } = payload.notification || {};
+      alert((title || "CuidaHoy") + (body ? "\n" + body : ""));
+    });
+    renderPushStatus();
+  } catch (err) {
+    if (errEl) {
+      errEl.textContent = "No se pudo activar: " + err.message;
+      errEl.style.display = "block";
+    }
+  }
 }
 
 /* ===================== Init ===================== */

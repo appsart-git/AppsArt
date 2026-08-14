@@ -212,6 +212,7 @@ function renderTabPedidos(el) {
             <div style="font-weight:600;">${escapeHTML(p.tipoServicio)}</div>
             <div class="muted" style="font-size:13.5px;">${escapeHTML(p.pacienteNombre)} · ${escapeHTML(p.pacienteTelefono)}</div>
             <div class="muted" style="font-size:13.5px;">${escapeHTML(p.zona)} · ${escapeHTML(p.fecha)} · ${escapeHTML(p.horario)}</div>
+            ${p.direccion ? `<div style="font-size:13.5px; margin-top:2px;">📍 ${escapeHTML(p.direccion)}</div>` : ""}
           </div>
           ${badgeHTML(p.estado)}
         </div>

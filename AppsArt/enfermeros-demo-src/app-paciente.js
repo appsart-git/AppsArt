@@ -199,6 +199,7 @@ function renderListaPedidos(pedidos) {
           ${badgeHTML(p.estado)}
         </div>
         <div class="muted" style="font-size:13.5px; margin-top:6px;">${escapeHTML(p.zona)} · ${escapeHTML(p.fecha)} · ${escapeHTML(p.horario)}</div>
+        ${p.direccion ? `<div class="muted" style="font-size:13.5px; margin-top:4px;">📍 ${escapeHTML(p.direccion)}</div>` : ""}
       </div>
     `
     )
@@ -215,6 +216,7 @@ function renderFormPedido(paciente) {
       <div class="field"><label>Zona</label>
         <select id="pe-zona">${ZONAS.map((z) => `<option value="${z}" ${z === paciente.zona ? "selected" : ""}>${z}</option>`).join("")}</select>
       </div>
+      <div class="field"><label>Dirección (calle, altura, piso/depto)</label><input id="pe-direccion" placeholder="Ej: Av. Rivadavia 1234, 3° B" required /></div>
       <div class="field"><label>Fecha</label><input type="date" id="pe-fecha" required /></div>
       <div class="field"><label>Horario</label><input id="pe-horario" placeholder="Ej: 14:00 a 16:00" required /></div>
       <div class="field"><label>Notas (opcional)</label><textarea id="pe-notas" rows="3"></textarea></div>
@@ -244,6 +246,7 @@ function renderFormPedido(paciente) {
         enfermeroId: null,
         tipoServicio: document.getElementById("pe-tipo").value,
         zona: document.getElementById("pe-zona").value,
+        direccion: document.getElementById("pe-direccion").value,
         fecha: document.getElementById("pe-fecha").value,
         horario: document.getElementById("pe-horario").value,
         notas: document.getElementById("pe-notas").value,
