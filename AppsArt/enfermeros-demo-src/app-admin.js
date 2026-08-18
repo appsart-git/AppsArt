@@ -1,35 +1,3 @@
-/* Clave pública VAPID (Firebase Console → Configuración del proyecto → Cloud
-   Messaging → "Certificados push web" → generar par de claves). No es secreta,
-   pero hasta pegarla acá los avisos push no van a poder activarse. */
-const VAPID_KEY = "BNc-010QEq_zR6X9kRULDI6vVy1DnGp3h5jktuCKilePX-4dNrfr2cRKWRNoE2SO4Pt0CbxyHUFWr0ZeXKQD4k4";
-
-const ESTADOS_PEDIDO = ["pendiente", "asignado", "confirmado", "en_curso", "completado", "cancelado"];
-const ESTADO_LABELS = {
-  pendiente: "Pendiente",
-  aprobado: "Aprobado",
-  rechazado: "Rechazado",
-  asignado: "Asignado",
-  confirmado: "Confirmado",
-  en_curso: "En curso",
-  completado: "Completado",
-  cancelado: "Cancelado",
-};
-
-function badgeHTML(estado) {
-  return `<span class="badge badge-${estado}">${ESTADO_LABELS[estado] || estado}</span>`;
-}
-function escapeHTML(str) {
-  const div = document.createElement("div");
-  div.textContent = str == null ? "" : String(str);
-  return div.innerHTML;
-}
-function traducirErrorAuth(err) {
-  const code = err.code || "";
-  if (code.includes("invalid-credential") || code.includes("wrong-password") || code.includes("user-not-found"))
-    return "Email o contraseña incorrectos.";
-  return err.message;
-}
-
 const content = document.getElementById("content");
 let unsubEnfermeros = null;
 let unsubPedidos = null;
@@ -115,7 +83,7 @@ function renderDashboard() {
     </div>
   `;
   document.getElementById("btn-logout").addEventListener("click", () => EnfApp.auth.signOut());
-  renderPushStatus();
+  renderPushStatus("adminTokens", "Activar avisos de enfermero/pedido nuevo");
   document.getElementById("tab-enfermeros").addEventListener("click", () => {
     tabActual = "enfermeros";
     renderDashboard();
@@ -281,63 +249,6 @@ function limpiarSuscripciones() {
   if (unsubPedidos) {
     unsubPedidos();
     unsubPedidos = null;
-  }
-}
-
-/* ===================== Avisos push ===================== */
-function renderPushStatus() {
-  const el = document.getElementById("push-status");
-  if (!el) return;
-  const soportado = "Notification" in window && "serviceWorker" in navigator;
-  if (!soportado) {
-    el.innerHTML = `<div class="muted" style="font-size:13px;">Este navegador no soporta avisos push.</div>`;
-    return;
-  }
-  if (Notification.permission === "granted") {
-    el.innerHTML = `<div class="muted" style="font-size:13px;">🔔 Avisos activados en este dispositivo.</div>`;
-    return;
-  }
-  el.innerHTML = `
-    <button class="btn-ghost" id="btn-activar-avisos" style="width:auto; padding:10px 14px; font-size:13.5px;">
-      🔔 Activar avisos de enfermero/pedido nuevo
-    </button>
-    <div id="push-error" class="error-text" style="display:none; margin-top:8px;"></div>
-  `;
-  document.getElementById("btn-activar-avisos").addEventListener("click", activarAvisosPush);
-}
-
-async function activarAvisosPush() {
-  const errEl = document.getElementById("push-error");
-  if (errEl) errEl.style.display = "none";
-  try {
-    const permiso = await Notification.requestPermission();
-    if (permiso !== "granted") {
-      if (errEl) {
-        errEl.textContent = "No se activaron los avisos — tenés que permitirlo en el navegador.";
-        errEl.style.display = "block";
-      }
-      return;
-    }
-    const registration = await navigator.serviceWorker.register("firebase-messaging-sw.js");
-    const messaging = firebase.messaging();
-    const token = await messaging.getToken({
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: registration,
-    });
-    await EnfApp.db.collection("adminTokens").doc(token).set({
-      uid: EnfApp.auth.currentUser.uid,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    });
-    messaging.onMessage((payload) => {
-      const { title, body } = payload.notification || {};
-      alert((title || "CuidaHoy") + (body ? "\n" + body : ""));
-    });
-    renderPushStatus();
-  } catch (err) {
-    if (errEl) {
-      errEl.textContent = "No se pudo activar: " + err.message;
-      errEl.style.display = "block";
-    }
   }
 }
 

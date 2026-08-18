@@ -1,20 +1,3 @@
-const ZONAS = ["CABA Norte", "CABA Sur", "CABA Centro", "GBA Norte", "GBA Oeste", "GBA Sur"];
-const TIPOS_SERVICIO = ["Curación", "Inyección / medicación", "Control de signos vitales", "Cuidado post-operatorio", "Otro"];
-const ESTADO_LABELS = {
-  pendiente: "Pendiente",
-  aprobado: "Aprobado",
-  rechazado: "Rechazado",
-  asignado: "Asignado",
-  confirmado: "Confirmado",
-  en_curso: "En curso",
-  completado: "Completado",
-  cancelado: "Cancelado",
-};
-
-function badgeHTML(estado) {
-  return `<span class="badge badge-${estado}">${ESTADO_LABELS[estado] || estado}</span>`;
-}
-
 const content = document.getElementById("content");
 let unsubPedidos = null;
 let registrando = false;
@@ -263,23 +246,6 @@ function renderFormPedido(paciente) {
       btn.textContent = "Confirmar pedido";
     }
   });
-}
-
-/* ===================== Helpers ===================== */
-function escapeHTML(str) {
-  const div = document.createElement("div");
-  div.textContent = str == null ? "" : String(str);
-  return div.innerHTML;
-}
-
-function traducirErrorAuth(err) {
-  const code = err.code || "";
-  if (code.includes("email-already-in-use")) return "Ese email ya tiene una cuenta creada.";
-  if (code.includes("invalid-credential") || code.includes("wrong-password") || code.includes("user-not-found"))
-    return "Email o contraseña incorrectos.";
-  if (code.includes("weak-password")) return "La contraseña debe tener al menos 6 caracteres.";
-  if (code.includes("invalid-email")) return "El email no es válido.";
-  return err.message;
 }
 
 /* ===================== Init ===================== */
