@@ -129,7 +129,7 @@ function traducirErrorAuth(err) {
   if (code.includes("email-already-in-use")) return "Ese email ya tiene una cuenta creada.";
   if (code.includes("invalid-credential") || code.includes("wrong-password") || code.includes("user-not-found"))
     return "Email o contraseña incorrectos.";
-  if (code.includes("weak-password")) return "La contraseña debe tener al menos 6 caracteres.";
+  if (code.includes("weak-password")) return "La contraseña debe tener al menos 8 caracteres, con letra y número.";
   if (code.includes("invalid-email")) return "El email no es válido.";
   return err.message;
 }

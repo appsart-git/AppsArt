@@ -12,18 +12,10 @@ function estadoCuentaInnerHtml(cliente){
     .filter(v => !v.anulada && v.clienteId===cliente.id && v.formaPago!=='contado')
     .sort((a,b)=>a.createdAt-b.createdAt);
   const pagos = state.pagos
-    .filter(p => p.tipo==='cliente' && p.entidadId===cliente.id && !p.anulada)
+    .filter(p => p.tipo==='cliente' && p.entidadId===cliente.id)
     .sort((a,b)=>a.createdAt-b.createdAt);
-  const ventasRows = ventasCuenta.map(v => {
-    const descPct = v.subtotal>0 ? (Number(v.descuentoTotal)||0)/v.subtotal*100 : 0;
-    return `<tr>
-      <td>${String(v.numero).padStart(5,'0')}</td>
-      <td>${esc(v.fecha)}</td>
-      <td class="num">${money(v.subtotal)}</td>
-      <td class="num">${descPct?descPct.toFixed(1)+'%':'—'}</td>
-      <td class="num">${money(v.total)}</td>
-    </tr>`;
-  }).join('');
+  const ventasRows = ventasCuenta.map(v => `
+    <tr><td>N° ${String(v.numero).padStart(5,'0')} — ${esc(v.fecha)}</td><td class="num">${money(v.total)}</td></tr>`).join('');
   const pagosRows = pagos.map(p => `
     <tr><td>${new Date(p.createdAt).toLocaleDateString('es-AR')}${p.nota?' — '+esc(p.nota):''}</td><td class="num">${money(p.monto)}</td></tr>`).join('');
   const n = state.negocio;
@@ -41,16 +33,14 @@ function estadoCuentaInnerHtml(cliente){
       <div class="cp-totals" style="margin-top:0;">
         <div class="r total"><span>Saldo actual</span><span>${money(cliente.saldo)}</span></div>
       </div>
-      <h3 style="font-size:12px; margin:16px 0 6px; text-transform:uppercase; color:#888;">Ventas a cuenta corriente</h3>
-      <table class="cp-table">
-        <thead><tr><th>N°</th><th>Fecha</th><th class="num">Subtotal</th><th class="num">Desc.</th><th class="num">Total</th></tr></thead>
-        <tbody>${ventasRows || `<tr><td colspan="5" style="text-align:center;color:#888;padding:10px 0;">Sin ventas a cuenta corriente.</td></tr>`}</tbody>
+      <table class="cp-table" style="margin-top:16px;">
+        <thead><tr><th>Ventas a cuenta corriente</th><th class="num">Total</th></tr></thead>
+        <tbody>${ventasRows || `<tr><td colspan="2" style="text-align:center;color:#888;padding:10px 0;">Sin ventas a cuenta corriente.</td></tr>`}</tbody>
       </table>
       ${pagosRows ? `<table class="cp-table" style="margin-top:14px;">
         <thead><tr><th>Pagos registrados</th><th class="num">Monto</th></tr></thead>
         <tbody>${pagosRows}</tbody>
       </table>` : ''}
-      <p style="text-align:center; font-size:10px; color:#999; margin:16px 0 0;">Documento no válido como factura.</p>
     </div>
     <div class="cp-foot">by <img src="./appsart-brand.png" alt="AppsArt"></div>`;
 }

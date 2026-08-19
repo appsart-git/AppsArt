@@ -96,35 +96,22 @@ function entidadDetailHtml(tipo, id){
       <tbody>${movs.length ? movs.map(m=>`<tr${m.anulada?' style="opacity:.55;"':''}><td>${fmtDate(m.createdAt)}</td><td>${money(m.total)}</td><td class="muted">${esc(m.formaPago)}</td><td>${money(m.saldoPendiente)}</td><td>${estadoMovPill(m)}</td></tr>`).join('') : `<tr><td colspan="5" class="empty">Sin movimientos</td></tr>`}</tbody></table>
     </div>
     <h3 style="font-size:14px; margin-top:16px;">Pagos registrados</h3>
-    <div class="table-wrap" style="max-height:220px; overflow-y:auto;">
-      <table><thead><tr><th>Fecha</th><th>Monto</th><th>Nota</th><th>Estado</th><th></th></tr></thead>
-      <tbody>${pagos.length ? pagos.map(p=>`
-        <tr${p.anulada?' style="opacity:.55;"':''}>
-          <td>${fmtDate(p.createdAt)}</td>
-          <td>${money(p.monto)}</td>
-          <td class="muted">${esc(p.nota||'')}</td>
-          <td>${estadoMovPill(p)}</td>
-          <td style="text-align:right; white-space:nowrap;">
-            ${!p.anulada ? `<button class="btn btn-sm" data-action="editarPago" data-tipo="${tipo}" data-id="${id}" data-pagoid="${p.id}">Editar</button>
-            <button class="btn btn-sm btn-danger" data-action="anularPago" data-tipo="${tipo}" data-id="${id}" data-pagoid="${p.id}">Anular</button>` : ''}
-          </td>
-        </tr>`).join('') : `<tr><td colspan="5" class="empty">Sin pagos</td></tr>`}</tbody></table>
+    <div class="table-wrap" style="max-height:180px; overflow-y:auto;">
+      <table><thead><tr><th>Fecha</th><th>Monto</th><th>Nota</th></tr></thead>
+      <tbody>${pagos.length ? pagos.map(p=>`<tr><td>${fmtDate(p.createdAt)}</td><td>${money(p.monto)}</td><td class="muted">${esc(p.nota||'')}</td></tr>`).join('') : `<tr><td colspan="3" class="empty">Sin pagos</td></tr>`}</tbody></table>
     </div>`;
 }
 
-function pagoFormHtml(tipo, id, pagoEditar){
+function pagoFormHtml(tipo, id){
   const e = state[tipo].find(x=>x.id===id);
-  const editando = !!pagoEditar;
   return `
-    <div class="modal-head"><h2>${editando?'Editar pago':'Registrar pago'} — ${esc(e.nombre)}</h2><button class="modal-close" data-action="closeModal">&times;</button></div>
+    <div class="modal-head"><h2>Registrar pago — ${esc(e.nombre)}</h2><button class="modal-close" data-action="closeModal">&times;</button></div>
     <p class="muted" style="font-size:13px;">Saldo actual: <b>${money(e.saldo)}</b></p>
-    <div class="field"><label>Monto</label><input id="pg_monto" type="number" step="0.01" value="${editando?pagoEditar.monto:Math.max(0,e.saldo||0)}"></div>
-    <div class="field"><label>Nota (opcional)</label><input id="pg_nota" placeholder="Ej: transferencia, efectivo…" value="${editando?esc(pagoEditar.nota||''):''}"></div>
+    <div class="field"><label>Monto</label><input id="pg_monto" type="number" step="0.01" value="${Math.max(0,e.saldo||0)}"></div>
+    <div class="field"><label>Nota (opcional)</label><input id="pg_nota" placeholder="Ej: transferencia, efectivo…"></div>
     <div class="modal-actions">
       <button class="btn" data-action="closeModal">Cancelar</button>
-      ${editando
-        ? `<button class="btn btn-primary" data-action="guardarEdicionPago" data-tipo="${tipo}" data-id="${id}" data-pagoid="${pagoEditar.id}">Guardar cambios</button>`
-        : `<button class="btn btn-primary" data-action="confirmarPago" data-tipo="${tipo}" data-id="${id}">Confirmar pago</button>`}
+      <button class="btn btn-primary" data-action="confirmarPago" data-tipo="${tipo}" data-id="${id}">Confirmar pago</button>
     </div>`;
 }
 
@@ -163,48 +150,10 @@ Object.assign(actions, {
     closeModal(); markSaving();
     const b = newBatch();
     const pagoId = collectionRef('pagos').newId();
-    b.set('pagos', pagoId, {tipo:cfg.pagoTipo, entidadId:id, monto, nota, anulada:false, createdAt:Date.now()});
+    b.set('pagos', pagoId, {tipo:cfg.pagoTipo, entidadId:id, monto, nota, createdAt:Date.now()});
     b.update(tipo, id, {saldo: (Number(e.saldo)||0) - monto});
     b.commit().then(doneSaving).catch(saveError);
     toast('Pago registrado.');
-  },
-  editarPago(el){
-    const pago = state.pagos.find(p=>p.id===el.dataset.pagoid);
-    if(!pago) return;
-    openModal(pagoFormHtml(el.dataset.tipo, el.dataset.id, pago));
-  },
-  guardarEdicionPago(el){
-    const tipo = el.dataset.tipo, id = el.dataset.id, pagoId = el.dataset.pagoid;
-    const nuevoMonto = Number(document.getElementById('pg_monto').value)||0;
-    const nota = document.getElementById('pg_nota').value.trim();
-    if(nuevoMonto<=0){ toast('El monto tiene que ser mayor a cero.'); return; }
-    const pago = state.pagos.find(p=>p.id===pagoId);
-    const e = state[tipo].find(x=>x.id===id);
-    if(!pago || !e) return;
-    // El pago restó "monto" del saldo al registrarse; si el monto cambia, hay que ajustar
-    // el saldo por la diferencia (delta) para que quede exactamente como si siempre hubiera
-    // sido el monto nuevo.
-    const delta = nuevoMonto - Number(pago.monto);
-    closeModal(); markSaving();
-    const b = newBatch();
-    b.update('pagos', pagoId, {monto:nuevoMonto, nota, editadoAt:Date.now()});
-    b.update(tipo, id, {saldo:(Number(e.saldo)||0) - delta});
-    b.commit().then(doneSaving).catch(saveError);
-    toast('Pago actualizado.');
-  },
-  anularPago(el){
-    const tipo = el.dataset.tipo, id = el.dataset.id, pagoId = el.dataset.pagoid;
-    confirmDialog('¿Anular este pago? El monto vuelve a sumarse al saldo pendiente.', () => {
-      const pago = state.pagos.find(p=>p.id===pagoId);
-      const e = state[tipo].find(x=>x.id===id);
-      if(!pago || !e) return;
-      markSaving();
-      const b = newBatch();
-      b.update('pagos', pagoId, {anulada:true, anuladaAt:Date.now()});
-      b.update(tipo, id, {saldo:(Number(e.saldo)||0) + Number(pago.monto)});
-      b.commit().then(doneSaving).catch(saveError);
-      toast('Pago anulado.');
-    });
   }
 });
 
