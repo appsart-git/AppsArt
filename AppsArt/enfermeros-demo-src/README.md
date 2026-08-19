@@ -140,18 +140,25 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // "allow write" evalúa request.resource incluso para delete (donde no existe),
+    // así que un borrado siempre daba error/denegado — separado en create/update
+    // (mira request.resource, el doc entrante) vs delete (mira resource, el doc
+    // que ya existía). No afecta el guardado del token en sí, que siempre funcionó.
     match /adminTokens/{token} {
-      allow write: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow create, update: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
       allow read: if false;
     }
 
     match /enfermeroTokens/{token} {
-      allow write: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow create, update: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
       allow read: if false;
     }
 
     match /pacienteTokens/{token} {
-      allow write: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow create, update: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
       allow read: if false;
     }
   }
