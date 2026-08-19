@@ -6,7 +6,7 @@ $zipPath = Join-Path $src "cuidahoy-deploy.zip"
 
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 
-$exclude = @("_serve.ps1", "README.md", "firebase.json", ".firebaserc", "build-zip.ps1", "cuidahoy-deploy.zip")
+$exclude = @("_serve.ps1", "README.md", "firebase.json", ".firebaserc", "build-zip.ps1", "cuidahoy-deploy.zip", "functions", ".github-workflow")
 
 $zip = [System.IO.Compression.ZipFile]::Open($zipPath, [System.IO.Compression.ZipArchiveMode]::Create)
 try {
