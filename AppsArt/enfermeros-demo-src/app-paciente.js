@@ -137,6 +137,7 @@ function renderDashboard(paciente) {
       </div>
 
       <div id="verificacion-email"></div>
+      <div id="push-status" style="margin-bottom:16px;"></div>
 
       <button class="btn-primary" id="btn-nuevo-pedido" style="margin-bottom:20px;">+ Pedir un enfermero</button>
 
@@ -153,6 +154,7 @@ function renderDashboard(paciente) {
 
   document.getElementById("btn-logout").addEventListener("click", () => EnfApp.auth.signOut());
   renderVerificacionEmail(EnfApp.auth);
+  renderPushStatus("pacienteTokens", "Activar avisos de pedido asignado");
   document.getElementById("btn-nuevo-pedido").addEventListener("click", () => {
     document.getElementById("btn-nuevo-pedido").style.display = "none";
     renderFormPedido(paciente);
@@ -183,6 +185,7 @@ function renderListaPedidos(pedidos) {
     el.innerHTML = `<div class="muted">Todavía no hiciste ningún pedido.</div>`;
     return;
   }
+  const CANCELABLE = ["pendiente", "asignado"];
   el.innerHTML = pedidos
     .map(
       (p) => `
@@ -194,10 +197,30 @@ function renderListaPedidos(pedidos) {
         <div class="muted" style="font-size:13.5px; margin-top:6px;">${escapeHTML(p.zona)} · ${escapeHTML(p.fecha)} · ${escapeHTML(p.horario)}</div>
         ${p.direccion ? `<div class="muted" style="font-size:13.5px; margin-top:4px;">📍 ${escapeHTML(p.direccion)}</div>` : ""}
         <div style="font-size:13.5px; margin-top:4px; font-weight:600;">${formatMonto(p.precio)}</div>
+        ${
+          CANCELABLE.includes(p.estado)
+            ? `<button class="btn-danger btn-cancelar-pedido" data-id="${p.id}" style="margin-top:10px;">Cancelar pedido</button>`
+            : ""
+        }
       </div>
     `
     )
     .join("");
+
+  el.querySelectorAll(".btn-cancelar-pedido").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("¿Seguro que querés cancelar este pedido?")) return;
+      btn.disabled = true;
+      btn.textContent = "Cancelando…";
+      try {
+        await EnfApp.db.collection("pedidos").doc(btn.dataset.id).update({ estado: "cancelado" });
+      } catch (err) {
+        alert("No se pudo cancelar: " + err.message);
+        btn.disabled = false;
+        btn.textContent = "Cancelar pedido";
+      }
+    });
+  });
 }
 
 function renderFormPedido(paciente) {
