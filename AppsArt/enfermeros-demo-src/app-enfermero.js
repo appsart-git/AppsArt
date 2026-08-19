@@ -155,6 +155,8 @@ function renderDashboard(enfermero) {
         </div>
         <button class="btn-icon" id="btn-logout">Salir</button>
       </div>
+      <button class="btn-ghost" id="btn-editar-perfil" style="width:auto; padding:6px 12px; font-size:12.5px; margin-bottom:20px;">✏️ Editar perfil</button>
+      <div id="form-perfil-wrap"></div>
 
       <div id="verificacion-email"></div>
 
@@ -187,6 +189,10 @@ function renderDashboard(enfermero) {
   `);
 
   document.getElementById("btn-logout").addEventListener("click", () => EnfApp.auth.signOut());
+  document.getElementById("btn-editar-perfil").addEventListener("click", () => {
+    document.getElementById("btn-editar-perfil").style.display = "none";
+    renderFormPerfil(enfermero);
+  });
   renderVerificacionEmail(EnfApp.auth);
 
   if (enfermero.estado === "aprobado") {
@@ -209,6 +215,51 @@ function renderDashboard(enfermero) {
         }
       );
   }
+}
+
+function renderFormPerfil(enfermero) {
+  const wrap = document.getElementById("form-perfil-wrap");
+  wrap.innerHTML = `
+    <form id="form-perfil" class="card" style="margin-bottom:20px;">
+      <div class="field"><label>Nombre y apellido</label><input id="pf-nombre" value="${escapeHTML(enfermero.nombre)}" required /></div>
+      <div class="field"><label>Teléfono</label><input id="pf-telefono" value="${escapeHTML(enfermero.telefono)}" required /></div>
+      <div class="field"><label>Zona</label>
+        <select id="pf-zona">${ZONAS.map((z) => `<option value="${z}" ${z === enfermero.zona ? "selected" : ""}>${z}</option>`).join("")}</select>
+      </div>
+      <p class="muted" style="font-size:12.5px;">La matrícula no se puede editar acá — si necesitás corregirla, escribinos.</p>
+      <div id="pf-error" class="error-text" style="display:none;"></div>
+      <div style="display:flex; gap:10px;">
+        <button type="button" class="btn-ghost" id="pf-cancelar" style="flex:1;">Cancelar</button>
+        <button type="submit" class="btn-primary" id="pf-submit" style="flex:1;">Guardar cambios</button>
+      </div>
+    </form>
+  `;
+  document.getElementById("pf-cancelar").addEventListener("click", () => {
+    wrap.innerHTML = "";
+    document.getElementById("btn-editar-perfil").style.display = "block";
+  });
+  document.getElementById("form-perfil").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("pf-submit");
+    const errEl = document.getElementById("pf-error");
+    errEl.style.display = "none";
+    btn.disabled = true;
+    btn.textContent = "Guardando…";
+    try {
+      await EnfApp.db.collection("enfermeros").doc(EnfApp.auth.currentUser.uid).update({
+        nombre: document.getElementById("pf-nombre").value,
+        telefono: document.getElementById("pf-telefono").value,
+        zona: document.getElementById("pf-zona").value,
+      });
+      const doc = await EnfApp.db.collection("enfermeros").doc(EnfApp.auth.currentUser.uid).get();
+      renderDashboard(doc.data());
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = "Guardar cambios";
+    }
+  });
 }
 
 function renderListaTurnos(turnos) {
