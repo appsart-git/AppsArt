@@ -28,6 +28,96 @@ function badgeHTML(estado) {
   return `<span class="badge badge-${estado}">${ESTADO_LABELS[estado] || estado}</span>`;
 }
 
+function formatMonto(n) {
+  if (n == null || isNaN(n)) return "—";
+  return "$" + Number(n).toLocaleString("es-AR");
+}
+
+/* ===================== Verificación de email (compartido por paciente y enfermero) ===================== */
+function renderVerificacionEmail(auth) {
+  const el = document.getElementById("verificacion-email");
+  const user = auth.currentUser;
+  if (!el || !user || user.emailVerified) {
+    if (el) el.innerHTML = "";
+    return;
+  }
+  el.innerHTML = `
+    <div class="card" style="display:flex; gap:12px; align-items:flex-start; margin-bottom:16px; border-color:var(--amber);">
+      <div style="font-size:18px;">✉️</div>
+      <div style="flex:1;">
+        <div style="font-weight:600; margin-bottom:4px; font-size:14px;">Confirmá tu email</div>
+        <div class="muted" style="font-size:13px; margin-bottom:8px;">Te mandamos un link a ${escapeHTML(user.email)}. Revisá también la carpeta de spam.</div>
+        <button class="btn-ghost" id="btn-reenviar-verificacion" style="width:auto; padding:8px 12px; font-size:13px;">Reenviar email</button>
+        <span id="verificacion-msg" class="muted" style="font-size:12.5px; margin-left:8px; display:none;"></span>
+      </div>
+    </div>
+  `;
+  document.getElementById("btn-reenviar-verificacion").addEventListener("click", async () => {
+    const btn = document.getElementById("btn-reenviar-verificacion");
+    const msg = document.getElementById("verificacion-msg");
+    btn.disabled = true;
+    try {
+      await user.sendEmailVerification();
+      msg.textContent = "Enviado.";
+    } catch (err) {
+      msg.textContent = "No se pudo reenviar: " + err.message;
+    }
+    msg.style.display = "inline";
+    btn.disabled = false;
+  });
+}
+
+/* ===================== Recuperar contraseña (compartido por los 3 portales) ===================== */
+function forgotPasswordHTML() {
+  return `
+    <p class="muted" style="text-align:center; margin-top:6px; font-size:13px;">
+      <a href="#" id="link-olvide" style="color:var(--teal-dark); font-weight:600;">¿Olvidaste tu contraseña?</a>
+    </p>
+    <div id="wrap-olvide" style="display:none; margin-top:10px;">
+      <div class="field"><label>Email</label><input type="email" id="olvide-email" /></div>
+      <div id="olvide-msg" class="muted" style="font-size:13px; display:none; margin-bottom:10px;"></div>
+      <button type="button" class="btn-ghost" id="olvide-enviar">Enviar link para restablecer</button>
+    </div>
+  `;
+}
+
+function wireOlvideContrasena(auth) {
+  const link = document.getElementById("link-olvide");
+  const wrap = document.getElementById("wrap-olvide");
+  if (!link || !wrap) return;
+  link.addEventListener("click", (e) => {
+    e.preventDefault();
+    wrap.style.display = wrap.style.display === "none" ? "block" : "none";
+  });
+  document.getElementById("olvide-enviar").addEventListener("click", async () => {
+    const email = document.getElementById("olvide-email").value.trim();
+    const msg = document.getElementById("olvide-msg");
+    msg.style.display = "block";
+    if (!email) {
+      msg.className = "error-text";
+      msg.textContent = "Ingresá tu email primero.";
+      return;
+    }
+    msg.className = "muted";
+    msg.textContent = "Enviando…";
+    msg.className = "muted";
+    try {
+      await auth.sendPasswordResetEmail(email);
+      msg.textContent = "Listo — revisá tu email (y la carpeta de spam) para el link.";
+    } catch (err) {
+      // Si el email no está registrado, mostramos el mismo mensaje de éxito a
+      // propósito — así no se puede usar este formulario para averiguar qué
+      // emails tienen cuenta creada.
+      if ((err.code || "").includes("user-not-found")) {
+        msg.textContent = "Listo — revisá tu email (y la carpeta de spam) para el link.";
+      } else {
+        msg.className = "error-text";
+        msg.textContent = traducirErrorAuth(err);
+      }
+    }
+  });
+}
+
 function escapeHTML(str) {
   const div = document.createElement("div");
   div.textContent = str == null ? "" : String(str);

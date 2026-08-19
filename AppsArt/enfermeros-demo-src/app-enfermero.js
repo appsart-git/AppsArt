@@ -27,6 +27,7 @@ function renderLogin() {
           <div id="li-error" class="error-text" style="display:none;"></div>
           <button type="submit" class="btn-primary" id="li-submit">Ingresar</button>
         </form>
+        ${forgotPasswordHTML()}
         <p class="muted" style="text-align:center; margin-top:16px; font-size:13.5px;">
           ¿No tenés cuenta? <a href="enfermero.html?vista=registro" style="color:var(--teal-dark); font-weight:600;">Sumarme como enfermero</a>
         </p>
@@ -55,6 +56,7 @@ function renderLogin() {
       btn.textContent = "Ingresar";
     }
   });
+  wireOlvideContrasena(EnfApp.auth);
 }
 
 function renderRegistro() {
@@ -77,7 +79,11 @@ function renderRegistro() {
             <input type="file" id="re-archivo" accept="image/*,application/pdf" required />
           </div>
           <div class="field"><label>Email</label><input type="email" id="re-email" required /></div>
-          <div class="field"><label>Contraseña</label><input type="password" id="re-password" minlength="6" required /></div>
+          <div class="field">
+            <label>Contraseña</label>
+            <input type="password" id="re-password" minlength="8" pattern="(?=.*[A-Za-z])(?=.*\d).{8,}" title="Mínimo 8 caracteres, con al menos una letra y un número" required />
+            <div class="muted" style="font-size:12px; margin-top:4px;">Mínimo 8 caracteres, con al menos una letra y un número.</div>
+          </div>
           <div id="re-error" class="error-text" style="display:none;"></div>
           <button type="submit" class="btn-primary" id="re-submit">Enviar registro</button>
         </form>
@@ -111,6 +117,7 @@ function renderRegistro() {
         document.getElementById("re-email").value,
         document.getElementById("re-password").value
       );
+      cred.user.sendEmailVerification().catch(() => {});
       const uid = cred.user.uid;
       const ext = archivo.name.split(".").pop();
       const path = `matriculas/${uid}/matricula.${ext}`;
@@ -149,6 +156,8 @@ function renderDashboard(enfermero) {
         <button class="btn-icon" id="btn-logout">Salir</button>
       </div>
 
+      <div id="verificacion-email"></div>
+
       ${
         enfermero.estado !== "aprobado"
           ? `
@@ -178,6 +187,7 @@ function renderDashboard(enfermero) {
   `);
 
   document.getElementById("btn-logout").addEventListener("click", () => EnfApp.auth.signOut());
+  renderVerificacionEmail(EnfApp.auth);
 
   if (enfermero.estado === "aprobado") {
     renderPushStatus("enfermeroTokens", "Activar avisos de pedido asignado");
@@ -218,6 +228,7 @@ function renderListaTurnos(turnos) {
         </div>
         <div class="muted" style="font-size:13.5px; margin-top:6px;">${escapeHTML(p.zona)} · ${escapeHTML(p.fecha)} · ${escapeHTML(p.horario)}</div>
         ${p.direccion ? `<div style="font-size:13.5px; margin-top:4px; font-weight:600;">📍 ${escapeHTML(p.direccion)}</div>` : ""}
+        <div style="font-size:13.5px; margin-top:4px; font-weight:600;">${formatMonto(p.precio)}</div>
         ${p.notas ? `<div class="muted" style="font-size:13.5px; margin-top:6px;">${escapeHTML(p.notas)}</div>` : ""}
       </div>
     `

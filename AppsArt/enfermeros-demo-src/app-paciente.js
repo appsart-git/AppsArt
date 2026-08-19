@@ -27,6 +27,7 @@ function renderLogin() {
           <div id="li-error" class="error-text" style="display:none;"></div>
           <button type="submit" class="btn-primary" id="li-submit">Ingresar</button>
         </form>
+        ${forgotPasswordHTML()}
         <p class="muted" style="text-align:center; margin-top:16px; font-size:13.5px;">
           ¿No tenés cuenta? <a href="paciente.html?vista=registro" style="color:var(--teal-dark); font-weight:600;">Crear cuenta</a>
         </p>
@@ -55,6 +56,7 @@ function renderLogin() {
       btn.textContent = "Ingresar";
     }
   });
+  wireOlvideContrasena(EnfApp.auth);
 }
 
 function renderRegistro() {
@@ -73,7 +75,11 @@ function renderRegistro() {
             <select id="re-zona">${ZONAS.map((z) => `<option value="${z}">${z}</option>`).join("")}</select>
           </div>
           <div class="field"><label>Email</label><input type="email" id="re-email" required /></div>
-          <div class="field"><label>Contraseña</label><input type="password" id="re-password" minlength="6" required /></div>
+          <div class="field">
+            <label>Contraseña</label>
+            <input type="password" id="re-password" minlength="8" pattern="(?=.*[A-Za-z])(?=.*\d).{8,}" title="Mínimo 8 caracteres, con al menos una letra y un número" required />
+            <div class="muted" style="font-size:12px; margin-top:4px;">Mínimo 8 caracteres, con al menos una letra y un número.</div>
+          </div>
           <div id="re-error" class="error-text" style="display:none;"></div>
           <button type="submit" class="btn-primary" id="re-submit">Crear cuenta</button>
         </form>
@@ -99,6 +105,7 @@ function renderRegistro() {
         document.getElementById("re-email").value,
         document.getElementById("re-password").value
       );
+      cred.user.sendEmailVerification().catch(() => {});
       const paciente = {
         nombre: document.getElementById("re-nombre").value,
         telefono: document.getElementById("re-telefono").value,
@@ -129,6 +136,8 @@ function renderDashboard(paciente) {
         <button class="btn-icon" id="btn-logout">Salir</button>
       </div>
 
+      <div id="verificacion-email"></div>
+
       <button class="btn-primary" id="btn-nuevo-pedido" style="margin-bottom:20px;">+ Pedir un enfermero</button>
 
       <div id="form-pedido-wrap"></div>
@@ -143,6 +152,7 @@ function renderDashboard(paciente) {
   `);
 
   document.getElementById("btn-logout").addEventListener("click", () => EnfApp.auth.signOut());
+  renderVerificacionEmail(EnfApp.auth);
   document.getElementById("btn-nuevo-pedido").addEventListener("click", () => {
     document.getElementById("btn-nuevo-pedido").style.display = "none";
     renderFormPedido(paciente);
@@ -183,6 +193,7 @@ function renderListaPedidos(pedidos) {
         </div>
         <div class="muted" style="font-size:13.5px; margin-top:6px;">${escapeHTML(p.zona)} · ${escapeHTML(p.fecha)} · ${escapeHTML(p.horario)}</div>
         ${p.direccion ? `<div class="muted" style="font-size:13.5px; margin-top:4px;">📍 ${escapeHTML(p.direccion)}</div>` : ""}
+        <div style="font-size:13.5px; margin-top:4px; font-weight:600;">${formatMonto(p.precio)}</div>
       </div>
     `
     )
@@ -222,12 +233,18 @@ function renderFormPedido(paciente) {
     btn.disabled = true;
     btn.textContent = "Enviando…";
     try {
+      const tipoServicio = document.getElementById("pe-tipo").value;
+      const tarifasDoc = await EnfApp.db.collection("config").doc("tarifas").get();
+      const precios = tarifasDoc.exists ? tarifasDoc.data().precios || {} : {};
+      const precio = precios[tipoServicio] != null ? precios[tipoServicio] : null;
+
       await EnfApp.db.collection("pedidos").add({
         pacienteId: EnfApp.auth.currentUser.uid,
         pacienteNombre: paciente.nombre,
         pacienteTelefono: paciente.telefono,
         enfermeroId: null,
-        tipoServicio: document.getElementById("pe-tipo").value,
+        tipoServicio,
+        precio,
         zona: document.getElementById("pe-zona").value,
         direccion: document.getElementById("pe-direccion").value,
         fecha: document.getElementById("pe-fecha").value,

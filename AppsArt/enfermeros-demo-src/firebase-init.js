@@ -13,6 +13,12 @@ const DEFAULT_FIREBASE_CONFIG = {
   appId: "1:332900296525:web:9f44b591b8d3e9669a7904",
 };
 
+/* App Check (protección anti-bots/abuso) — clave del sitio de reCAPTCHA v3, se
+   genera en google.com/recaptcha/admin y se registra en Firebase Console → App
+   Check (ver README). No es secreta. Mientras quede en este valor placeholder,
+   App Check queda desactivado y la app funciona igual que antes. */
+const RECAPTCHA_SITE_KEY = "6LfhQY0tAAAAANPzWpubAUSjFyBgSM3vDkYG9j--";
+
 const FB_CONFIG_LS_KEY = "enfermerosDemo_firebaseConfig";
 
 function getStoredFirebaseConfig() {
@@ -116,6 +122,9 @@ function initFirebaseOrShowSetup() {
     return null;
   }
   const app = firebase.initializeApp(cfg);
+  if (RECAPTCHA_SITE_KEY !== "PENDIENTE_PEGAR_SITE_KEY" && firebase.appCheck) {
+    firebase.appCheck().activate(RECAPTCHA_SITE_KEY, true);
+  }
   window.EnfApp = {
     app,
     db: firebase.firestore(),

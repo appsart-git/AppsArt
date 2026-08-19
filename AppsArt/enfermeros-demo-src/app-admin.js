@@ -1,8 +1,10 @@
 const content = document.getElementById("content");
 let unsubEnfermeros = null;
 let unsubPedidos = null;
+let unsubTarifas = null;
 let enfermeros = [];
 let pedidos = [];
+let tarifas = { precios: {}, comisionPorcentaje: 0 };
 let tabActual = "enfermeros";
 
 /* ===================== Login ===================== */
@@ -21,6 +23,7 @@ function renderLogin() {
           <div id="li-error" class="error-text" style="display:none;"></div>
           <button type="submit" class="btn-primary" id="li-submit">Ingresar</button>
         </form>
+        ${forgotPasswordHTML()}
         <p class="muted" style="text-align:center; margin-top:16px; font-size:13px;">
           <a href="index.html" style="color:var(--teal-dark); font-weight:600;">← Volver al inicio</a>
         </p>
@@ -46,6 +49,7 @@ function renderLogin() {
       btn.textContent = "Ingresar";
     }
   });
+  wireOlvideContrasena(EnfApp.auth);
 }
 
 function renderSinPermiso() {
@@ -77,6 +81,7 @@ function renderDashboard() {
       <div class="tabs">
         <button class="${tabActual === "enfermeros" ? "btn-primary" : "btn-ghost"}" id="tab-enfermeros">Enfermeros</button>
         <button class="${tabActual === "pedidos" ? "btn-primary" : "btn-ghost"}" id="tab-pedidos">Pedidos</button>
+        <button class="${tabActual === "tarifas" ? "btn-primary" : "btn-ghost"}" id="tab-tarifas">Tarifas</button>
       </div>
       <div id="tab-content"></div>
       <div class="by-appsart">by AppsArt</div>
@@ -92,6 +97,10 @@ function renderDashboard() {
     tabActual = "pedidos";
     renderDashboard();
   });
+  document.getElementById("tab-tarifas").addEventListener("click", () => {
+    tabActual = "tarifas";
+    renderDashboard();
+  });
   renderTabContent();
 }
 
@@ -99,7 +108,8 @@ function renderTabContent() {
   const el = document.getElementById("tab-content");
   if (!el) return;
   if (tabActual === "enfermeros") renderTabEnfermeros(el);
-  else renderTabPedidos(el);
+  else if (tabActual === "pedidos") renderTabPedidos(el);
+  else renderTabTarifas(el);
 }
 
 function renderTabEnfermeros(el) {
@@ -181,6 +191,10 @@ function renderTabPedidos(el) {
             <div class="muted" style="font-size:13.5px;">${escapeHTML(p.pacienteNombre)} · ${escapeHTML(p.pacienteTelefono)}</div>
             <div class="muted" style="font-size:13.5px;">${escapeHTML(p.zona)} · ${escapeHTML(p.fecha)} · ${escapeHTML(p.horario)}</div>
             ${p.direccion ? `<div style="font-size:13.5px; margin-top:2px;">📍 ${escapeHTML(p.direccion)}</div>` : ""}
+            <div style="font-size:13.5px; margin-top:2px; font-weight:600;">
+              ${formatMonto(p.precio)}
+              ${p.precio != null ? `<span class="muted" style="font-weight:400;"> · comisión ${formatMonto(Math.round((p.precio * (tarifas.comisionPorcentaje || 0)) / 100))}</span>` : ""}
+            </div>
           </div>
           ${badgeHTML(p.estado)}
         </div>
@@ -225,6 +239,63 @@ async function actualizarPedido(id, campos) {
   }
 }
 
+function renderTabTarifas(el) {
+  el.innerHTML = `
+    <form id="form-tarifas" class="card">
+      <p class="muted" style="margin-top:0; font-size:13.5px;">
+        Precio por tipo de servicio (se le muestra al paciente y al enfermero) y % de
+        comisión de la plataforma. Un pedido nuevo toma el precio vigente en el momento
+        de pedirse — cambiar un precio acá no afecta pedidos ya hechos.
+      </p>
+      ${TIPOS_SERVICIO.map(
+        (t) => `
+        <div class="field">
+          <label>${escapeHTML(t)}</label>
+          <input type="number" min="0" step="1" class="in-precio" data-tipo="${escapeHTML(t)}" value="${tarifas.precios[t] || 0}" />
+        </div>
+      `
+      ).join("")}
+      <div class="field">
+        <label>Comisión de la plataforma (%)</label>
+        <input type="number" min="0" max="100" step="1" id="in-comision" value="${tarifas.comisionPorcentaje || 0}" />
+      </div>
+      <div id="tarifas-error" class="error-text" style="display:none;"></div>
+      <div id="tarifas-ok" class="muted" style="display:none; font-size:13.5px;">Guardado.</div>
+      <button type="submit" class="btn-primary" id="tarifas-submit">Guardar tarifas</button>
+    </form>
+  `;
+
+  document.getElementById("form-tarifas").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("tarifas-submit");
+    const errEl = document.getElementById("tarifas-error");
+    const okEl = document.getElementById("tarifas-ok");
+    errEl.style.display = "none";
+    okEl.style.display = "none";
+    btn.disabled = true;
+    btn.textContent = "Guardando…";
+
+    const precios = {};
+    el.querySelectorAll(".in-precio").forEach((input) => {
+      precios[input.dataset.tipo] = Number(input.value) || 0;
+    });
+    const comisionPorcentaje = Number(document.getElementById("in-comision").value) || 0;
+
+    try {
+      await EnfApp.db.collection("config").doc("tarifas").set(
+        { precios, comisionPorcentaje, actualizadoEn: firebase.firestore.FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+      okEl.style.display = "block";
+    } catch (err) {
+      errEl.textContent = "No se pudo guardar: " + err.message;
+      errEl.style.display = "block";
+    }
+    btn.disabled = false;
+    btn.textContent = "Guardar tarifas";
+  });
+}
+
 /* ===================== Suscripciones ===================== */
 function suscribirDatos() {
   unsubEnfermeros = EnfApp.db.collection("enfermeros").onSnapshot((snap) => {
@@ -239,6 +310,13 @@ function suscribirDatos() {
     pedidos.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
     renderTabContent();
   });
+  unsubTarifas = EnfApp.db
+    .collection("config")
+    .doc("tarifas")
+    .onSnapshot((doc) => {
+      tarifas = doc.exists ? { precios: {}, comisionPorcentaje: 0, ...doc.data() } : { precios: {}, comisionPorcentaje: 0 };
+      renderTabContent();
+    });
 }
 
 function limpiarSuscripciones() {
@@ -249,6 +327,10 @@ function limpiarSuscripciones() {
   if (unsubPedidos) {
     unsubPedidos();
     unsubPedidos = null;
+  }
+  if (unsubTarifas) {
+    unsubTarifas();
+    unsubTarifas = null;
   }
 }
 

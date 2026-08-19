@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "app-enfermeros", "run", "dev"],
       "port": 3000
+    },
+    {
+      "name": "cuidahoy",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "AppsArt/enfermeros-demo-src/_serve.ps1"],
+      "port": 8899
     }
   ]
 }

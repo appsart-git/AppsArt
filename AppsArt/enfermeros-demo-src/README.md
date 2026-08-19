@@ -129,9 +129,21 @@ service cloud.firestore {
       allow update: if isAdmin() ||
         (isSignedIn() && resource.data.pacienteId == request.auth.uid);
     }
+
+    match /config/{docId} {
+      allow read: if isSignedIn(); // el paciente lo lee al pedir un servicio, para saber el precio
+      allow write: if isAdmin();
+    }
   }
 }
 ```
+
+Nota: el pedido guarda el precio vigente en `config/tarifas` en el momento de crearse (lo
+lee el cliente antes de hacer el `add`). No hay validación server-side de que ese precio
+coincida con la tarifa real — un cliente modificado podría mandar cualquier valor. Para
+esta etapa es un riesgo aceptado (mismo nivel de confianza que el resto de los campos);
+si se necesita blindarlo, la forma correcta es que una Cloud Function fije el precio al
+crear el pedido en vez de confiar en el valor que manda el cliente.
 
 ## Reglas de seguridad de Storage (matrículas)
 
@@ -139,20 +151,50 @@ service cloud.firestore {
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    function isAdmin() {
+      return request.auth != null &&
+        firestore.exists(/databases/(default)/documents/admins/$(request.auth.uid));
+    }
+
     match /matriculas/{uid}/{fileName} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
       allow write: if request.auth != null && request.auth.uid == uid;
     }
   }
 }
 ```
 
-Nota: para que el admin pueda ver la matrícula de cualquier enfermero (botón
-"Ver matrícula" en `admin.html`), hace falta sumar una condición que consulte la
-colección `admins` desde las reglas de Storage. Si al probarlo el botón falla por
-permisos, la solución rápida para la etapa de demo es dejar `allow read: if request.auth
-!= null;` (cualquier usuario logueado puede ver cualquier matrícula) y endurecerlo antes
-de manejar datos reales.
+Esta versión deja que el admin vea la matrícula de cualquier enfermero (botón
+"Ver matrícula" en `admin.html`) consultando la colección `admins` desde las reglas de
+Storage. Al guardarla, Firebase Console va a mostrar un diálogo **"Aprovisionar reglas
+entre servicios"** — es el flujo normal de Google para que el servicio de Storage pueda
+leer Firestore, no hay nada riesgoso: aceptar **"Adjuntar permisos"**.
+
+## App Check (protección contra bots / registros masivos)
+
+Sin esto, cualquiera puede scriptear la creación de cuentas sin límite. App Check exige
+que cada pedido al backend venga acompañado de una prueba de que sale de la app real (vía
+reCAPTCHA v3, invisible para el usuario — no es como el reCAPTCHA viejo de "elegí las
+imágenes con semáforos").
+
+1. **Generar la site key**: entrar a
+   [google.com/recaptcha/admin/create](https://www.google.com/recaptcha/admin/create) →
+   crear un sitio nuevo → tipo **reCAPTCHA v3** → en "Dominios" agregar
+   `cuida-hoy.netlify.app` y `localhost` (para probar local) → aceptar términos → Enviar.
+   Quedan dos claves: la **"Clave del sitio"** (pública, es la que pegamos en el código) y
+   la **"Clave secreta"** (para el siguiente paso, no se sube al repo).
+2. **Registrar en Firebase**: Firebase Console → menú lateral → **App Check** → "Comenzar"
+   → elegir la app web → proveedor **reCAPTCHA v3** → pegar ambas claves del paso 1 →
+   Guardar.
+3. **Pegar la site key en el código**: reemplazar `RECAPTCHA_SITE_KEY =
+   "PENDIENTE_PEGAR_SITE_KEY"` en `firebase-init.js` por la "Clave del sitio" del paso 1
+   (esa sí va en el código — no es secreta, la secreta es la que solo pegaste en Firebase
+   Console).
+4. **Modo "Monitor" antes que "Aplicar"**: en Firebase Console → App Check → pestaña
+   "APIs", para Firestore/Storage/Cloud Functions dejar en **"Monitor"** (sin aplicar)
+   los primeros días — así se puede ver en las métricas si algún request real (por
+   ejemplo un navegador viejo) quedaría bloqueado antes de activarlo en serio. Recién
+   después pasar cada uno a **"Aplicar"**.
 
 ## Avisos push (enfermero/pedido nuevo para admins; pedido asignado para el enfermero)
 
@@ -198,9 +240,13 @@ anterior).
 ## Lo que falta para el MVP completo (no incluido en este demo)
 
 - **Cobro con Mercado Pago**: hoy el pago se marca a mano desde el panel admin
-  (`pagoEstado`). Falta el link de cobro y la confirmación automática — necesita una
-  Cloud Function (desplegable por GitHub Actions, sin instalar nada local), no se puede
-  hacer 100% client-side por el token privado de Mercado Pago.
+  (`pagoEstado`). El pedido ya tiene un `precio` (ver tab "Tarifas" en `admin.html`),
+  pero falta el link de cobro y la confirmación automática — necesita una Cloud Function
+  (desplegable por GitHub Actions, sin instalar nada local), no se puede hacer 100%
+  client-side por el token privado de Mercado Pago.
+- **Resumen de facturación**: hoy se ve el precio y la comisión estimada pedido por
+  pedido (tab "Pedidos" del admin), pero no hay un panel de "este mes se facturaron $X,
+  la comisión fue $Y".
 - **Íconos reales de PWA / manifest / service worker**: todavía no están.
 - **Términos y Condiciones / Política de Privacidad**: falta la página con el disclaimer
   de que la plataforma es intermediaria y no presta el servicio de salud en sí, más el
