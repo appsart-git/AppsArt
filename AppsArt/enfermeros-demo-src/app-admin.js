@@ -16,7 +16,7 @@ function renderLogin() {
           <div class="brand-icon">🔒</div>
           <div style="font-family:var(--font-display); font-weight:600; font-size:17px;">Panel de administración</div>
         </div>
-        <p class="muted" style="margin:0 0 18px;">Acceso restringido al equipo de CuidaHoy.</p>
+        <p class="muted" style="margin:0 0 18px;">Acceso restringido al equipo de CUIDAR+.</p>
         <form id="form-login">
           <div class="field"><label>Email</label><input type="email" id="li-email" required /></div>
           <div class="field"><label>Contraseña</label><input type="password" id="li-password" required /></div>

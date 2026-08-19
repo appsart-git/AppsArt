@@ -19,7 +19,7 @@ const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
   const { title, body } = payload.notification || {};
-  self.registration.showNotification(title || "CuidaHoy", {
+  self.registration.showNotification(title || "CUIDAR+", {
     body: body || "",
     icon: "https://cuida-hoy.netlify.app/favicon.ico",
     data: payload.data || {},

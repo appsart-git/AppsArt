@@ -1,4 +1,4 @@
-# CuidaHoy (nombre provisorio) — DEMO
+# CUIDAR+ — DEMO
 
 **Esto es una demo interna de AppsArt, para probar los flujos y ganar experiencia con este
 tipo de producto. No es la versión de producción y no debe usarse con datos reales de
@@ -291,8 +291,8 @@ Siempre reemplazar el archivo de reglas completo, no pegar solo el bloque nuevo.
 
 ## Nombre y marca
 
-"CuidaHoy" es un nombre de trabajo provisorio, no confirmado con el cliente. El logo
-también queda pendiente — hoy usa un ícono de emoji como placeholder en vez de un logo
-real. Cuando se confirme el nombre, reemplazar el texto "CuidaHoy" en `index.html`,
-`paciente.html`, `enfermero.html` y `admin.html` (título de cada página y `brand-name`
-en `index.html`).
+Nombre confirmado con la clienta: **CUIDAR+**. El logo todavía queda pendiente — hoy
+usa un ícono de emoji como placeholder en vez de un logo real; reemplazar el
+`brand-icon`/`brand-name` en los 4 HTML cuando esté listo. El link de Netlify sigue
+siendo `cuida-hoy.netlify.app` (nombre técnico, no visible como marca) — cambiarlo es
+una decisión aparte, no automática por el cambio de nombre.

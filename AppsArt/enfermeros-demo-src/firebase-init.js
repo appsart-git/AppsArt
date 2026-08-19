@@ -1,5 +1,5 @@
 /* ===================== Config Firebase ===================== */
-/* Proyecto real de CuidaHoy (creado por el usuario) — hardcodeado para que cualquier
+/* Proyecto real de CUIDAR+ (creado por el usuario) — hardcodeado para que cualquier
    dispositivo que abra el link conecte solo, sin pegar nada. El config de Firebase Web
    no es secreto (la seguridad depende de las reglas de Firestore/Storage, no de esto).
    Para clonar este demo a otro proyecto, poner esto en null y va a mostrar la pantalla

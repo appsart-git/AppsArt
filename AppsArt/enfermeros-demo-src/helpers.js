@@ -186,7 +186,7 @@ async function activarAvisosPush(tokensCollection, buttonLabel) {
     });
     messaging.onMessage((payload) => {
       const { title, body } = payload.notification || {};
-      alert((title || "CuidaHoy") + (body ? "\n" + body : ""));
+      alert((title || "CUIDAR+") + (body ? "\n" + body : ""));
     });
     renderPushStatus(tokensCollection, buttonLabel);
   } catch (err) {
