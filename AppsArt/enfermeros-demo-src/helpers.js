@@ -3,7 +3,21 @@
    los tres archivos (con el riesgo de que alguno quede desactualizado). */
 
 /* ===================== Datos del dominio ===================== */
-const ZONAS = ["CABA Norte", "CABA Sur", "CABA Centro", "GBA Norte", "GBA Oeste", "GBA Sur"];
+// Barrios de CABA donde arranca operando el negocio (confirmado con la clienta,
+// 2026-08). Se puede sumar zonas nuevas con el campo "Otra" del formulario sin
+// tocar código — ver zonaFieldHTML/wireZonaField/getZonaValue más abajo.
+const ZONAS = [
+  "Almagro",
+  "Balvanera",
+  "Caballito",
+  "Villa Crespo",
+  "Palermo",
+  "Colegiales",
+  "Recoleta",
+  "Vélez Sarsfield",
+  "Parque Chas",
+];
+const ZONA_OTRA = "Otra (especificar)";
 const TIPOS_SERVICIO = ["Curación", "Inyección / medicación", "Control de signos vitales", "Cuidado post-operatorio", "Otro"];
 const ESTADOS_PEDIDO = ["pendiente", "asignado", "confirmado", "en_curso", "completado", "cancelado"];
 const ESTADO_LABELS = {
@@ -31,6 +45,48 @@ function badgeHTML(estado) {
 function formatMonto(n) {
   if (n == null || isNaN(n)) return "—";
   return "$" + Number(n).toLocaleString("es-AR");
+}
+
+/* ===================== Campo de zona con "Otra (especificar)" =====================
+   Reusado en los 5 formularios que piden zona (registro/perfil de paciente y
+   enfermero, y el pedido). idPrefix es el prefijo de los ids del formulario (ej.
+   "re", "pf", "pe") — genera "${idPrefix}-zona" (select) y "${idPrefix}-zona-otra"
+   (texto libre, que aparece solo si eligen "Otra"). */
+function zonaFieldHTML(idPrefix, valorActual) {
+  const esOtra = valorActual && !ZONAS.includes(valorActual);
+  return `
+    <div class="field">
+      <label>Zona</label>
+      <select id="${idPrefix}-zona">
+        ${ZONAS.map((z) => `<option value="${z}" ${z === valorActual ? "selected" : ""}>${z}</option>`).join("")}
+        <option value="${ZONA_OTRA}" ${esOtra ? "selected" : ""}>${ZONA_OTRA}</option>
+      </select>
+      <input
+        id="${idPrefix}-zona-otra"
+        placeholder="Escribí tu barrio/zona"
+        style="margin-top:8px; ${esOtra ? "" : "display:none;"}"
+        value="${esOtra ? escapeHTML(valorActual) : ""}"
+      />
+    </div>
+  `;
+}
+
+function wireZonaField(idPrefix) {
+  const select = document.getElementById(idPrefix + "-zona");
+  const otraInput = document.getElementById(idPrefix + "-zona-otra");
+  if (!select || !otraInput) return;
+  select.addEventListener("change", () => {
+    otraInput.style.display = select.value === ZONA_OTRA ? "block" : "none";
+  });
+}
+
+function getZonaValue(idPrefix) {
+  const select = document.getElementById(idPrefix + "-zona");
+  const otraInput = document.getElementById(idPrefix + "-zona-otra");
+  if (select.value === ZONA_OTRA) {
+    return (otraInput.value || "").trim() || ZONA_OTRA;
+  }
+  return select.value;
 }
 
 /* ===================== Verificación de email (compartido por paciente y enfermero) ===================== */

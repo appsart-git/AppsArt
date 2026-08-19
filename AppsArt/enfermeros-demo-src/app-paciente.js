@@ -71,9 +71,7 @@ function renderRegistro() {
         <form id="form-registro">
           <div class="field"><label>Nombre y apellido</label><input id="re-nombre" required /></div>
           <div class="field"><label>Teléfono</label><input id="re-telefono" required /></div>
-          <div class="field"><label>Zona</label>
-            <select id="re-zona">${ZONAS.map((z) => `<option value="${z}">${z}</option>`).join("")}</select>
-          </div>
+          ${zonaFieldHTML("re", null)}
           <div class="field"><label>Email</label><input type="email" id="re-email" required /></div>
           <div class="field">
             <label>Contraseña</label>
@@ -92,6 +90,7 @@ function renderRegistro() {
       </div>
     </div>
   `);
+  wireZonaField("re");
   document.getElementById("form-registro").addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = document.getElementById("re-submit");
@@ -109,7 +108,7 @@ function renderRegistro() {
       const paciente = {
         nombre: document.getElementById("re-nombre").value,
         telefono: document.getElementById("re-telefono").value,
-        zona: document.getElementById("re-zona").value,
+        zona: getZonaValue("re"),
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       };
       await EnfApp.db.collection("pacientes").doc(cred.user.uid).set(paciente);
@@ -190,9 +189,7 @@ function renderFormPerfil(paciente) {
     <form id="form-perfil" class="card" style="margin-bottom:20px;">
       <div class="field"><label>Nombre y apellido</label><input id="pf-nombre" value="${escapeHTML(paciente.nombre)}" required /></div>
       <div class="field"><label>Teléfono</label><input id="pf-telefono" value="${escapeHTML(paciente.telefono)}" required /></div>
-      <div class="field"><label>Zona</label>
-        <select id="pf-zona">${ZONAS.map((z) => `<option value="${z}" ${z === paciente.zona ? "selected" : ""}>${z}</option>`).join("")}</select>
-      </div>
+      ${zonaFieldHTML("pf", paciente.zona)}
       <div id="pf-error" class="error-text" style="display:none;"></div>
       <div style="display:flex; gap:10px;">
         <button type="button" class="btn-ghost" id="pf-cancelar" style="flex:1;">Cancelar</button>
@@ -200,6 +197,7 @@ function renderFormPerfil(paciente) {
       </div>
     </form>
   `;
+  wireZonaField("pf");
   document.getElementById("pf-cancelar").addEventListener("click", () => {
     wrap.innerHTML = "";
     document.getElementById("btn-editar-perfil").style.display = "block";
@@ -215,7 +213,7 @@ function renderFormPerfil(paciente) {
       await EnfApp.db.collection("pacientes").doc(EnfApp.auth.currentUser.uid).update({
         nombre: document.getElementById("pf-nombre").value,
         telefono: document.getElementById("pf-telefono").value,
-        zona: document.getElementById("pf-zona").value,
+        zona: getZonaValue("pf"),
       });
       const doc = await EnfApp.db.collection("pacientes").doc(EnfApp.auth.currentUser.uid).get();
       renderDashboard(doc.data());
@@ -280,9 +278,7 @@ function renderFormPedido(paciente) {
       <div class="field"><label>Tipo de servicio</label>
         <select id="pe-tipo">${TIPOS_SERVICIO.map((t) => `<option value="${t}">${t}</option>`).join("")}</select>
       </div>
-      <div class="field"><label>Zona</label>
-        <select id="pe-zona">${ZONAS.map((z) => `<option value="${z}" ${z === paciente.zona ? "selected" : ""}>${z}</option>`).join("")}</select>
-      </div>
+      ${zonaFieldHTML("pe", paciente.zona)}
       <div class="field"><label>Dirección (calle, altura, piso/depto)</label><input id="pe-direccion" placeholder="Ej: Av. Rivadavia 1234, 3° B" required /></div>
       <div class="field"><label>Fecha</label><input type="date" id="pe-fecha" required /></div>
       <div class="field"><label>Horario</label><input id="pe-horario" placeholder="Ej: 14:00 a 16:00" required /></div>
@@ -294,6 +290,7 @@ function renderFormPedido(paciente) {
       </div>
     </form>
   `;
+  wireZonaField("pe");
   document.getElementById("pe-cancelar").addEventListener("click", () => {
     wrap.innerHTML = "";
     document.getElementById("btn-nuevo-pedido").style.display = "block";
@@ -318,7 +315,7 @@ function renderFormPedido(paciente) {
         enfermeroId: null,
         tipoServicio,
         precio,
-        zona: document.getElementById("pe-zona").value,
+        zona: getZonaValue("pe"),
         direccion: document.getElementById("pe-direccion").value,
         fecha: document.getElementById("pe-fecha").value,
         horario: document.getElementById("pe-horario").value,

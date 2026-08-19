@@ -71,9 +71,7 @@ function renderRegistro() {
         <form id="form-registro">
           <div class="field"><label>Nombre y apellido</label><input id="re-nombre" required /></div>
           <div class="field"><label>Teléfono</label><input id="re-telefono" required /></div>
-          <div class="field"><label>Zona</label>
-            <select id="re-zona">${ZONAS.map((z) => `<option value="${z}">${z}</option>`).join("")}</select>
-          </div>
+          ${zonaFieldHTML("re", null)}
           <div class="field"><label>N° de matrícula</label><input id="re-matricula" required /></div>
           <div class="field"><label>Foto o PDF de la matrícula</label>
             <input type="file" id="re-archivo" accept="image/*,application/pdf" required />
@@ -96,6 +94,7 @@ function renderRegistro() {
       </div>
     </div>
   `);
+  wireZonaField("re");
   document.getElementById("form-registro").addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = document.getElementById("re-submit");
@@ -126,7 +125,7 @@ function renderRegistro() {
       const enfermero = {
         nombre: document.getElementById("re-nombre").value,
         telefono: document.getElementById("re-telefono").value,
-        zona: document.getElementById("re-zona").value,
+        zona: getZonaValue("re"),
         matricula: document.getElementById("re-matricula").value,
         matriculaArchivoPath: path,
         estado: "pendiente",
@@ -223,9 +222,7 @@ function renderFormPerfil(enfermero) {
     <form id="form-perfil" class="card" style="margin-bottom:20px;">
       <div class="field"><label>Nombre y apellido</label><input id="pf-nombre" value="${escapeHTML(enfermero.nombre)}" required /></div>
       <div class="field"><label>Teléfono</label><input id="pf-telefono" value="${escapeHTML(enfermero.telefono)}" required /></div>
-      <div class="field"><label>Zona</label>
-        <select id="pf-zona">${ZONAS.map((z) => `<option value="${z}" ${z === enfermero.zona ? "selected" : ""}>${z}</option>`).join("")}</select>
-      </div>
+      ${zonaFieldHTML("pf", enfermero.zona)}
       <p class="muted" style="font-size:12.5px;">La matrícula no se puede editar acá — si necesitás corregirla, escribinos.</p>
       <div id="pf-error" class="error-text" style="display:none;"></div>
       <div style="display:flex; gap:10px;">
@@ -234,6 +231,7 @@ function renderFormPerfil(enfermero) {
       </div>
     </form>
   `;
+  wireZonaField("pf");
   document.getElementById("pf-cancelar").addEventListener("click", () => {
     wrap.innerHTML = "";
     document.getElementById("btn-editar-perfil").style.display = "block";
@@ -249,7 +247,7 @@ function renderFormPerfil(enfermero) {
       await EnfApp.db.collection("enfermeros").doc(EnfApp.auth.currentUser.uid).update({
         nombre: document.getElementById("pf-nombre").value,
         telefono: document.getElementById("pf-telefono").value,
-        zona: document.getElementById("pf-zona").value,
+        zona: getZonaValue("pf"),
       });
       const doc = await EnfApp.db.collection("enfermeros").doc(EnfApp.auth.currentUser.uid).get();
       renderDashboard(doc.data());
