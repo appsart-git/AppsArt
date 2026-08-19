@@ -79,7 +79,7 @@ function renderRegistro() {
           <div class="field"><label>Email</label><input type="email" id="re-email" required /></div>
           <div class="field">
             <label>Contraseña</label>
-            <input type="password" id="re-password" minlength="8" pattern="(?=.*[A-Za-z])(?=.*\d).{8,}" title="Mínimo 8 caracteres, con al menos una letra y un número" required />
+            <input type="password" id="re-password" minlength="8" pattern="(?=.*[A-Za-z])(?=.*\\d).{8,}" title="Mínimo 8 caracteres, con al menos una letra y un número" required />
             <div class="muted" style="font-size:12px; margin-top:4px;">Mínimo 8 caracteres, con al menos una letra y un número.</div>
           </div>
           <div id="re-error" class="error-text" style="display:none;"></div>
