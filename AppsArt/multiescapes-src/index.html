@@ -463,12 +463,13 @@ function onFirestoreError(err){
 }
 
 /* ===================== ESTADO GLOBAL ===================== */
-const COLLECTIONS = ['clientes','vehiculos','trabajos'];
+const COLLECTIONS = ['clientes','vehiculos','trabajos','gastos'];
 let state = {
   section: 'informe',
-  clientes: [], vehiculos: [], trabajos: [],
+  clientes: [], vehiculos: [], trabajos: [], gastos: [],
   loaded: {},
   negocio: {nombre:'MULTIESCAPES', direccion:'', telefono:''},
+  gastosMes: todayISO().slice(0,7),
   filtro: {clientes:''},
   filtroTrabajos: {query:'', desde:'', hasta:''},
   saving:false
@@ -574,6 +575,7 @@ const NAV_ITEMS = [
   {id:'informe', label:'Nuevo informe', ico:'🧾'},
   {id:'clientes', label:'Clientes', ico:'👤'},
   {id:'trabajos', label:'Trabajos', ico:'🔧'},
+  {id:'gastos', label:'Gastos', ico:'💸'},
   {id:'config', label:'Config.', ico:'⚙️'}
 ];
 function goSection(id){ state.section = id; closeModal(); render(); window.scrollTo(0,0); }
@@ -596,7 +598,7 @@ function render(){
     document.getElementById('main').innerHTML = '<div class="empty">Cargando datos…</div>';
     return;
   }
-  const renderers = { informe: renderInforme, clientes: renderClientes, trabajos: renderTrabajos, config: renderConfig };
+  const renderers = { informe: renderInforme, clientes: renderClientes, trabajos: renderTrabajos, gastos: renderGastos, config: renderConfig };
   (renderers[state.section] || renderInforme)();
 }
 
@@ -645,6 +647,7 @@ function startApp(){
 <script src="./app-clientes.js"></script>
 <script src="./app-informe.js"></script>
 <script src="./app-trabajos.js"></script>
+<script src="./app-gastos.js"></script>
 <script>
 if('serviceWorker' in navigator){
   window.addEventListener('load', () => {
