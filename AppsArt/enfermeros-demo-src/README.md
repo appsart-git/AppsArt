@@ -1,4 +1,4 @@
-# CuidaHoy (nombre provisorio) — DEMO
+# CUIDAR+ — DEMO
 
 **Esto es una demo interna de AppsArt, para probar los flujos y ganar experiencia con este
 tipo de producto. No es la versión de producción y no debe usarse con datos reales de
@@ -127,12 +127,39 @@ service cloud.firestore {
         (resource.data.pacienteId == request.auth.uid ||
          resource.data.enfermeroId == request.auth.uid || isAdmin());
       allow update: if isAdmin() ||
-        (isSignedIn() && resource.data.pacienteId == request.auth.uid);
+        // el paciente solo puede cancelar su propio pedido (y solo si todavía no
+        // arrancó) — no puede tocar ningún otro campo (precio, estado a otra cosa, etc.)
+        (isSignedIn() && resource.data.pacienteId == request.auth.uid &&
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado']) &&
+         request.resource.data.estado == 'cancelado' &&
+         resource.data.estado in ['pendiente', 'asignado']);
     }
 
     match /config/{docId} {
       allow read: if isSignedIn(); // el paciente lo lee al pedir un servicio, para saber el precio
       allow write: if isAdmin();
+    }
+
+    // "allow write" evalúa request.resource incluso para delete (donde no existe),
+    // así que un borrado siempre daba error/denegado — separado en create/update
+    // (mira request.resource, el doc entrante) vs delete (mira resource, el doc
+    // que ya existía). No afecta el guardado del token en sí, que siempre funcionó.
+    match /adminTokens/{token} {
+      allow create, update: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow read: if false;
+    }
+
+    match /enfermeroTokens/{token} {
+      allow create, update: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow read: if false;
+    }
+
+    match /pacienteTokens/{token} {
+      allow create, update: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
+      allow read: if false;
     }
   }
 }
@@ -228,14 +255,17 @@ más pasos que el resto:
    "CuidaHoy — Deploy Cloud Functions" → "Run workflow" (el primer despliegue de Cloud
    Functions puede tardar unos minutos y a veces pide habilitar alguna API de Google Cloud
    la primera vez — si falla, el log del workflow dice cuál).
-6. **En el panel admin y en el panel del enfermero** (una vez aprobado): aparece un botón
-   "🔔 Activar avisos" — tocarlo y aceptar el permiso del navegador. En iPhone, para que
-   funcione con la app cerrada hace falta haber agregado el sitio a la pantalla de inicio
-   primero (y tener iOS 16.4 o más nuevo).
+6. **En el panel admin, el del enfermero (una vez aprobado) y el del paciente**: aparece
+   un botón "🔔 Activar avisos" — tocarlo y aceptar el permiso del navegador. En iPhone,
+   para que funcione con la app cerrada hace falta haber agregado el sitio a la pantalla
+   de inicio primero (y tener iOS 16.4 o más nuevo).
 
 Los tokens de dispositivo quedan guardados en las colecciones `adminTokens` /
-`enfermeroTokens` de Firestore (ya cubiertas por las reglas simples de la sección
-anterior).
+`enfermeroTokens` / `pacienteTokens` de Firestore (ya cubiertas por las reglas de la
+sección anterior — **importante**: estas reglas no tienen un `match /{document=**}`
+catch-all, así que si en algún momento se pega solo una parte del bloque de reglas en
+la consola, las colecciones que falten quedan bloqueadas por defecto sin ningún aviso.
+Siempre reemplazar el archivo de reglas completo, no pegar solo el bloque nuevo.
 
 ## Lo que falta para el MVP completo (no incluido en este demo)
 
@@ -261,8 +291,8 @@ anterior).
 
 ## Nombre y marca
 
-"CuidaHoy" es un nombre de trabajo provisorio, no confirmado con el cliente. El logo
-también queda pendiente — hoy usa un ícono de emoji como placeholder en vez de un logo
-real. Cuando se confirme el nombre, reemplazar el texto "CuidaHoy" en `index.html`,
-`paciente.html`, `enfermero.html` y `admin.html` (título de cada página y `brand-name`
-en `index.html`).
+Nombre confirmado con la clienta: **CUIDAR+**. El logo todavía queda pendiente — hoy
+usa un ícono de emoji como placeholder en vez de un logo real; reemplazar el
+`brand-icon`/`brand-name` en los 4 HTML cuando esté listo. El link de Netlify sigue
+siendo `cuida-hoy.netlify.app` (nombre técnico, no visible como marca) — cambiarlo es
+una decisión aparte, no automática por el cambio de nombre.

@@ -71,13 +71,11 @@ function renderRegistro() {
         <form id="form-registro">
           <div class="field"><label>Nombre y apellido</label><input id="re-nombre" required /></div>
           <div class="field"><label>Teléfono</label><input id="re-telefono" required /></div>
-          <div class="field"><label>Zona</label>
-            <select id="re-zona">${ZONAS.map((z) => `<option value="${z}">${z}</option>`).join("")}</select>
-          </div>
+          ${zonaFieldHTML("re", null)}
           <div class="field"><label>Email</label><input type="email" id="re-email" required /></div>
           <div class="field">
             <label>Contraseña</label>
-            <input type="password" id="re-password" minlength="8" pattern="(?=.*[A-Za-z])(?=.*\d).{8,}" title="Mínimo 8 caracteres, con al menos una letra y un número" required />
+            <input type="password" id="re-password" minlength="8" pattern="(?=.*[A-Za-z])(?=.*\\d).{8,}" title="Mínimo 8 caracteres, con al menos una letra y un número" required />
             <div class="muted" style="font-size:12px; margin-top:4px;">Mínimo 8 caracteres, con al menos una letra y un número.</div>
           </div>
           <div id="re-error" class="error-text" style="display:none;"></div>
@@ -92,6 +90,7 @@ function renderRegistro() {
       </div>
     </div>
   `);
+  wireZonaField("re");
   document.getElementById("form-registro").addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = document.getElementById("re-submit");
@@ -109,7 +108,7 @@ function renderRegistro() {
       const paciente = {
         nombre: document.getElementById("re-nombre").value,
         telefono: document.getElementById("re-telefono").value,
-        zona: document.getElementById("re-zona").value,
+        zona: getZonaValue("re"),
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       };
       await EnfApp.db.collection("pacientes").doc(cred.user.uid).set(paciente);
@@ -128,15 +127,18 @@ function renderRegistro() {
 function renderDashboard(paciente) {
   render(`
     <div class="container">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
         <div>
           <div class="muted" style="font-size:13px;">Hola,</div>
           <div style="font-family:var(--font-display); font-size:19px; font-weight:600;">${escapeHTML(paciente.nombre)}</div>
         </div>
         <button class="btn-icon" id="btn-logout">Salir</button>
       </div>
+      <button class="btn-ghost" id="btn-editar-perfil" style="width:auto; padding:6px 12px; font-size:12.5px; margin-bottom:20px;">✏️ Editar perfil</button>
+      <div id="form-perfil-wrap"></div>
 
       <div id="verificacion-email"></div>
+      <div id="push-status" style="margin-bottom:16px;"></div>
 
       <button class="btn-primary" id="btn-nuevo-pedido" style="margin-bottom:20px;">+ Pedir un enfermero</button>
 
@@ -152,7 +154,12 @@ function renderDashboard(paciente) {
   `);
 
   document.getElementById("btn-logout").addEventListener("click", () => EnfApp.auth.signOut());
+  document.getElementById("btn-editar-perfil").addEventListener("click", () => {
+    document.getElementById("btn-editar-perfil").style.display = "none";
+    renderFormPerfil(paciente);
+  });
   renderVerificacionEmail(EnfApp.auth);
+  renderPushStatus("pacienteTokens", "Activar avisos de pedido asignado");
   document.getElementById("btn-nuevo-pedido").addEventListener("click", () => {
     document.getElementById("btn-nuevo-pedido").style.display = "none";
     renderFormPedido(paciente);
@@ -176,6 +183,49 @@ function renderDashboard(paciente) {
     );
 }
 
+function renderFormPerfil(paciente) {
+  const wrap = document.getElementById("form-perfil-wrap");
+  wrap.innerHTML = `
+    <form id="form-perfil" class="card" style="margin-bottom:20px;">
+      <div class="field"><label>Nombre y apellido</label><input id="pf-nombre" value="${escapeHTML(paciente.nombre)}" required /></div>
+      <div class="field"><label>Teléfono</label><input id="pf-telefono" value="${escapeHTML(paciente.telefono)}" required /></div>
+      ${zonaFieldHTML("pf", paciente.zona)}
+      <div id="pf-error" class="error-text" style="display:none;"></div>
+      <div style="display:flex; gap:10px;">
+        <button type="button" class="btn-ghost" id="pf-cancelar" style="flex:1;">Cancelar</button>
+        <button type="submit" class="btn-primary" id="pf-submit" style="flex:1;">Guardar cambios</button>
+      </div>
+    </form>
+  `;
+  wireZonaField("pf");
+  document.getElementById("pf-cancelar").addEventListener("click", () => {
+    wrap.innerHTML = "";
+    document.getElementById("btn-editar-perfil").style.display = "block";
+  });
+  document.getElementById("form-perfil").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("pf-submit");
+    const errEl = document.getElementById("pf-error");
+    errEl.style.display = "none";
+    btn.disabled = true;
+    btn.textContent = "Guardando…";
+    try {
+      await EnfApp.db.collection("pacientes").doc(EnfApp.auth.currentUser.uid).update({
+        nombre: document.getElementById("pf-nombre").value,
+        telefono: document.getElementById("pf-telefono").value,
+        zona: getZonaValue("pf"),
+      });
+      const doc = await EnfApp.db.collection("pacientes").doc(EnfApp.auth.currentUser.uid).get();
+      renderDashboard(doc.data());
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = "Guardar cambios";
+    }
+  });
+}
+
 function renderListaPedidos(pedidos) {
   const el = document.getElementById("lista-pedidos");
   if (!el) return;
@@ -183,6 +233,7 @@ function renderListaPedidos(pedidos) {
     el.innerHTML = `<div class="muted">Todavía no hiciste ningún pedido.</div>`;
     return;
   }
+  const CANCELABLE = ["pendiente", "asignado"];
   el.innerHTML = pedidos
     .map(
       (p) => `
@@ -194,10 +245,30 @@ function renderListaPedidos(pedidos) {
         <div class="muted" style="font-size:13.5px; margin-top:6px;">${escapeHTML(p.zona)} · ${escapeHTML(p.fecha)} · ${escapeHTML(p.horario)}</div>
         ${p.direccion ? `<div class="muted" style="font-size:13.5px; margin-top:4px;">📍 ${escapeHTML(p.direccion)}</div>` : ""}
         <div style="font-size:13.5px; margin-top:4px; font-weight:600;">${formatMonto(p.precio)}</div>
+        ${
+          CANCELABLE.includes(p.estado)
+            ? `<button class="btn-danger btn-cancelar-pedido" data-id="${p.id}" style="margin-top:10px;">Cancelar pedido</button>`
+            : ""
+        }
       </div>
     `
     )
     .join("");
+
+  el.querySelectorAll(".btn-cancelar-pedido").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("¿Seguro que querés cancelar este pedido?")) return;
+      btn.disabled = true;
+      btn.textContent = "Cancelando…";
+      try {
+        await EnfApp.db.collection("pedidos").doc(btn.dataset.id).update({ estado: "cancelado" });
+      } catch (err) {
+        alert("No se pudo cancelar: " + err.message);
+        btn.disabled = false;
+        btn.textContent = "Cancelar pedido";
+      }
+    });
+  });
 }
 
 function renderFormPedido(paciente) {
@@ -207,9 +278,7 @@ function renderFormPedido(paciente) {
       <div class="field"><label>Tipo de servicio</label>
         <select id="pe-tipo">${TIPOS_SERVICIO.map((t) => `<option value="${t}">${t}</option>`).join("")}</select>
       </div>
-      <div class="field"><label>Zona</label>
-        <select id="pe-zona">${ZONAS.map((z) => `<option value="${z}" ${z === paciente.zona ? "selected" : ""}>${z}</option>`).join("")}</select>
-      </div>
+      ${zonaFieldHTML("pe", paciente.zona)}
       <div class="field"><label>Dirección (calle, altura, piso/depto)</label><input id="pe-direccion" placeholder="Ej: Av. Rivadavia 1234, 3° B" required /></div>
       <div class="field"><label>Fecha</label><input type="date" id="pe-fecha" required /></div>
       <div class="field"><label>Horario</label><input id="pe-horario" placeholder="Ej: 14:00 a 16:00" required /></div>
@@ -221,6 +290,7 @@ function renderFormPedido(paciente) {
       </div>
     </form>
   `;
+  wireZonaField("pe");
   document.getElementById("pe-cancelar").addEventListener("click", () => {
     wrap.innerHTML = "";
     document.getElementById("btn-nuevo-pedido").style.display = "block";
@@ -245,7 +315,7 @@ function renderFormPedido(paciente) {
         enfermeroId: null,
         tipoServicio,
         precio,
-        zona: document.getElementById("pe-zona").value,
+        zona: getZonaValue("pe"),
         direccion: document.getElementById("pe-direccion").value,
         fecha: document.getElementById("pe-fecha").value,
         horario: document.getElementById("pe-horario").value,

@@ -71,9 +71,7 @@ function renderRegistro() {
         <form id="form-registro">
           <div class="field"><label>Nombre y apellido</label><input id="re-nombre" required /></div>
           <div class="field"><label>Teléfono</label><input id="re-telefono" required /></div>
-          <div class="field"><label>Zona</label>
-            <select id="re-zona">${ZONAS.map((z) => `<option value="${z}">${z}</option>`).join("")}</select>
-          </div>
+          ${zonaFieldHTML("re", null)}
           <div class="field"><label>N° de matrícula</label><input id="re-matricula" required /></div>
           <div class="field"><label>Foto o PDF de la matrícula</label>
             <input type="file" id="re-archivo" accept="image/*,application/pdf" required />
@@ -81,7 +79,7 @@ function renderRegistro() {
           <div class="field"><label>Email</label><input type="email" id="re-email" required /></div>
           <div class="field">
             <label>Contraseña</label>
-            <input type="password" id="re-password" minlength="8" pattern="(?=.*[A-Za-z])(?=.*\d).{8,}" title="Mínimo 8 caracteres, con al menos una letra y un número" required />
+            <input type="password" id="re-password" minlength="8" pattern="(?=.*[A-Za-z])(?=.*\\d).{8,}" title="Mínimo 8 caracteres, con al menos una letra y un número" required />
             <div class="muted" style="font-size:12px; margin-top:4px;">Mínimo 8 caracteres, con al menos una letra y un número.</div>
           </div>
           <div id="re-error" class="error-text" style="display:none;"></div>
@@ -96,6 +94,7 @@ function renderRegistro() {
       </div>
     </div>
   `);
+  wireZonaField("re");
   document.getElementById("form-registro").addEventListener("submit", async (e) => {
     e.preventDefault();
     const btn = document.getElementById("re-submit");
@@ -126,7 +125,7 @@ function renderRegistro() {
       const enfermero = {
         nombre: document.getElementById("re-nombre").value,
         telefono: document.getElementById("re-telefono").value,
-        zona: document.getElementById("re-zona").value,
+        zona: getZonaValue("re"),
         matricula: document.getElementById("re-matricula").value,
         matriculaArchivoPath: path,
         estado: "pendiente",
@@ -155,6 +154,8 @@ function renderDashboard(enfermero) {
         </div>
         <button class="btn-icon" id="btn-logout">Salir</button>
       </div>
+      <button class="btn-ghost" id="btn-editar-perfil" style="width:auto; padding:6px 12px; font-size:12.5px; margin-bottom:20px;">✏️ Editar perfil</button>
+      <div id="form-perfil-wrap"></div>
 
       <div id="verificacion-email"></div>
 
@@ -187,6 +188,10 @@ function renderDashboard(enfermero) {
   `);
 
   document.getElementById("btn-logout").addEventListener("click", () => EnfApp.auth.signOut());
+  document.getElementById("btn-editar-perfil").addEventListener("click", () => {
+    document.getElementById("btn-editar-perfil").style.display = "none";
+    renderFormPerfil(enfermero);
+  });
   renderVerificacionEmail(EnfApp.auth);
 
   if (enfermero.estado === "aprobado") {
@@ -209,6 +214,50 @@ function renderDashboard(enfermero) {
         }
       );
   }
+}
+
+function renderFormPerfil(enfermero) {
+  const wrap = document.getElementById("form-perfil-wrap");
+  wrap.innerHTML = `
+    <form id="form-perfil" class="card" style="margin-bottom:20px;">
+      <div class="field"><label>Nombre y apellido</label><input id="pf-nombre" value="${escapeHTML(enfermero.nombre)}" required /></div>
+      <div class="field"><label>Teléfono</label><input id="pf-telefono" value="${escapeHTML(enfermero.telefono)}" required /></div>
+      ${zonaFieldHTML("pf", enfermero.zona)}
+      <p class="muted" style="font-size:12.5px;">La matrícula no se puede editar acá — si necesitás corregirla, escribinos.</p>
+      <div id="pf-error" class="error-text" style="display:none;"></div>
+      <div style="display:flex; gap:10px;">
+        <button type="button" class="btn-ghost" id="pf-cancelar" style="flex:1;">Cancelar</button>
+        <button type="submit" class="btn-primary" id="pf-submit" style="flex:1;">Guardar cambios</button>
+      </div>
+    </form>
+  `;
+  wireZonaField("pf");
+  document.getElementById("pf-cancelar").addEventListener("click", () => {
+    wrap.innerHTML = "";
+    document.getElementById("btn-editar-perfil").style.display = "block";
+  });
+  document.getElementById("form-perfil").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("pf-submit");
+    const errEl = document.getElementById("pf-error");
+    errEl.style.display = "none";
+    btn.disabled = true;
+    btn.textContent = "Guardando…";
+    try {
+      await EnfApp.db.collection("enfermeros").doc(EnfApp.auth.currentUser.uid).update({
+        nombre: document.getElementById("pf-nombre").value,
+        telefono: document.getElementById("pf-telefono").value,
+        zona: getZonaValue("pf"),
+      });
+      const doc = await EnfApp.db.collection("enfermeros").doc(EnfApp.auth.currentUser.uid).get();
+      renderDashboard(doc.data());
+    } catch (err) {
+      errEl.textContent = err.message;
+      errEl.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = "Guardar cambios";
+    }
+  });
 }
 
 function renderListaTurnos(turnos) {
