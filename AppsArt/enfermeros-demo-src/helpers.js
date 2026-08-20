@@ -18,7 +18,13 @@ const ZONAS = [
   "Parque Chas",
 ];
 const ZONA_OTRA = "Otra (especificar)";
-const TIPOS_SERVICIO = ["Curación", "Inyección / medicación", "Control de signos vitales", "Cuidado post-operatorio", "Otro"];
+
+// El catálogo de servicios lo administra el admin desde la pestaña "Tarifas" (se
+// guarda en config/tarifas.precios, un mapa nombre → precio). SERVICIO_OTRO es una
+// opción aparte, siempre presente en el pedido del paciente además de ese catálogo,
+// para pedir algo que no está en la lista — el precio queda "a confirmar" hasta que
+// el admin lo fije a mano en ese pedido puntual (pestaña Pedidos).
+const SERVICIO_OTRO = "Otro (especificar)";
 const ESTADOS_PEDIDO = ["pendiente", "asignado", "confirmado", "en_curso", "completado", "cancelado"];
 const ESTADO_LABELS = {
   pendiente: "Pendiente",

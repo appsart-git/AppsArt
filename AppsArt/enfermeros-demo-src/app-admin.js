@@ -58,9 +58,9 @@ function renderSinPermiso() {
       <div class="card" style="width:100%; max-width:420px;">
         <div style="font-weight:600; margin-bottom:8px;">Esta cuenta no tiene permisos de administrador</div>
         <p class="muted" style="margin-bottom:16px;">
-          Para dar de alta un admin: creá el usuario en Firebase Console → Authentication,
-          copiá su UID, y agregá un documento con ese ID en la colección
-          <code>admins</code> de Firestore (ver README).
+          Pedile a un administrador existente que te dé de alta desde la pestaña
+          "Administradores" del panel. Si todavía no hay ninguno, hay que crear el
+          primero a mano desde Firebase Console (ver README).
         </p>
         <button class="btn-ghost" id="btn-logout" style="width:100%;">Cerrar sesión</button>
       </div>
@@ -82,6 +82,7 @@ function renderDashboard() {
         <button class="${tabActual === "enfermeros" ? "btn-primary" : "btn-ghost"}" id="tab-enfermeros">Enfermeros</button>
         <button class="${tabActual === "pedidos" ? "btn-primary" : "btn-ghost"}" id="tab-pedidos">Pedidos</button>
         <button class="${tabActual === "tarifas" ? "btn-primary" : "btn-ghost"}" id="tab-tarifas">Tarifas</button>
+        <button class="${tabActual === "admins" ? "btn-primary" : "btn-ghost"}" id="tab-admins">Administradores</button>
       </div>
       <div id="tab-content"></div>
       <div class="by-appsart">by AppsArt</div>
@@ -101,6 +102,10 @@ function renderDashboard() {
     tabActual = "tarifas";
     renderDashboard();
   });
+  document.getElementById("tab-admins").addEventListener("click", () => {
+    tabActual = "admins";
+    renderDashboard();
+  });
   renderTabContent();
 }
 
@@ -109,7 +114,8 @@ function renderTabContent() {
   if (!el) return;
   if (tabActual === "enfermeros") renderTabEnfermeros(el);
   else if (tabActual === "pedidos") renderTabPedidos(el);
-  else renderTabTarifas(el);
+  else if (tabActual === "tarifas") renderTabTarifas(el);
+  else renderTabAdmins(el);
 }
 
 function renderTabEnfermeros(el) {
@@ -211,12 +217,22 @@ function renderTabPedidos(el) {
             <div class="muted" style="font-size:13.5px;">${escapeHTML(p.zona)} · ${escapeHTML(p.fecha)} · ${escapeHTML(p.horario)}</div>
             ${p.direccion ? `<div style="font-size:13.5px; margin-top:2px;">📍 ${escapeHTML(p.direccion)}</div>` : ""}
             <div style="font-size:13.5px; margin-top:2px; font-weight:600;">
-              ${formatMonto(p.precio)}
+              ${p.precio != null ? formatMonto(p.precio) : "A confirmar"}
               ${p.precio != null ? `<span class="muted" style="font-weight:400;"> · comisión ${formatMonto(Math.round((p.precio * (tarifas.comisionPorcentaje || 0)) / 100))}</span>` : ""}
             </div>
           </div>
           ${badgeHTML(p.estado)}
         </div>
+        ${
+          p.precio == null
+            ? `
+        <div style="display:flex; gap:8px; margin-top:10px; align-items:center;">
+          <input type="number" min="0" step="1" class="in-fijar-precio" data-id="${p.id}" placeholder="Fijar precio para este pedido" style="flex:1;" />
+          <button type="button" class="btn-primary btn-fijar-precio" data-id="${p.id}" style="width:auto; padding:8px 12px; font-size:13px;">Guardar</button>
+        </div>
+        `
+            : ""
+        }
         <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
           <select class="sel-enfermero" data-id="${p.id}" style="padding:8px 10px; border-radius:8px; border:1.5px solid var(--border);">
             <option value="">Sin asignar</option>
@@ -248,6 +264,17 @@ function renderTabPedidos(el) {
   el.querySelectorAll(".sel-pago").forEach((sel) => {
     sel.addEventListener("change", () => actualizarPedido(sel.dataset.id, { pagoEstado: sel.value }));
   });
+  el.querySelectorAll(".btn-fijar-precio").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const input = el.querySelector(`.in-fijar-precio[data-id="${btn.dataset.id}"]`);
+      const precio = Number(input.value);
+      if (!precio || precio <= 0) {
+        alert("Poné un precio mayor a 0.");
+        return;
+      }
+      actualizarPedido(btn.dataset.id, { precio });
+    });
+  });
 }
 
 async function actualizarPedido(id, campos) {
@@ -259,21 +286,34 @@ async function actualizarPedido(id, campos) {
 }
 
 function renderTabTarifas(el) {
+  const nombresServicio = Object.keys(tarifas.precios || {});
   el.innerHTML = `
     <form id="form-tarifas" class="card">
       <p class="muted" style="margin-top:0; font-size:13.5px;">
-        Precio por tipo de servicio (se le muestra al paciente y al enfermero) y % de
-        comisión de la plataforma. Un pedido nuevo toma el precio vigente en el momento
-        de pedirse — cambiar un precio acá no afecta pedidos ya hechos.
+        Catálogo de servicios y precio de cada uno (se le muestra al paciente y al
+        enfermero) y % de comisión de la plataforma. Un pedido nuevo toma el precio
+        vigente en el momento de pedirse — cambiar un precio acá no afecta pedidos ya
+        hechos. El paciente siempre puede pedir "Otro (especificar)" además de esta
+        lista — esos pedidos quedan con precio "a confirmar" hasta que se lo fijes vos
+        desde la pestaña Pedidos.
       </p>
-      ${TIPOS_SERVICIO.map(
-        (t) => `
-        <div class="field">
-          <label>${escapeHTML(t)}</label>
-          <input type="number" min="0" step="1" class="in-precio" data-tipo="${escapeHTML(t)}" value="${tarifas.precios[t] || 0}" />
+      ${
+        nombresServicio.length === 0
+          ? `<div class="muted" style="font-size:13.5px; margin-bottom:10px;">Todavía no hay servicios cargados — agregá el primero abajo.</div>`
+          : nombresServicio
+              .map(
+                (t) => `
+        <div class="field" style="display:flex; gap:8px; align-items:flex-end;">
+          <div style="flex:1;">
+            <label>${escapeHTML(t)}</label>
+            <input type="number" min="0" step="1" class="in-precio" data-tipo="${escapeHTML(t)}" value="${tarifas.precios[t] || 0}" />
+          </div>
+          <button type="button" class="btn-danger btn-quitar-servicio" data-tipo="${escapeHTML(t)}" style="width:auto; padding:10px 12px;" title="Quitar del catálogo">✕</button>
         </div>
       `
-      ).join("")}
+              )
+              .join("")
+      }
       <div class="field">
         <label>Comisión de la plataforma (%)</label>
         <input type="number" min="0" max="100" step="1" id="in-comision" value="${tarifas.comisionPorcentaje || 0}" />
@@ -282,7 +322,64 @@ function renderTabTarifas(el) {
       <div id="tarifas-ok" class="muted" style="display:none; font-size:13.5px;">Guardado.</div>
       <button type="submit" class="btn-primary" id="tarifas-submit">Guardar tarifas</button>
     </form>
+    <div class="card" style="margin-top:12px;">
+      <label>Agregar servicio nuevo al catálogo</label>
+      <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+        <input id="nuevo-servicio-nombre" placeholder="Nombre del servicio" style="flex:2; min-width:140px;" />
+        <input id="nuevo-servicio-precio" type="number" min="0" step="1" placeholder="Precio" style="flex:1; min-width:90px;" />
+        <button type="button" class="btn-primary" id="btn-agregar-servicio" style="width:auto; padding:10px 14px;">Agregar</button>
+      </div>
+      <div id="nuevo-servicio-error" class="error-text" style="display:none; margin-top:8px;"></div>
+    </div>
   `;
+
+  async function guardarPrecios(nuevosPrecios) {
+    await EnfApp.db.collection("config").doc("tarifas").set(
+      { precios: nuevosPrecios, actualizadoEn: firebase.firestore.FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+  }
+
+  el.querySelectorAll(".btn-quitar-servicio").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      if (!confirm(`¿Quitar "${btn.dataset.tipo}" del catálogo?`)) return;
+      const nuevosPrecios = { ...tarifas.precios };
+      delete nuevosPrecios[btn.dataset.tipo];
+      try {
+        await guardarPrecios(nuevosPrecios);
+      } catch (err) {
+        alert("No se pudo quitar: " + err.message);
+      }
+    });
+  });
+
+  document.getElementById("btn-agregar-servicio").addEventListener("click", async () => {
+    const errEl = document.getElementById("nuevo-servicio-error");
+    errEl.style.display = "none";
+    const nombre = document.getElementById("nuevo-servicio-nombre").value.trim();
+    const precio = Number(document.getElementById("nuevo-servicio-precio").value);
+    if (!nombre) {
+      errEl.textContent = "Poné un nombre para el servicio.";
+      errEl.style.display = "block";
+      return;
+    }
+    if (!precio || precio <= 0) {
+      errEl.textContent = "Poné un precio mayor a 0.";
+      errEl.style.display = "block";
+      return;
+    }
+    if (nombre === SERVICIO_OTRO || tarifas.precios[nombre] != null) {
+      errEl.textContent = "Ya existe un servicio con ese nombre.";
+      errEl.style.display = "block";
+      return;
+    }
+    try {
+      await guardarPrecios({ ...tarifas.precios, [nombre]: precio });
+    } catch (err) {
+      errEl.textContent = "No se pudo agregar: " + err.message;
+      errEl.style.display = "block";
+    }
+  });
 
   document.getElementById("form-tarifas").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -294,7 +391,7 @@ function renderTabTarifas(el) {
     btn.disabled = true;
     btn.textContent = "Guardando…";
 
-    const precios = {};
+    const precios = { ...tarifas.precios };
     el.querySelectorAll(".in-precio").forEach((input) => {
       precios[input.dataset.tipo] = Number(input.value) || 0;
     });
@@ -313,6 +410,73 @@ function renderTabTarifas(el) {
     btn.disabled = false;
     btn.textContent = "Guardar tarifas";
   });
+}
+
+function renderTabAdmins(el) {
+  el.innerHTML = `
+    <form id="form-crear-admin" class="card">
+      <p class="muted" style="margin-top:0; font-size:13.5px;">
+        Da de alta a otro administrador — después le pasás vos el email y la
+        contraseña que cargues acá para que pueda entrar.
+      </p>
+      <div class="field"><label>Nombre</label><input id="ca-nombre" required /></div>
+      <div class="field"><label>Email</label><input type="email" id="ca-email" required /></div>
+      <div class="field">
+        <label>Contraseña</label>
+        <input type="password" id="ca-password" required pattern="(?=.*[A-Za-z])(?=.*\\d).{8,}" title="Al menos 8 caracteres, con letra y número" />
+      </div>
+      <div id="ca-error" class="error-text" style="display:none;"></div>
+      <div id="ca-ok" class="muted" style="display:none; font-size:13.5px;"></div>
+      <button type="submit" class="btn-primary" id="ca-submit">Dar de alta</button>
+    </form>
+  `;
+
+  document.getElementById("form-crear-admin").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById("ca-submit");
+    const errEl = document.getElementById("ca-error");
+    const okEl = document.getElementById("ca-ok");
+    errEl.style.display = "none";
+    okEl.style.display = "none";
+    const nombre = document.getElementById("ca-nombre").value.trim();
+    const email = document.getElementById("ca-email").value.trim();
+    const password = document.getElementById("ca-password").value;
+    btn.disabled = true;
+    btn.textContent = "Dando de alta…";
+    try {
+      await crearAdmin(nombre, email, password);
+      okEl.textContent = `Listo — ${email} ya puede entrar al panel con la contraseña que cargaste.`;
+      okEl.style.display = "block";
+      document.getElementById("form-crear-admin").reset();
+    } catch (err) {
+      errEl.textContent = traducirErrorAuth(err);
+      errEl.style.display = "block";
+    }
+    btn.disabled = false;
+    btn.textContent = "Dar de alta";
+  });
+}
+
+/* Crea el usuario en una instancia secundaria de Firebase (no la que tiene la
+   sesión del admin actual) para no desloguearlo — createUserWithEmailAndPassword
+   deja logueada esa instancia con el usuario nuevo, así que la usamos y
+   descartamos aparte. El documento en admins/ lo escribe la sesión del admin
+   que ya está logueado (la regla exige isAdmin() para poder crearlo). */
+async function crearAdmin(nombre, email, password) {
+  const secundaria = firebase.initializeApp(DEFAULT_FIREBASE_CONFIG, "alta-admin-" + Date.now());
+  try {
+    const cred = await secundaria.auth().createUserWithEmailAndPassword(email, password);
+    const uid = cred.user.uid;
+    await secundaria.auth().signOut();
+    await EnfApp.db.collection("admins").doc(uid).set({
+      nombre,
+      email,
+      creadoPor: EnfApp.auth.currentUser.uid,
+      creadoEn: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  } finally {
+    await secundaria.delete();
+  }
 }
 
 /* ===================== Suscripciones ===================== */

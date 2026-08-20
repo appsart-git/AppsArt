@@ -160,9 +160,11 @@ function renderDashboard(paciente) {
   });
   renderVerificacionEmail(EnfApp.auth);
   renderPushStatus("pacienteTokens", "Activar avisos de pedido asignado");
-  document.getElementById("btn-nuevo-pedido").addEventListener("click", () => {
+  document.getElementById("btn-nuevo-pedido").addEventListener("click", async () => {
     document.getElementById("btn-nuevo-pedido").style.display = "none";
-    renderFormPedido(paciente);
+    const tarifasDoc = await EnfApp.db.collection("config").doc("tarifas").get();
+    const precios = tarifasDoc.exists ? tarifasDoc.data().precios || {} : {};
+    renderFormPedido(paciente, precios);
   });
 
   const uid = EnfApp.auth.currentUser.uid;
@@ -244,7 +246,7 @@ function renderListaPedidos(pedidos) {
         </div>
         <div class="muted" style="font-size:13.5px; margin-top:6px;">${escapeHTML(p.zona)} · ${escapeHTML(p.fecha)} · ${escapeHTML(p.horario)}</div>
         ${p.direccion ? `<div class="muted" style="font-size:13.5px; margin-top:4px;">📍 ${escapeHTML(p.direccion)}</div>` : ""}
-        <div style="font-size:13.5px; margin-top:4px; font-weight:600;">${formatMonto(p.precio)}</div>
+        <div style="font-size:13.5px; margin-top:4px; font-weight:600;">${p.precio != null ? formatMonto(p.precio) : "A confirmar"}</div>
         ${p.enfermeroId ? `<div id="enfermero-${p.id}"></div>` : ""}
         ${
           CANCELABLE.includes(p.estado)
@@ -287,20 +289,24 @@ async function renderEnfermeroAsignado(pedidoId, enfermeroId) {
     if (!doc.exists) return;
     const enfermero = doc.data();
 
-    let fotoHTML = `<div style="width:32px; height:32px; border-radius:8px; background:var(--surface-2); flex-shrink:0;"></div>`;
+    let fotoHTML = `<div style="width:56px; height:56px; border-radius:10px; background:var(--surface-2); flex-shrink:0;"></div>`;
     if (enfermero.fotoPerfilPath) {
       try {
         const url = await EnfApp.storage.ref(enfermero.fotoPerfilPath).getDownloadURL();
-        fotoHTML = `<img src="${url}" alt="" style="width:32px; height:32px; border-radius:8px; object-fit:cover; flex-shrink:0;" />`;
+        fotoHTML = `<img src="${url}" alt="" style="width:56px; height:56px; border-radius:10px; object-fit:cover; flex-shrink:0;" />`;
       } catch (err) {
         // sin foto disponible, se queda el placeholder vacío
       }
     }
 
     el.innerHTML = `
-      <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+      <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
         ${fotoHTML}
-        <div style="font-size:13.5px;"><span class="muted">Tu enfermero:</span> <b>${escapeHTML(enfermero.nombre)}</b></div>
+        <div style="font-size:13.5px;">
+          <div class="muted">Tu enfermero:</div>
+          <div style="font-weight:600;">${escapeHTML(enfermero.nombre)}</div>
+          <div class="muted">Matrícula ${escapeHTML(enfermero.matricula)} · Póliza de seguro ${enfermero.seguroPoliza ? escapeHTML(enfermero.seguroPoliza) : "—"}</div>
+        </div>
       </div>
     `;
   } catch (err) {
@@ -309,12 +315,18 @@ async function renderEnfermeroAsignado(pedidoId, enfermeroId) {
   }
 }
 
-function renderFormPedido(paciente) {
+function renderFormPedido(paciente, precios) {
   const wrap = document.getElementById("form-pedido-wrap");
+  const nombresServicio = Object.keys(precios || {});
   wrap.innerHTML = `
     <form id="form-pedido" class="card" style="margin-bottom:20px;">
       <div class="field"><label>Tipo de servicio</label>
-        <select id="pe-tipo">${TIPOS_SERVICIO.map((t) => `<option value="${t}">${t}</option>`).join("")}</select>
+        <select id="pe-tipo">
+          ${nombresServicio.map((t) => `<option value="${t}">${t}</option>`).join("")}
+          <option value="${SERVICIO_OTRO}">${SERVICIO_OTRO}</option>
+        </select>
+        <div id="pe-precio-preview" class="muted" style="font-size:13px; margin-top:6px;"></div>
+        <input id="pe-tipo-otro" placeholder="¿Qué servicio necesitás?" style="margin-top:8px; display:none;" />
       </div>
       ${zonaFieldHTML("pe", paciente.zona)}
       <div class="field"><label>Dirección (calle, altura, piso/depto)</label><input id="pe-direccion" placeholder="Ej: Av. Rivadavia 1234, 3° B" required /></div>
@@ -329,6 +341,19 @@ function renderFormPedido(paciente) {
     </form>
   `;
   wireZonaField("pe");
+
+  const selTipo = document.getElementById("pe-tipo");
+  const preview = document.getElementById("pe-precio-preview");
+  const inputOtro = document.getElementById("pe-tipo-otro");
+  function actualizarPreview() {
+    const esOtro = selTipo.value === SERVICIO_OTRO;
+    inputOtro.style.display = esOtro ? "block" : "none";
+    inputOtro.required = esOtro;
+    preview.textContent = esOtro ? "Precio: a confirmar con el equipo de CUIDAR+." : "Precio: " + formatMonto(precios[selTipo.value]);
+  }
+  selTipo.addEventListener("change", actualizarPreview);
+  actualizarPreview();
+
   document.getElementById("pe-cancelar").addEventListener("click", () => {
     wrap.innerHTML = "";
     document.getElementById("btn-nuevo-pedido").style.display = "block";
@@ -341,10 +366,9 @@ function renderFormPedido(paciente) {
     btn.disabled = true;
     btn.textContent = "Enviando…";
     try {
-      const tipoServicio = document.getElementById("pe-tipo").value;
-      const tarifasDoc = await EnfApp.db.collection("config").doc("tarifas").get();
-      const precios = tarifasDoc.exists ? tarifasDoc.data().precios || {} : {};
-      const precio = precios[tipoServicio] != null ? precios[tipoServicio] : null;
+      const esOtro = selTipo.value === SERVICIO_OTRO;
+      const tipoServicio = esOtro ? inputOtro.value.trim() : selTipo.value;
+      const precio = esOtro ? null : precios[selTipo.value] != null ? precios[selTipo.value] : null;
 
       await EnfApp.db.collection("pedidos").add({
         pacienteId: EnfApp.auth.currentUser.uid,

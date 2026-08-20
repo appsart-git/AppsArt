@@ -41,7 +41,10 @@ cliente sobre distribución):
 
 ## Crear el primer admin
 
-No hay pantalla de "registro" para admin a propósito. Para dar de alta uno:
+No hay pantalla de "registro" para admin a propósito — solo un admin ya logueado
+puede dar de alta a otro (pestaña **Administradores** del panel, usa una instancia
+secundaria de Firebase para crear el usuario sin cerrar tu propia sesión). Pero el
+primero no tiene quién lo dé de alta, así que ese hay que crearlo a mano:
 
 1. Firebase Console → Authentication → pestaña "Users" → **Add user** → cargar
    email/contraseña a mano.
@@ -105,7 +108,7 @@ service cloud.firestore {
 
     match /admins/{adminId} {
       allow read: if isSignedIn() && request.auth.uid == adminId;
-      allow write: if false; // se crean a mano desde la consola
+      allow create: if isAdmin(); // un admin ya logueado da de alta a otro (panel → pestaña Administradores)
     }
 
     match /pacientes/{pacienteId} {
@@ -305,11 +308,10 @@ Siempre reemplazar el archivo de reglas completo, no pegar solo el bloque nuevo.
 
 María pidió sumar esto al registro del enfermero pero sin especificar el formato exacto,
 así que se implementó la versión más verificable (mismo criterio que la matrícula):
-**N° de póliza obligatorio** + **certificado opcional para subir** (si no lo tiene a mano
-en el momento, puede completarlo después escribiéndole al admin). La foto de perfil es
-obligatoria. **Confirmar con María si esto es lo que tenía en mente** — si prefería algo
-más simple (una declaración con checkbox, por ejemplo) hay que ajustar el formulario y
-sacar el campo de N° de póliza como obligatorio.
+**N° de póliza y certificado, ambos obligatorios para subir** (2026-08-20: el certificado
+pasó de opcional a obligatorio). La foto de perfil también es obligatoria. **Confirmar con
+María si esto es lo que tenía en mente** — si prefería algo más simple (una declaración con
+checkbox, por ejemplo) hay que ajustar el formulario.
 
 El seguro (póliza/certificado) solo lo ve el admin. La foto de perfil sí se le muestra
 al paciente: en cuanto un pedido tiene un enfermero asignado, aparece su foto y nombre

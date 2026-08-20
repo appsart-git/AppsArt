@@ -81,8 +81,8 @@ function renderRegistro() {
             <div class="muted" style="font-size:12px; margin-top:4px;">Así te ve el paciente antes de que llegues.</div>
           </div>
           <div class="field"><label>N° de póliza de seguro de mala praxis</label><input id="re-poliza" required /></div>
-          <div class="field"><label>Certificado del seguro (opcional)</label>
-            <input type="file" id="re-seguro-archivo" accept="image/*,application/pdf" />
+          <div class="field"><label>Certificado del seguro</label>
+            <input type="file" id="re-seguro-archivo" accept="image/*,application/pdf" required />
           </div>
           <div class="field"><label>Email</label><input type="email" id="re-email" required /></div>
           <div class="field">
@@ -122,6 +122,11 @@ function renderRegistro() {
       errEl.style.display = "block";
       return;
     }
+    if (!seguroArchivo) {
+      errEl.textContent = "Subí el certificado del seguro de mala praxis.";
+      errEl.style.display = "block";
+      return;
+    }
 
     btn.disabled = true;
     btn.textContent = "Enviando…";
@@ -142,12 +147,9 @@ function renderRegistro() {
       const fotoPath = `perfiles/${uid}/foto.${fotoExt}`;
       await EnfApp.storage.ref(fotoPath).put(foto);
 
-      let seguroArchivoPath = null;
-      if (seguroArchivo) {
-        const seguroExt = seguroArchivo.name.split(".").pop();
-        seguroArchivoPath = `seguros/${uid}/certificado.${seguroExt}`;
-        await EnfApp.storage.ref(seguroArchivoPath).put(seguroArchivo);
-      }
+      const seguroExt = seguroArchivo.name.split(".").pop();
+      const seguroArchivoPath = `seguros/${uid}/certificado.${seguroExt}`;
+      await EnfApp.storage.ref(seguroArchivoPath).put(seguroArchivo);
 
       const enfermero = {
         nombre: document.getElementById("re-nombre").value,
