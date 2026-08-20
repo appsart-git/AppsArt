@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Lote 11 · Carga</title>
+<meta name="theme-color" content="#14171A">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+  :root{
+    --bg:#14171A; --surface:#1D2126; --surface-2:#262B32; --border:#2E343C;
+    --text:#ECEDEF; --text-muted:#8B92A0; --text-faint:#5C6470;
+    --accent:#E8A33D; --accent-ink:#1A1305;
+    --green:#4C8B5A; --red:#E15252; --amber:#E8A33D;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    --radius:12px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg); color:var(--text); font-family:var(--font); -webkit-font-smoothing:antialiased;}
+  h1,h2,h3{margin:0 0 8px; font-weight:800;}
+  p{line-height:1.5;}
+  .muted{color:var(--text-muted);}
+  a{color:var(--accent);}
+  button{font-family:inherit;}
+  input,select,textarea{
+    font-family:inherit; font-size:14.5px; color:var(--text); background:var(--surface-2);
+    border:1px solid var(--border); border-radius:9px; padding:9px 11px; width:100%;
+  }
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--accent); outline-offset:0;}
+  label{display:block; font-size:12.5px; color:var(--text-muted); margin:0 0 12px; font-weight:600;}
+  label input,label select,label textarea{margin-top:5px;}
+  label.checkbox{display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--text);}
+  label.checkbox input{width:auto;}
+
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    background:var(--surface-2); color:var(--text); border:1px solid var(--border);
+    border-radius:9px; padding:10px 16px; font-weight:700; font-size:13.5px; cursor:pointer;
+  }
+  .btn:hover{border-color:#555;}
+  .btn:disabled{opacity:.5; cursor:default;}
+  .btn-primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
+  .btn-ghost{background:transparent;}
+  .btn-sm{padding:6px 10px; font-size:12px;}
+  .btn-danger{color:#ff8378; border-color:#5a2620;}
+
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px;}
+
+  #app{display:flex; min-height:100vh;}
+  .sidebar{
+    width:220px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--border);
+    display:flex; flex-direction:column; padding:18px 14px; position:sticky; top:0; height:100vh;
+  }
+  .brand{display:flex; align-items:center; gap:10px; margin-bottom:18px; padding:0 4px;}
+  .brand .name{font-weight:800; font-size:15.5px; line-height:1.2;}
+  .brand .name small{display:block; font-size:10.5px; color:var(--text-muted); font-weight:500;}
+  .nav{display:flex; flex-direction:column; gap:2px; flex:1;}
+  .nav-item{
+    display:flex; align-items:center; gap:9px; padding:10px 12px; border-radius:9px; color:var(--text-muted);
+    cursor:pointer; font-size:13.5px; font-weight:700; user-select:none;
+  }
+  .nav-item:hover{background:var(--surface-2); color:var(--text);}
+  .nav-item.active{background:var(--accent); color:var(--accent-ink);}
+  .backend-badge{font-size:11px; color:var(--text-muted); padding:8px 6px; display:flex; align-items:center; gap:6px;}
+  .dot{width:7px; height:7px; border-radius:50%; background:var(--green); flex-shrink:0;}
+  .dot.local{background:var(--amber);}
+
+  .topbar{display:none;}
+  main{flex:1; min-width:0; padding:26px 30px 60px;}
+  .section-head{display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:16px; flex-wrap:wrap;}
+  .searchbar{position:relative; max-width:320px; flex:1;}
+  .searchbar input{padding-left:34px;}
+  .searchbar .ico{position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:13px;}
+
+  @media(max-width:860px){
+    .sidebar{display:none;}
+    .topbar{
+      display:flex; align-items:center; gap:6px; overflow-x:auto; position:sticky; top:0; z-index:20;
+      background:var(--surface); border-bottom:1px solid var(--border); padding:10px 12px;
+    }
+    .topbar .nav-item{white-space:nowrap; padding:8px 11px; font-size:12.5px;}
+    #app{display:block;}
+    main{padding:16px 14px 50px;}
+  }
+
+  .ocr-layout{display:grid; grid-template-columns:340px 1fr; gap:20px; align-items:start;}
+  @media(max-width:900px){ .ocr-layout{grid-template-columns:1fr;} }
+  .ocr-col-img{position:sticky; top:16px;}
+  @media(max-width:900px){ .ocr-col-img{position:static;} }
+  .ocr-preview{width:100%; border-radius:10px; margin-top:10px; border:1px solid var(--border); cursor:zoom-in;}
+  .ocr-preview.zoomed{cursor:zoom-out;}
+  .progress-bar{height:6px; background:var(--surface-2); border-radius:4px; margin-top:10px; overflow:hidden;}
+  .progress-bar .fill{height:100%; background:var(--accent); transition:width .2s;}
+  .empty-hint{color:var(--text-faint); font-size:13.5px; padding:30px 0; text-align:center; border:1px dashed var(--border); border-radius:10px;}
+
+  .ocr-rows{display:flex; flex-direction:column; gap:14px;}
+  .ocr-row{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px;}
+  .ocr-row.dup{border-color:var(--amber);}
+  .dup-warning{font-size:12px; color:var(--amber); margin-bottom:8px; font-weight:700;}
+  .ocr-row-grid{display:grid; grid-template-columns:1fr 1fr; gap:0 14px;}
+  .ocr-row-grid .col-span2{grid-column:1/-1;}
+  @media(max-width:520px){ .ocr-row-grid{grid-template-columns:1fr;} }
+  .row-foto-preview{width:90px; height:90px; object-fit:cover; border-radius:8px; margin-top:6px; display:block;}
+  .ocr-footer-actions{display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;}
+
+  .chips{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:10px;}
+  .chip{display:flex; align-items:center; gap:6px; background:var(--surface-2); border:1px solid var(--border); border-radius:20px; padding:5px 6px 5px 12px; font-size:12.5px;}
+  .chip button{background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:13px; padding:2px;}
+  .inline-add{display:flex; gap:8px; margin-bottom:18px;}
+  .inline-add input{width:auto; flex:1;}
+
+  .table-wrap{overflow-x:auto; border:1px solid var(--border); border-radius:10px;}
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th,td{padding:10px 12px; text-align:left; border-bottom:1px solid var(--border); white-space:nowrap;}
+  th{color:var(--text-muted); font-size:11.5px; text-transform:uppercase; letter-spacing:.03em;}
+  tr:last-child td{border-bottom:none;}
+  td select{width:auto;}
+
+  .toast{
+    position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); opacity:0;
+    background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:12px 18px;
+    border-radius:10px; font-size:13.5px; z-index:100; transition:.2s; pointer-events:none; max-width:90vw;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="name">Lote 11<small>Carga de catálogo</small></div>
+    </div>
+    <nav class="nav">
+      <div class="nav-item" data-action="setTab" data-tab="escanear">📷 Escanear cuaderno</div>
+      <div class="nav-item" data-action="setTab" data-tab="fotos">🖼 Agregar foto</div>
+      <div class="nav-item" data-action="setTab" data-tab="productos">📦 Productos</div>
+      <div class="nav-item" data-action="setTab" data-tab="config">⚙ Configuración</div>
+    </nav>
+    <div class="backend-badge" id="backendBadge"></div>
+  </aside>
+  <div style="flex:1; min-width:0;">
+    <div class="topbar">
+      <div class="nav-item" data-action="setTab" data-tab="escanear">📷 Escanear</div>
+      <div class="nav-item" data-action="setTab" data-tab="fotos">🖼 Foto</div>
+      <div class="nav-item" data-action="setTab" data-tab="productos">📦 Productos</div>
+      <div class="nav-item" data-action="setTab" data-tab="config">⚙ Config</div>
+    </div>
+    <main id="content"></main>
+  </div>
+</div>
+
+<script src="./carga-ocr.js"></script>
+<script>
+'use strict';
+
+const FIREBASE_CONFIG_KEY = 'lote11_firebase_config';
+const LOCAL_PRODUCTOS_KEY = 'lote11_productos_local';
+const LOCAL_CATEGORIAS_KEY = 'lote11_categorias_local';
+const LOCAL_ETIQUETAS_KEY = 'lote11_etiquetas_local';
+const DEFAULT_FIREBASE_CONFIG = null; // se completa cuando el cliente cree su proyecto Firebase
+const DEFAULT_CATEGORIAS = ['Muebles','Cuadros y decoración','Cerámica y vidrio','Iluminación','Vajilla','Adornos','Textiles','Herramientas','Jardín','Otros'];
+
+let db = null, storage = null;
+
+let state = {
+  tab: 'escanear',
+  backendMode: 'local',
+  productos: [], categorias: [], etiquetas: [],
+  ocr: { imageDataUrl: null, imageName: '', processing: false, progress: 0, rows: [] },
+  fotoBusqueda: { codigo: '', producto: null, buscado: false, compressed: null, previewUrl: null, uploading: false },
+  prodFiltro: ''
+};
+
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function formatMoney(n, moneda){ return (moneda==='USD' ? 'U$S ' : '$ ') + (Number(n)||0).toLocaleString('es-AR'); }
+
+let toastTimer = null;
+function toast(msg){
+  let el = document.getElementById('toast');
+  if(!el){ el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; document.body.appendChild(el); }
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> el.classList.remove('show'), 3200);
+}
+
+/* ===================== Backend: Firestore o localStorage ===================== */
+function getSavedFirebaseConfig(){
+  const raw = localStorage.getItem(FIREBASE_CONFIG_KEY);
+  if(raw){ try{ return JSON.parse(raw); }catch(e){ return null; } }
+  return DEFAULT_FIREBASE_CONFIG;
+}
+function initBackend(){
+  const cfg = getSavedFirebaseConfig();
+  if(cfg){
+    try{
+      firebase.initializeApp(cfg);
+      db = firebase.firestore();
+      storage = firebase.storage();
+      state.backendMode = 'firebase';
+      return;
+    }catch(e){ console.warn('No se pudo conectar a Firebase, sigo en modo local.', e); }
+  }
+  state.backendMode = 'local';
+}
+function localRead(key, fallback){
+  try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }catch(e){ return fallback; }
+}
+function localWrite(key, value){ localStorage.setItem(key, JSON.stringify(value)); }
+
+async function loadAll(){
+  if(state.backendMode === 'firebase'){
+    const [prodSnap, catSnap, etqSnap] = await Promise.all([
+      db.collection('productos').get(),
+      db.collection('config').doc('categorias').get(),
+      db.collection('config').doc('etiquetas').get()
+    ]);
+    state.productos = prodSnap.docs.map(d => d.data());
+    if(catSnap.exists){ state.categorias = catSnap.data().lista || []; }
+    else { state.categorias = DEFAULT_CATEGORIAS; await db.collection('config').doc('categorias').set({lista: DEFAULT_CATEGORIAS}); }
+    state.etiquetas = (etqSnap.exists && etqSnap.data().lista) || [];
+  } else {
+    state.productos = localRead(LOCAL_PRODUCTOS_KEY, []);
+    if(localStorage.getItem(LOCAL_CATEGORIAS_KEY)){ state.categorias = localRead(LOCAL_CATEGORIAS_KEY, DEFAULT_CATEGORIAS); }
+    else { state.categorias = DEFAULT_CATEGORIAS; localWrite(LOCAL_CATEGORIAS_KEY, DEFAULT_CATEGORIAS); }
+    state.etiquetas = localRead(LOCAL_ETIQUETAS_KEY, []);
+  }
+}
+
+async function saveProducto(p){
+  p.fechaCarga = p.fechaCarga || Date.now();
+  if(state.backendMode === 'firebase'){
+    await db.collection('productos').doc('p' + p.codigo).set(p, { merge: true });
+  } else {
+    const list = localRead(LOCAL_PRODUCTOS_KEY, []);
+    const idx = list.findIndex(x => x.codigo === p.codigo);
+    if(idx >= 0) list[idx] = Object.assign({}, list[idx], p); else list.push(p);
+    localWrite(LOCAL_PRODUCTOS_KEY, list);
+  }
+  const idx2 = state.productos.findIndex(x => x.codigo === p.codigo);
+  if(idx2 >= 0) state.productos[idx2] = Object.assign({}, state.productos[idx2], p);
+  else state.productos.push(p);
+}
+async function deleteProducto(codigo){
+  if(state.backendMode === 'firebase'){ await db.collection('productos').doc('p' + codigo).delete(); }
+  else { localWrite(LOCAL_PRODUCTOS_KEY, localRead(LOCAL_PRODUCTOS_KEY, []).filter(x => x.codigo !== codigo)); }
+}
+async function saveCategorias(list){
+  state.categorias = list;
+  if(state.backendMode === 'firebase'){ await db.collection('config').doc('categorias').set({ lista: list }); }
+  else { localWrite(LOCAL_CATEGORIAS_KEY, list); }
+}
+async function saveEtiquetas(list){
+  state.etiquetas = list;
+  if(state.backendMode === 'firebase'){ await db.collection('config').doc('etiquetas').set({ lista: list }); }
+  else { localWrite(LOCAL_ETIQUETAS_KEY, list); }
+}
+
+/* ===================== Fotos: compresión client-side + subida ===================== */
+function compressImageFile(file, maxSide, quality){
+  maxSide = maxSide || 1400; quality = quality || 0.82;
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let { width, height } = img;
+        if(width > height && width > maxSide){ height = Math.round(height * maxSide / width); width = maxSide; }
+        else if(height >= width && height > maxSide){ width = Math.round(width * maxSide / height); height = maxSide; }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        canvas.toBlob((blob) => resolve({ dataUrl, blob }), 'image/jpeg', quality);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+async function uploadFoto(codigo, compressed){
+  if(state.backendMode === 'firebase'){
+    const path = `productos/${codigo}/${Date.now()}.jpg`;
+    await storage.ref(path).put(compressed.blob);
+    return await storage.ref(path).getDownloadURL();
+  }
+  return compressed.dataUrl;
+}
+
+/* ===================== Acciones (delegadas) ===================== */
+const actions = {};
+const inputActions = {};
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-action]');
+  if(!btn) return;
+  const fn = actions[btn.dataset.action];
+  if(fn) fn(btn, e);
+});
+document.addEventListener('input', (e) => {
+  const el = e.target.closest('[data-change]');
+  if(!el) return;
+  const fn = inputActions[el.dataset.change];
+  if(fn) fn(el);
+});
+document.addEventListener('change', (e) => {
+  const el = e.target.closest('[data-change]');
+  if(!el || el.type === 'text' || el.tagName === 'TEXTAREA') return; // ya cubierto por 'input'
+  const fn = inputActions[el.dataset.change];
+  if(fn) fn(el);
+});
+
+actions.setTab = (el) => { state.tab = el.dataset.tab; render(); };
+
+/* ---- Escanear cuaderno ---- */
+function renderEscanear(){
+  const o = state.ocr;
+  document.getElementById('content').innerHTML = `
+    <div class="section-head"><h1>Escanear página del cuaderno</h1></div>
+    <p class="muted">Sacá una foto de la página (de frente, con buena luz) o subí una imagen. El sistema intenta separar cada renglón en código / descripción / precio — <b>es manuscrito, la lectura falla bastante más que con texto impreso: revisá cada fila contra la foto original antes de guardar.</b></p>
+    <div class="ocr-layout">
+      <div class="ocr-col-img">
+        <input type="file" id="ocr_file" accept="image/*" capture="environment" style="display:none;" data-change="ocrPageFile">
+        <button class="btn btn-primary" data-action="ocrElegirImagen">📷 Elegir / sacar foto de la página</button>
+        ${o.imageDataUrl ? `<img src="${o.imageDataUrl}" class="ocr-preview" id="ocrPreviewImg" data-action="ocrZoom">` : ''}
+        ${o.imageDataUrl && !o.rows.length ? `<button class="btn btn-primary" style="width:100%; margin-top:10px;" data-action="ocrProcesar" ${o.processing ? 'disabled' : ''}>${o.processing ? 'Leyendo página…' : 'Leer página'}</button>` : ''}
+        ${o.processing ? `<div class="progress-bar"><div class="fill" style="width:${o.progress}%"></div></div>` : ''}
+      </div>
+      <div class="ocr-col-rows">
+        ${o.rows.length ? renderOcrRowsTable() : `<div class="empty-hint">Las filas detectadas van a aparecer acá para revisar.</div>
+        <div class="ocr-footer-actions"><button class="btn" data-action="ocrAgregarFilaVacia">+ Agregar línea manual</button></div>`}
+      </div>
+    </div>
+    <datalist id="etiquetasList">${state.etiquetas.map(e => `<option value="${esc(e)}">`).join('')}</datalist>`;
+}
+function renderOcrRowsTable(){
+  const rows = state.ocr.rows;
+  const existingCodes = new Set(state.productos.map(p => p.codigo));
+  return `
+    <h3>Filas detectadas — revisá y corregí</h3>
+    <div class="ocr-rows">
+      ${rows.map((r, i) => {
+        const dup = r.codigo && existingCodes.has(r.codigo);
+        return `<div class="ocr-row ${dup ? 'dup' : ''}">
+          ${dup ? `<div class="dup-warning">⚠ El código ${esc(r.codigo)} ya existe — al guardar se actualiza ese producto.</div>` : ''}
+          <div class="ocr-row-grid">
+            <label>Código<input value="${esc(r.codigo)}" data-change="ocrCodigo" data-i="${i}"></label>
+            <label>Categoría
+              <select data-change="ocrCategoria" data-i="${i}">
+                <option value="">Sin categoría</option>
+                ${state.categorias.map(c => `<option value="${esc(c)}" ${r.categoria === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+              </select>
+            </label>
+            <label class="col-span2">Descripción<input value="${esc(r.nombre)}" data-change="ocrNombre" data-i="${i}"></label>
+            <label>Precio<input type="number" min="0" step="1" value="${r.precio}" data-change="ocrPrecio" data-i="${i}"></label>
+            <label>Moneda
+              <select data-change="ocrMoneda" data-i="${i}">
+                <option value="ARS" ${r.moneda === 'ARS' ? 'selected' : ''}>$ ARS</option>
+                <option value="USD" ${r.moneda === 'USD' ? 'selected' : ''}>U$S</option>
+              </select>
+            </label>
+            <label class="checkbox" style="align-self:end;"><input type="checkbox" ${r.porUnidad ? 'checked' : ''} data-change="ocrPorUnidad" data-i="${i}"> Precio por unidad (c/u)</label>
+            <label class="col-span2">Aclaración / etiqueta (opcional — separadas por coma)
+              <input value="${esc(r.etiquetasTexto || '')}" placeholder="ej: Socio A" list="etiquetasList" data-change="ocrEtiquetas" data-i="${i}">
+            </label>
+            <label class="col-span2">Foto (opcional ahora, se puede agregar después desde "Agregar foto")
+              <input type="file" accept="image/*" capture="environment" data-change="ocrFoto" data-i="${i}">
+              ${r.fotoPreview ? `<img src="${r.fotoPreview}" class="row-foto-preview">` : ''}
+            </label>
+          </div>
+          <button class="btn btn-sm btn-danger" data-action="ocrQuitarFila" data-i="${i}">Quitar fila</button>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="ocr-footer-actions">
+      <button class="btn" data-action="ocrAgregarFilaVacia">+ Agregar línea manual</button>
+      <button class="btn btn-primary" data-action="ocrGuardarTodo">Guardar todas las filas en el catálogo →</button>
+      <button class="btn btn-ghost" data-action="ocrReiniciar">Descartar y escanear otra página</button>
+    </div>`;
+}
+Object.assign(actions, {
+  ocrElegirImagen(){ document.getElementById('ocr_file').click(); },
+  ocrZoom(el){ el.classList.toggle('zoomed'); el.style.maxWidth = el.classList.contains('zoomed') ? 'none' : '100%'; },
+  async ocrProcesar(){
+    state.ocr.processing = true; state.ocr.progress = 0; render();
+    try{
+      const text = await runOcrOnImage(state.ocr.imageDataUrl, (pct) => {
+        state.ocr.progress = pct;
+        const bar = document.querySelector('.progress-bar .fill');
+        if(bar) bar.style.width = pct + '%';
+      });
+      state.ocr.rows = parseCuadernoText(text).map(r => Object.assign(r, { etiquetasTexto: '', fotoPreview: null, fotoCompressed: null }));
+      state.ocr.processing = false;
+      if(!state.ocr.rows.length) toast('No se detectaron filas automáticamente. Probá con más luz/foco, o cargá las líneas a mano con "+ Agregar línea manual".');
+      render();
+    }catch(err){
+      console.error(err); state.ocr.processing = false; toast('No se pudo procesar la imagen.'); render();
+    }
+  },
+  ocrQuitarFila(el){ state.ocr.rows.splice(Number(el.dataset.i), 1); render(); },
+  ocrAgregarFilaVacia(){ state.ocr.rows.push({ codigo: '', nombre: '', categoria: '', precio: 0, moneda: 'ARS', porUnidad: false, etiquetasTexto: '', fotoPreview: null, fotoCompressed: null }); render(); },
+  ocrReiniciar(){ state.ocr = { imageDataUrl: null, imageName: '', processing: false, progress: 0, rows: [] }; render(); },
+  async ocrGuardarTodo(){
+    const rows = state.ocr.rows.filter(r => r.codigo && r.nombre);
+    if(!rows.length){ toast('No hay filas completas (código + descripción) para guardar.'); return; }
+    for(const r of rows){
+      const existing = state.productos.find(p => p.codigo === r.codigo);
+      let fotos = existing ? (existing.fotos || []) : [];
+      if(r.fotoCompressed){ fotos = [await uploadFoto(r.codigo, r.fotoCompressed)]; }
+      const etiquetas = String(r.etiquetasTexto || '').split(',').map(s => s.trim()).filter(Boolean);
+      etiquetas.forEach(t => { if(!state.etiquetas.includes(t)) state.etiquetas.push(t); });
+      await saveProducto({
+        codigo: r.codigo, nombre: r.nombre, categoria: r.categoria || '', precio: Number(r.precio) || 0,
+        moneda: r.moneda, porUnidad: !!r.porUnidad, etiquetas,
+        estado: (existing && existing.estado) || 'disponible',
+        fotos, origenOCR: true
+      });
+    }
+    await saveEtiquetas(state.etiquetas);
+    toast(rows.length + ' producto(s) guardados.');
+    state.ocr = { imageDataUrl: null, imageName: '', processing: false, progress: 0, rows: [] };
+    render();
+  }
+});
+inputActions.ocrPageFile = (el) => {
+  const file = el.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { state.ocr = { imageDataUrl: reader.result, imageName: file.name, processing: false, progress: 0, rows: [] }; render(); };
+  reader.readAsDataURL(file);
+};
+inputActions.ocrCodigo = (el) => { state.ocr.rows[Number(el.dataset.i)].codigo = el.value.trim(); };
+inputActions.ocrNombre = (el) => { state.ocr.rows[Number(el.dataset.i)].nombre = el.value; };
+inputActions.ocrCategoria = (el) => { state.ocr.rows[Number(el.dataset.i)].categoria = el.value; };
+inputActions.ocrPrecio = (el) => { state.ocr.rows[Number(el.dataset.i)].precio = Number(el.value) || 0; };
+inputActions.ocrMoneda = (el) => { state.ocr.rows[Number(el.dataset.i)].moneda = el.value; };
+inputActions.ocrPorUnidad = (el) => { state.ocr.rows[Number(el.dataset.i)].porUnidad = el.checked; };
+inputActions.ocrEtiquetas = (el) => { state.ocr.rows[Number(el.dataset.i)].etiquetasTexto = el.value; };
+inputActions.ocrFoto = async (el) => {
+  const i = Number(el.dataset.i);
+  const file = el.files[0];
+  if(!file) return;
+  const compressed = await compressImageFile(file);
+  state.ocr.rows[i].fotoCompressed = compressed;
+  state.ocr.rows[i].fotoPreview = compressed.dataUrl;
+  render();
+};
+
+/* ---- Agregar / actualizar foto ---- */
+function renderFotos(){
+  const f = state.fotoBusqueda;
+  document.getElementById('content').innerHTML = `
+    <div class="section-head"><h1>Agregar o actualizar foto</h1></div>
+    <div class="card" style="max-width:480px;">
+      <label>Buscar producto por código
+        <input value="${esc(f.codigo)}" placeholder="ej: 13157" data-change="fotoBuscarCodigo">
+      </label>
+      <button class="btn btn-primary" data-action="fotoBuscar">Buscar</button>
+      ${f.producto ? renderFotoProductoCard() : (f.buscado ? `<p class="muted" style="margin-top:14px;">No se encontró ningún producto con ese código.</p>` : '')}
+    </div>`;
+}
+function renderFotoProductoCard(){
+  const f = state.fotoBusqueda, p = f.producto;
+  const fotoActual = (p.fotos && p.fotos[0]) || null;
+  return `
+    <div style="margin-top:16px;">
+      <p><b>${esc(p.nombre)}</b><br><span class="muted">Código ${esc(p.codigo)} · ${esc(p.categoria || 'Sin categoría')}</span></p>
+      ${fotoActual ? `<img src="${fotoActual}" class="ocr-preview">` : `<p class="muted">Todavía no tiene foto.</p>`}
+      ${f.previewUrl ? `<p class="muted" style="margin-top:8px;">Nueva foto a subir:</p><img src="${f.previewUrl}" class="ocr-preview">` : ''}
+      <label style="margin-top:12px;">Elegir foto<input type="file" accept="image/*" capture="environment" data-change="fotoArchivo"></label>
+      <button class="btn btn-primary" style="width:100%;" data-action="fotoSubir" ${f.uploading ? 'disabled' : ''}>${f.uploading ? 'Subiendo…' : 'Guardar foto'}</button>
+    </div>`;
+}
+Object.assign(actions, {
+  fotoBuscar(){
+    const codigo = state.fotoBusqueda.codigo.trim();
+    state.fotoBusqueda.producto = state.productos.find(x => x.codigo === codigo) || null;
+    state.fotoBusqueda.buscado = true;
+    state.fotoBusqueda.previewUrl = null;
+    state.fotoBusqueda.compressed = null;
+    render();
+  },
+  async fotoSubir(){
+    const f = state.fotoBusqueda;
+    if(!f.compressed){ toast('Elegí una foto primero.'); return; }
+    f.uploading = true; render();
+    const url = await uploadFoto(f.producto.codigo, f.compressed);
+    await saveProducto(Object.assign({}, f.producto, { fotos: [url] }));
+    f.producto = state.productos.find(p => p.codigo === f.producto.codigo);
+    f.uploading = false; f.compressed = null; f.previewUrl = null;
+    toast('Foto guardada.');
+    render();
+  }
+});
+inputActions.fotoBuscarCodigo = (el) => { state.fotoBusqueda.codigo = el.value; };
+inputActions.fotoArchivo = async (el) => {
+  const file = el.files[0];
+  if(!file) return;
+  const compressed = await compressImageFile(file);
+  state.fotoBusqueda.compressed = compressed;
+  state.fotoBusqueda.previewUrl = compressed.dataUrl;
+  render();
+};
+
+/* ---- Productos ---- */
+function renderProductos(){
+  document.getElementById('content').innerHTML = `
+    <div class="section-head">
+      <h1>Productos (${state.productos.length})</h1>
+      <div class="searchbar"><span class="ico">🔎</span><input placeholder="Buscar código, nombre o categoría…" value="${esc(state.prodFiltro)}" data-change="prodFiltro"></div>
+    </div>
+    <div class="card" style="margin-bottom:18px;">
+      <h3>Categorías</h3>
+      <div class="chips">${state.categorias.map((c, i) => `<span class="chip">${esc(c)} <button data-action="catQuitar" data-i="${i}">✕</button></span>`).join('')}</div>
+      <div class="inline-add"><input id="catNueva" placeholder="Nueva categoría…"><button class="btn btn-sm" data-action="catAgregar">+ Agregar</button></div>
+      <h3>Etiquetas / aclaraciones (uso interno, no se muestran en el catálogo público)</h3>
+      <div class="chips">${state.etiquetas.map((e, i) => `<span class="chip">${esc(e)} <button data-action="etqQuitar" data-i="${i}">✕</button></span>`).join('')}</div>
+      <div class="inline-add"><input id="etqNueva" placeholder="Nueva etiqueta…"><button class="btn btn-sm" data-action="etqAgregar">+ Agregar</button></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Código</th><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="prodTbody"></tbody>
+      </table>
+    </div>`;
+  renderProdRows();
+}
+function renderProdRows(){
+  const tbody = document.getElementById('prodTbody');
+  if(!tbody) return;
+  const q = state.prodFiltro.trim().toLowerCase();
+  const list = state.productos
+    .filter(p => !q || (p.codigo + ' ' + p.nombre + ' ' + (p.categoria || '')).toLowerCase().includes(q))
+    .sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
+  tbody.innerHTML = list.map(p => `
+    <tr>
+      <td>${esc(p.codigo)}</td>
+      <td>${esc(p.nombre)}</td>
+      <td>${esc(p.categoria || '—')}</td>
+      <td>${formatMoney(p.precio, p.moneda)}${p.porUnidad ? ' c/u' : ''}</td>
+      <td>
+        <select data-change="prodEstado" data-codigo="${esc(p.codigo)}">
+          <option value="disponible" ${p.estado === 'disponible' ? 'selected' : ''}>Disponible</option>
+          <option value="reservado" ${p.estado === 'reservado' ? 'selected' : ''}>Reservado</option>
+          <option value="vendido" ${p.estado === 'vendido' ? 'selected' : ''}>Vendido</option>
+        </select>
+      </td>
+      <td><button class="btn btn-sm btn-danger" data-action="prodEliminar" data-codigo="${esc(p.codigo)}">Eliminar</button></td>
+    </tr>`).join('') || `<tr><td colspan="6" class="muted" style="text-align:center; padding:24px;">Sin productos todavía.</td></tr>`;
+}
+Object.assign(actions, {
+  async catAgregar(){
+    const el = document.getElementById('catNueva'); const v = el.value.trim();
+    if(!v || state.categorias.includes(v)) return;
+    state.categorias.push(v); await saveCategorias(state.categorias); render();
+  },
+  async catQuitar(el){ state.categorias.splice(Number(el.dataset.i), 1); await saveCategorias(state.categorias); render(); },
+  async etqAgregar(){
+    const el = document.getElementById('etqNueva'); const v = el.value.trim();
+    if(!v || state.etiquetas.includes(v)) return;
+    state.etiquetas.push(v); await saveEtiquetas(state.etiquetas); render();
+  },
+  async etqQuitar(el){ state.etiquetas.splice(Number(el.dataset.i), 1); await saveEtiquetas(state.etiquetas); render(); },
+  async prodEliminar(el){
+    if(!confirm('¿Eliminar este producto del catálogo?')) return;
+    await deleteProducto(el.dataset.codigo);
+    state.productos = state.productos.filter(p => p.codigo !== el.dataset.codigo);
+    renderProdRows();
+    document.querySelector('.section-head h1').textContent = 'Productos (' + state.productos.length + ')';
+  }
+});
+inputActions.prodFiltro = (el) => { state.prodFiltro = el.value; renderProdRows(); };
+inputActions.prodEstado = async (el) => {
+  const p = state.productos.find(x => x.codigo === el.dataset.codigo);
+  if(!p) return;
+  p.estado = el.value;
+  await saveProducto(p);
+};
+
+/* ---- Configuración ---- */
+function renderConfig(){
+  document.getElementById('content').innerHTML = `
+    <div class="section-head"><h1>Configuración</h1></div>
+    <div class="card" style="max-width:560px;">
+      <p><b>Modo actual:</b> ${state.backendMode === 'firebase' ? '🟢 Conectado a Firebase (datos compartidos en la nube)' : '🟡 Local (datos guardados solo en este navegador — sirve para probar la app)'}</p>
+      <p class="muted" style="font-size:13px;">Para que el catálogo público muestre los mismos productos en cualquier dispositivo, hay que crear un proyecto gratis de Firebase (Firestore Database + Storage, plan Blaze) y pegar acá su configuración: <a href="https://console.firebase.google.com/" target="_blank" rel="noopener">console.firebase.google.com</a> → crear proyecto → Firestore Database + Storage → ⚙ Configuración del proyecto → copiar el objeto "firebaseConfig".</p>
+      <label>Pegar firebaseConfig
+        <textarea id="fbConfigInput" rows="6" placeholder='{"apiKey":"...", "projectId":"...", ...}'></textarea>
+      </label>
+      <button class="btn btn-primary" data-action="guardarFirebaseConfig">Guardar y conectar</button>
+      ${state.backendMode === 'firebase' ? `<button class="btn btn-ghost" data-action="volverModoLocal" style="margin-top:8px;">Volver a modo local</button>` : ''}
+    </div>`;
+}
+Object.assign(actions, {
+  guardarFirebaseConfig(){
+    const raw = document.getElementById('fbConfigInput').value.trim();
+    if(!raw){ toast('Pegá el firebaseConfig primero.'); return; }
+    let cfg;
+    try{
+      const cleaned = raw.replace(/^\s*(const|let|var)\s+\w+\s*=\s*/, '').replace(/;\s*$/, '');
+      cfg = new Function('return (' + cleaned + ')')();
+    }catch(e){ toast('No se pudo leer ese config. Revisá que sea el objeto completo.'); return; }
+    if(!cfg || !cfg.projectId){ toast('Ese config no parece válido (falta projectId).'); return; }
+    localStorage.setItem(FIREBASE_CONFIG_KEY, JSON.stringify(cfg));
+    toast('Config guardada. Recargando…');
+    setTimeout(() => location.reload(), 800);
+  },
+  volverModoLocal(){
+    if(!confirm('¿Volver a modo local? Vas a dejar de ver los datos de Firebase desde acá.')) return;
+    localStorage.removeItem(FIREBASE_CONFIG_KEY);
+    location.reload();
+  }
+});
+
+/* ===================== Init ===================== */
+function updateNavActive(){
+  document.querySelectorAll('[data-tab]').forEach(el => el.classList.toggle('active', el.dataset.tab === state.tab));
+}
+function updateBackendBadge(){
+  const el = document.getElementById('backendBadge');
+  if(!el) return;
+  el.innerHTML = state.backendMode === 'firebase'
+    ? `<span class="dot"></span> Conectado a Firebase`
+    : `<span class="dot local"></span> Modo local (prueba)`;
+}
+function render(){
+  updateNavActive();
+  updateBackendBadge();
+  if(state.tab === 'escanear') renderEscanear();
+  else if(state.tab === 'fotos') renderFotos();
+  else if(state.tab === 'productos') renderProductos();
+  else if(state.tab === 'config') renderConfig();
+}
+async function init(){
+  initBackend();
+  await loadAll();
+  render();
+}
+init();
+</script>
+</body>
+</html>

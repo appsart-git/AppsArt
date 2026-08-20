@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Catálogo de Antigüedades</title>
+<meta name="theme-color" content="#14171A">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="icon" href="./icon-192.png">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#14171A; --surface:#1D2126; --surface-2:#262B32; --border:#2E343C;
+    --text:#ECEDEF; --text-muted:#8B92A0; --text-faint:#5C6470;
+    --brand:#898A8D; --accent:#E8A33D; --accent-ink:#1A1305; --accent-soft:rgba(232,163,61,.16);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg); color:var(--text); font-family:var(--font); -webkit-font-smoothing:antialiased; min-height:100vh; padding-bottom:24px;}
+  img{max-width:100%; display:block;}
+  button{font-family:inherit;}
+  input{font-family:inherit;}
+  ::placeholder{color:var(--text-faint);}
+
+  .topbar{position:sticky; top:0; z-index:20; background:var(--surface); border-bottom:1px solid var(--border); padding:12px 14px 10px;}
+  .topbar-inner{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;}
+  .brand-logo .marca-sub{display:block; font-size:10.5px; font-weight:500; color:var(--brand); letter-spacing:.02em; margin:0 0 1px 2px;}
+  .brand-logo .marca-main{font-size:21px; font-weight:800; color:var(--text); letter-spacing:-0.01em;}
+  .brand-logo .marca-main .dot{display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--accent); margin-left:3px; vertical-align:top; margin-top:3px;}
+  .brand-logo small{display:block; font-size:11px; font-weight:500; color:var(--text-muted); margin-top:2px;}
+
+  .search-row{position:relative; margin-bottom:10px;}
+  .search-row input{width:100%; padding:11px 14px 11px 36px; border-radius:11px; border:1px solid var(--border); background:var(--surface-2); font-size:14.5px; color:var(--text);}
+  .search-row input:focus{outline:2px solid var(--accent); outline-offset:0; background:var(--surface);}
+  .search-icon{position:absolute; left:12px; top:50%; transform:translateY(-50%); opacity:.55; font-size:15px; pointer-events:none;}
+
+  .categoria-tabs{display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none;}
+  .categoria-tabs::-webkit-scrollbar{display:none;}
+  .tab-chip{flex:none; padding:8px 14px; border-radius:20px; border:1px solid var(--border); background:var(--surface); color:var(--text-muted); font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;}
+  .tab-chip.active{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
+
+  .result-count{padding:12px 14px 6px; font-size:12.5px; color:var(--text-muted); font-weight:600;}
+
+  .grid{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; padding:6px 14px 14px; max-width:1200px; margin:0 auto;}
+  @media (min-width:640px){ .grid{grid-template-columns:repeat(3,1fr);} }
+  @media (min-width:900px){ .grid{grid-template-columns:repeat(4,1fr); gap:16px; padding:6px 24px 24px;} }
+  @media (min-width:1200px){ .grid{grid-template-columns:repeat(5,1fr);} }
+
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; cursor:pointer; text-align:left; padding:0; transition:box-shadow .15s, transform .15s;}
+  .card:active{transform:scale(.98);}
+  .card:hover{box-shadow:0 4px 16px rgba(0,0,0,.25);}
+  .card-img{width:100%; aspect-ratio:1/1; background:var(--surface-2); overflow:hidden; position:relative;}
+  .card-img img{width:100%; height:100%; object-fit:cover;}
+  .card-img .noimg{width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:var(--text-faint); font-size:28px;}
+  .card-body{padding:9px 10px 11px;}
+  .card-title{font-size:12.5px; font-weight:700; line-height:1.25; margin:0 0 4px; color:var(--text); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .card-meta{display:flex; flex-wrap:wrap; align-items:center; gap:4px; justify-content:space-between;}
+  .badge{font-size:10.5px; font-weight:600; background:var(--surface-2); color:var(--text-muted); border-radius:6px; padding:2px 6px;}
+  .price{font-size:13px; font-weight:800; color:var(--accent);}
+
+  .empty-state{padding:60px 20px; text-align:center; color:var(--text-muted);}
+  .empty-state .big{font-size:34px; margin-bottom:8px;}
+
+  .load-more{display:block; margin:6px auto 20px; padding:11px 22px; border-radius:11px; border:1px solid var(--border); background:var(--surface); color:var(--accent); font-weight:700; font-size:13.5px; cursor:pointer;}
+
+  .overlay{position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:40; opacity:0; pointer-events:none; transition:opacity .2s;}
+  .overlay.show{opacity:1; pointer-events:auto;}
+
+  .detail{position:fixed; inset:0; z-index:50; background:var(--surface); display:flex; flex-direction:column; transform:translateX(100%); transition:transform .22s ease;}
+  .detail.show{transform:translateX(0);}
+  @media (min-width:720px){
+    .detail{ inset:auto; left:50%; top:50%; width:640px; max-width:92vw; max-height:86vh; transform:translate(-50%,-46%) scale(.97); opacity:0; border-radius:18px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.4);}
+    .detail.show{transform:translate(-50%,-50%) scale(1); opacity:1;}
+  }
+  .detail-head{position:relative; flex:none;}
+  .detail-img{width:100%; aspect-ratio:4/3; background:var(--surface-2); overflow:hidden;}
+  .detail-img img{width:100%; height:100%; object-fit:cover;}
+  .detail-img .noimg{width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:var(--text-faint); font-size:44px;}
+  .detail-close{position:absolute; top:12px; right:12px; width:34px; height:34px; border-radius:50%; background:rgba(0,0,0,.45); color:#fff; border:none; font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center;}
+  .detail-body{overflow-y:auto; padding:16px 18px calc(20px + env(safe-area-inset-bottom));}
+  .detail-title{font-size:18px; font-weight:800; margin:0 0 3px;}
+  .detail-sub{color:var(--text-muted); font-size:13px; margin:0 0 10px;}
+  .detail-price{font-size:22px; font-weight:800; color:var(--accent); margin:0 0 14px;}
+  .spec-table{width:100%; border-collapse:collapse;}
+  .spec-table tr{border-bottom:1px solid var(--border);}
+  .spec-table tr:last-child{border-bottom:none;}
+  .spec-table td{padding:9px 0; font-size:13px; vertical-align:top;}
+  .spec-table td:first-child{color:var(--text-muted); width:46%; font-weight:600;}
+  .spec-table td:last-child{color:var(--text); text-align:right; font-weight:600;}
+
+  .app-footer{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:22px 14px calc(26px + env(safe-area-inset-bottom)); opacity:.85;}
+  .app-footer span{font-size:12px; color:var(--text-muted);}
+  .app-footer .appsart-logo{height:34px; width:auto; display:block;}
+
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand-logo">
+      <span class="marca-sub">catálogo de</span>
+      <span class="marca-main">Antigüedades<i class="dot"></i></span>
+      <small id="brandSub">cargando…</small>
+    </div>
+  </div>
+  <div class="search-row">
+    <span class="search-icon">🔎</span>
+    <input id="search" placeholder="Buscar por código, producto o categoría…" autocomplete="off">
+  </div>
+  <div class="categoria-tabs" id="categoriaTabs"></div>
+</header>
+
+<div class="result-count" id="resultCount"></div>
+
+<main class="grid" id="grid"></main>
+<button class="load-more hidden" id="loadMoreBtn">Ver más productos</button>
+
+<footer class="app-footer">
+  <span>App desarrollada por</span>
+  <img src="./appsart-brand.png" alt="AppsArt" class="appsart-logo">
+</footer>
+
+<div class="overlay" id="overlay"></div>
+
+<div class="detail" id="detail">
+  <div class="detail-head">
+    <div class="detail-img" id="detailImg"></div>
+    <button class="detail-close" data-action="close-detail">✕</button>
+  </div>
+  <div class="detail-body">
+    <h2 class="detail-title" id="detailTitle"></h2>
+    <p class="detail-sub" id="detailSub"></p>
+    <p class="detail-price" id="detailPrice"></p>
+    <table class="spec-table" id="detailSpecs"></table>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const FIREBASE_CONFIG_KEY = 'lote11_firebase_config';
+const LOCAL_PRODUCTOS_KEY = 'lote11_productos_local';
+const LOCAL_CATEGORIAS_KEY = 'lote11_categorias_local';
+const DEFAULT_FIREBASE_CONFIG = null; // se completa cuando el cliente cree su proyecto Firebase
+
+let db = null;
+let backendMode = 'local';
+let ALL = [];
+let CATEGORIAS = [];
+let state = { search: '', categoria: 'Todas', pageSize: 30, shown: 30 };
+
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function formatMoney(n, moneda){ return (moneda === 'USD' ? 'U$S ' : '$ ') + (Number(n) || 0).toLocaleString('es-AR'); }
+
+function getSavedFirebaseConfig(){
+  const raw = localStorage.getItem(FIREBASE_CONFIG_KEY);
+  if(raw){ try{ return JSON.parse(raw); }catch(e){ return null; } }
+  return DEFAULT_FIREBASE_CONFIG;
+}
+function localRead(key, fallback){
+  try{ const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }catch(e){ return fallback; }
+}
+
+function applyProducts(raw){
+  ALL = raw.filter(p => (p.estado || 'disponible') === 'disponible').sort((a,b) => a.codigo.localeCompare(b.codigo, undefined, {numeric:true}));
+  document.getElementById('brandSub').textContent = ALL.length + (ALL.length === 1 ? ' producto disponible' : ' productos disponibles');
+  render();
+}
+function applyCategorias(list){
+  CATEGORIAS = list || [];
+  renderCategoriaTabs();
+}
+
+function loadLocal(){
+  applyCategorias(localRead(LOCAL_CATEGORIAS_KEY, []));
+  applyProducts(localRead(LOCAL_PRODUCTOS_KEY, []));
+}
+
+async function init(){
+  const cfg = getSavedFirebaseConfig();
+  if(cfg){
+    try{
+      firebase.initializeApp(cfg);
+      db = firebase.firestore();
+      backendMode = 'firebase';
+    }catch(e){ console.warn('No se pudo conectar a Firebase, uso datos locales.', e); }
+  }
+  bindEvents();
+
+  if(db){
+    db.collection('productos').onSnapshot(
+      (snap) => applyProducts(snap.docs.map(d => d.data())),
+      (err) => { console.warn('Sin conexión a Firestore, uso datos locales.', err); loadLocal(); }
+    );
+    db.collection('config').doc('categorias').onSnapshot(
+      (doc) => applyCategorias(doc.exists ? doc.data().lista : []),
+      () => {}
+    );
+  } else {
+    loadLocal();
+    // en modo local, si carga.html (otra pestaña del mismo origen) guarda datos nuevos, los reflejamos acá
+    window.addEventListener('storage', (e) => {
+      if(e.key === LOCAL_PRODUCTOS_KEY) applyProducts(localRead(LOCAL_PRODUCTOS_KEY, []));
+      if(e.key === LOCAL_CATEGORIAS_KEY) applyCategorias(localRead(LOCAL_CATEGORIAS_KEY, []));
+    });
+  }
+}
+
+function renderCategoriaTabs(){
+  const el = document.getElementById('categoriaTabs');
+  const tabs = ['Todas', ...CATEGORIAS];
+  el.innerHTML = tabs.map(c =>
+    `<button class="tab-chip ${c === state.categoria ? 'active' : ''}" data-categoria="${esc(c)}">${esc(c)}</button>`
+  ).join('');
+}
+
+function matchesFilters(p){
+  if(state.categoria !== 'Todas' && (p.categoria || '') !== state.categoria) return false;
+  if(state.search.trim()){
+    const q = state.search.trim().toLowerCase();
+    const hay = [p.codigo, p.nombre, p.categoria].join(' ').toLowerCase();
+    if(!hay.includes(q)) return false;
+  }
+  return true;
+}
+function getFiltered(){ return ALL.filter(matchesFilters); }
+
+function render(){
+  const list = getFiltered();
+  document.getElementById('resultCount').textContent = list.length + (list.length === 1 ? ' producto encontrado' : ' productos encontrados');
+
+  const visible = list.slice(0, state.shown);
+  const grid = document.getElementById('grid');
+  if(!visible.length){
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="big">🔍</div>No encontramos productos con esos filtros.</div>`;
+  } else {
+    grid.innerHTML = visible.map(cardHtml).join('');
+  }
+  const loadMore = document.getElementById('loadMoreBtn');
+  loadMore.classList.toggle('hidden', list.length <= visible.length);
+}
+
+function cardHtml(p){
+  const foto = p.fotos && p.fotos[0];
+  const img = foto ? `<img src="${esc(foto)}" alt="${esc(p.nombre)}" loading="lazy">` : `<div class="noimg">◈</div>`;
+  return `<button class="card" data-codigo="${esc(p.codigo)}">
+    <div class="card-img">${img}</div>
+    <div class="card-body">
+      <p class="card-title">${esc(p.nombre)}</p>
+      <div class="card-meta">
+        <span class="badge">#${esc(p.codigo)}</span>
+        <span class="price">${formatMoney(p.precio, p.moneda)}${p.porUnidad ? ' c/u' : ''}</span>
+      </div>
+    </div>
+  </button>`;
+}
+
+function openDetail(p){
+  const foto = p.fotos && p.fotos[0];
+  document.getElementById('detailImg').innerHTML = foto
+    ? `<img src="${esc(foto)}" alt="${esc(p.nombre)}">`
+    : `<div class="noimg">◈</div>`;
+  document.getElementById('detailTitle').textContent = p.nombre || 'Producto';
+  document.getElementById('detailSub').textContent = ['Código ' + p.codigo, p.categoria].filter(Boolean).join(' · ');
+  document.getElementById('detailPrice').textContent = formatMoney(p.precio, p.moneda) + (p.porUnidad ? ' c/u' : '');
+  const rows = [
+    p.categoria ? `<tr><td>Categoría</td><td>${esc(p.categoria)}</td></tr>` : ''
+  ].filter(Boolean).join('');
+  document.getElementById('detailSpecs').innerHTML = rows;
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('detail').classList.add('show');
+}
+function closeDetail(){
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('detail').classList.remove('show');
+}
+
+function bindEvents(){
+  document.getElementById('search').addEventListener('input', (e) => {
+    state.search = e.target.value;
+    state.shown = state.pageSize;
+    render();
+  });
+  document.getElementById('categoriaTabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-categoria]');
+    if(!btn) return;
+    state.categoria = btn.dataset.categoria;
+    state.shown = state.pageSize;
+    renderCategoriaTabs();
+    render();
+  });
+  document.getElementById('loadMoreBtn').addEventListener('click', () => {
+    state.shown += state.pageSize;
+    render();
+  });
+  document.getElementById('grid').addEventListener('click', (e) => {
+    const card = e.target.closest('.card');
+    if(!card) return;
+    const p = ALL.find(x => x.codigo === card.dataset.codigo);
+    if(p) openDetail(p);
+  });
+  document.getElementById('overlay').addEventListener('click', closeDetail);
+  document.querySelector('[data-action="close-detail"]').addEventListener('click', closeDetail);
+}
+
+init();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
