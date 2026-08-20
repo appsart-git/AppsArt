@@ -279,10 +279,15 @@ function renderListaTurnos(turnos) {
         ${p.direccion ? `<div style="font-size:13.5px; margin-top:4px; font-weight:600;">📍 ${escapeHTML(p.direccion)}</div>` : ""}
         <div style="font-size:13.5px; margin-top:4px; font-weight:600;">${formatMonto(p.precio)}</div>
         ${p.notas ? `<div class="muted" style="font-size:13.5px; margin-top:6px;">${escapeHTML(p.notas)}</div>` : ""}
+        ${p.estado === "completado" ? calificacionSlotHTML(p.id, "enfermero") : ""}
       </div>
     `
     )
     .join("");
+
+  turnos
+    .filter((p) => p.estado === "completado")
+    .forEach((p) => renderCalificacionSlot(EnfApp.db, p.id, "enfermero", `a ${p.pacienteNombre || "el paciente"}`));
 }
 
 /* ===================== Init ===================== */

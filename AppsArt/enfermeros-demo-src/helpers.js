@@ -190,6 +190,88 @@ function traducirErrorAuth(err) {
   return err.message;
 }
 
+/* ===================== Calificaciones (compartido por paciente y enfermero) =====================
+   Doc ID determinístico "${pedidoId}_${autorTipo}" — evita calificar el mismo pedido dos
+   veces: la regla de Firestore solo permite "create" en esa colección, nunca "update", así
+   que un segundo intento con el mismo ID queda rechazado directamente por las reglas. */
+function calificacionSlotHTML(pedidoId, autorTipo) {
+  return `<div id="calif-${pedidoId}-${autorTipo}" style="margin-top:10px;"></div>`;
+}
+
+async function renderCalificacionSlot(db, pedidoId, autorTipo, etiquetaOtro) {
+  const el = document.getElementById(`calif-${pedidoId}-${autorTipo}`);
+  if (!el) return;
+  const docId = `${pedidoId}_${autorTipo}`;
+  const doc = await db.collection("calificaciones").doc(docId).get();
+
+  if (doc.exists) {
+    const { puntaje, comentario } = doc.data();
+    el.innerHTML = `
+      <div class="muted" style="font-size:13px;">
+        Calificaste ${etiquetaOtro}: ${"★".repeat(puntaje)}${"☆".repeat(5 - puntaje)}
+        ${comentario ? `— "${escapeHTML(comentario)}"` : ""}
+      </div>
+    `;
+    return;
+  }
+
+  el.innerHTML = `<button class="btn-ghost btn-abrir-calificar" style="width:auto; padding:8px 12px; font-size:13px;">⭐ Calificar ${etiquetaOtro}</button>`;
+  el.querySelector(".btn-abrir-calificar").addEventListener("click", () => {
+    el.innerHTML = `
+      <div class="field" style="margin-top:6px; margin-bottom:8px;">
+        <label>Tu calificación</label>
+        <div class="estrellas" data-valor="0" style="font-size:22px; cursor:pointer; letter-spacing:3px;">
+          ${[1, 2, 3, 4, 5].map((n) => `<span class="estrella" data-n="${n}">☆</span>`).join("")}
+        </div>
+      </div>
+      <textarea class="in-comentario" rows="2" placeholder="Comentario (opcional)" style="width:100%; padding:10px; border:1.5px solid var(--border); border-radius:9px; font-family:var(--font-body); font-size:14px; margin-bottom:8px;"></textarea>
+      <div class="calif-error error-text" style="display:none;"></div>
+      <button class="btn-primary btn-enviar-calificacion" style="width:auto; padding:8px 12px; font-size:13px;">Enviar</button>
+    `;
+    const estrellasEl = el.querySelector(".estrellas");
+    estrellasEl.querySelectorAll(".estrella").forEach((star) => {
+      star.addEventListener("click", () => {
+        const n = Number(star.dataset.n);
+        estrellasEl.dataset.valor = n;
+        estrellasEl.querySelectorAll(".estrella").forEach((s) => {
+          s.textContent = Number(s.dataset.n) <= n ? "★" : "☆";
+        });
+      });
+    });
+    el.querySelector(".btn-enviar-calificacion").addEventListener("click", async () => {
+      const puntaje = Number(estrellasEl.dataset.valor);
+      const errEl = el.querySelector(".calif-error");
+      errEl.style.display = "none";
+      if (!puntaje) {
+        errEl.textContent = "Elegí al menos una estrella.";
+        errEl.style.display = "block";
+        return;
+      }
+      const btn = el.querySelector(".btn-enviar-calificacion");
+      btn.disabled = true;
+      btn.textContent = "Enviando…";
+      try {
+        await db
+          .collection("calificaciones")
+          .doc(docId)
+          .set({
+            pedidoId,
+            autorTipo,
+            puntaje,
+            comentario: el.querySelector(".in-comentario").value.trim(),
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          });
+        renderCalificacionSlot(db, pedidoId, autorTipo, etiquetaOtro);
+      } catch (err) {
+        errEl.textContent = "No se pudo enviar: " + err.message;
+        errEl.style.display = "block";
+        btn.disabled = false;
+        btn.textContent = "Enviar";
+      }
+    });
+  });
+}
+
 /* ===================== Avisos push (compartido por enfermero y admin) =====================
    Cada portal llama renderPushStatus(tokensCollection, buttonLabel) con su propia
    colección de tokens ("adminTokens" o "enfermeroTokens") y el texto de su botón —

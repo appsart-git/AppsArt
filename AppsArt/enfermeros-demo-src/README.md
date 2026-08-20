@@ -140,6 +140,26 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Doc ID determinístico "${pedidoId}_${autorTipo}" — solo se permite "create",
+    // nunca "update", así que un segundo intento de calificar el mismo pedido con el
+    // mismo autor queda rechazado acá mismo (no hace falta lógica extra en el cliente).
+    match /calificaciones/{califId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        califId == request.resource.data.pedidoId + "_" + request.resource.data.autorTipo &&
+        request.resource.data.puntaje is int &&
+        request.resource.data.puntaje >= 1 && request.resource.data.puntaje <= 5 &&
+        (
+          (request.resource.data.autorTipo == "paciente" &&
+           get(/databases/$(database)/documents/pedidos/$(request.resource.data.pedidoId)).data.estado == "completado" &&
+           get(/databases/$(database)/documents/pedidos/$(request.resource.data.pedidoId)).data.pacienteId == request.auth.uid) ||
+          (request.resource.data.autorTipo == "enfermero" &&
+           get(/databases/$(database)/documents/pedidos/$(request.resource.data.pedidoId)).data.estado == "completado" &&
+           get(/databases/$(database)/documents/pedidos/$(request.resource.data.pedidoId)).data.enfermeroId == request.auth.uid)
+        );
+      allow update, delete: if false;
+    }
+
     // "allow write" evalúa request.resource incluso para delete (donde no existe),
     // así que un borrado siempre daba error/denegado — separado en create/update
     // (mira request.resource, el doc entrante) vs delete (mira resource, el doc
@@ -283,11 +303,13 @@ Siempre reemplazar el archivo de reglas completo, no pegar solo el bloque nuevo.
   tratamiento de datos sensibles de salud (Ley 25.326).
 - **Entrada por WhatsApp / QR / dominio corto**: tal como se conversó, la app web
   necesita estos canales porque no pasa por tiendas de aplicaciones.
-- **Notificación al paciente** cuando cambia el estado de su pedido (asignado, confirmado,
-  etc.) — ya existen los avisos push a los *admins* (enfermero/pedido nuevo) y al
-  *enfermero* (cuando le asignan un pedido), pero falta avisarle al paciente. Se
-  resolvería sumando otro trigger a la misma Cloud Function, mismo patrón que el resto.
-- **Calificaciones** de paciente/enfermero al finalizar un servicio — no tiene UI todavía.
+- **Seguro de mala praxis + foto de perfil del enfermero** (pedido de la clienta, falta
+  definir qué campo exacto — ¿número de póliza, upload de certificado, o una simple
+  declaración?) antes de agregarlo al formulario de registro.
+- **Disclaimer de política de cancelación** en el botón "Cancelar pedido" del paciente —
+  el botón ya funciona, falta el texto (plazos, si hay penalidad, etc.).
+- **Borrar cuenta** — falta decidir qué pasa con los pedidos históricos de esa cuenta
+  (¿se anonimizan, quedan igual, se borran?) antes de implementarlo.
 
 ## Nombre y marca
 

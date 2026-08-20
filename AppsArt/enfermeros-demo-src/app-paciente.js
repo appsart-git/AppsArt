@@ -250,6 +250,7 @@ function renderListaPedidos(pedidos) {
             ? `<button class="btn-danger btn-cancelar-pedido" data-id="${p.id}" style="margin-top:10px;">Cancelar pedido</button>`
             : ""
         }
+        ${p.estado === "completado" ? calificacionSlotHTML(p.id, "paciente") : ""}
       </div>
     `
     )
@@ -269,6 +270,10 @@ function renderListaPedidos(pedidos) {
       }
     });
   });
+
+  pedidos
+    .filter((p) => p.estado === "completado")
+    .forEach((p) => renderCalificacionSlot(EnfApp.db, p.id, "paciente", "al enfermero"));
 }
 
 function renderFormPedido(paciente) {
