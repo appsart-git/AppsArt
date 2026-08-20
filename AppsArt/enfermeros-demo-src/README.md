@@ -311,9 +311,9 @@ obligatoria. **Confirmar con María si esto es lo que tenía en mente** — si p
 más simple (una declaración con checkbox, por ejemplo) hay que ajustar el formulario y
 sacar el campo de N° de póliza como obligatorio.
 
-Ninguno de los dos campos se muestra todavía al paciente (ni la foto ni el seguro) —
-hoy solo los ve el admin en su panel. Mostrarle la foto al paciente al ver un pedido
-asignado queda pendiente como mejora aparte.
+El seguro (póliza/certificado) solo lo ve el admin. La foto de perfil sí se le muestra
+al paciente: en cuanto un pedido tiene un enfermero asignado, aparece su foto y nombre
+en la tarjeta del pedido (`paciente.html`).
 
 ## Lo que falta para el MVP completo (no incluido en este demo)
 

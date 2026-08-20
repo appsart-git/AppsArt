@@ -245,6 +245,7 @@ function renderListaPedidos(pedidos) {
         <div class="muted" style="font-size:13.5px; margin-top:6px;">${escapeHTML(p.zona)} · ${escapeHTML(p.fecha)} · ${escapeHTML(p.horario)}</div>
         ${p.direccion ? `<div class="muted" style="font-size:13.5px; margin-top:4px;">📍 ${escapeHTML(p.direccion)}</div>` : ""}
         <div style="font-size:13.5px; margin-top:4px; font-weight:600;">${formatMonto(p.precio)}</div>
+        ${p.enfermeroId ? `<div id="enfermero-${p.id}"></div>` : ""}
         ${
           CANCELABLE.includes(p.estado)
             ? `<button class="btn-danger btn-cancelar-pedido" data-id="${p.id}" style="margin-top:10px;">Cancelar pedido</button>`
@@ -274,6 +275,38 @@ function renderListaPedidos(pedidos) {
   pedidos
     .filter((p) => p.estado === "completado")
     .forEach((p) => renderCalificacionSlot(EnfApp.db, p.id, "paciente", "al enfermero"));
+
+  pedidos.filter((p) => p.enfermeroId).forEach((p) => renderEnfermeroAsignado(p.id, p.enfermeroId));
+}
+
+async function renderEnfermeroAsignado(pedidoId, enfermeroId) {
+  const el = document.getElementById(`enfermero-${pedidoId}`);
+  if (!el) return;
+  try {
+    const doc = await EnfApp.db.collection("enfermeros").doc(enfermeroId).get();
+    if (!doc.exists) return;
+    const enfermero = doc.data();
+
+    let fotoHTML = `<div style="width:32px; height:32px; border-radius:8px; background:var(--surface-2); flex-shrink:0;"></div>`;
+    if (enfermero.fotoPerfilPath) {
+      try {
+        const url = await EnfApp.storage.ref(enfermero.fotoPerfilPath).getDownloadURL();
+        fotoHTML = `<img src="${url}" alt="" style="width:32px; height:32px; border-radius:8px; object-fit:cover; flex-shrink:0;" />`;
+      } catch (err) {
+        // sin foto disponible, se queda el placeholder vacío
+      }
+    }
+
+    el.innerHTML = `
+      <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+        ${fotoHTML}
+        <div style="font-size:13.5px;"><span class="muted">Tu enfermero:</span> <b>${escapeHTML(enfermero.nombre)}</b></div>
+      </div>
+    `;
+  } catch (err) {
+    // sin acceso al doc del enfermero (por ej. reglas todavía no actualizadas): no
+    // mostramos nada, no rompe el resto de la tarjeta.
+  }
 }
 
 function renderFormPedido(paciente) {
