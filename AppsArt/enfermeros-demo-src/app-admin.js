@@ -123,14 +123,19 @@ function renderTabEnfermeros(el) {
         (e) => `
       <div class="card" data-enfermero-id="${e.id}">
         <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-          <div>
-            <div style="font-weight:600;">${escapeHTML(e.nombre)}</div>
-            <div class="muted" style="font-size:13.5px;">Matrícula ${escapeHTML(e.matricula)} · ${escapeHTML(e.zona)} · ${escapeHTML(e.telefono)}</div>
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <div id="foto-${e.id}" style="width:44px; height:44px; border-radius:10px; background:var(--surface-2); flex-shrink:0; overflow:hidden;"></div>
+            <div>
+              <div style="font-weight:600;">${escapeHTML(e.nombre)}</div>
+              <div class="muted" style="font-size:13.5px;">Matrícula ${escapeHTML(e.matricula)} · ${escapeHTML(e.zona)} · ${escapeHTML(e.telefono)}</div>
+              <div class="muted" style="font-size:13.5px;">Seguro de mala praxis: póliza ${e.seguroPoliza ? escapeHTML(e.seguroPoliza) : "(no cargada)"}</div>
+            </div>
           </div>
           ${badgeHTML(e.estado)}
         </div>
         <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
-          ${e.matriculaArchivoPath ? `<button class="btn-icon btn-ver-matricula" data-path="${escapeHTML(e.matriculaArchivoPath)}">Ver matrícula</button>` : ""}
+          ${e.matriculaArchivoPath ? `<button class="btn-icon btn-ver-archivo" data-path="${escapeHTML(e.matriculaArchivoPath)}" data-label="matrícula">Ver matrícula</button>` : ""}
+          ${e.seguroArchivoPath ? `<button class="btn-icon btn-ver-archivo" data-path="${escapeHTML(e.seguroArchivoPath)}" data-label="certificado de seguro">Ver certificado de seguro</button>` : ""}
           ${e.estado !== "aprobado" ? `<button class="btn-primary btn-aprobar" style="width:auto; padding:8px 12px; font-size:13px;" data-id="${e.id}">Aprobar</button>` : ""}
           ${e.estado !== "rechazado" ? `<button class="btn-danger btn-rechazar" data-id="${e.id}">Rechazar</button>` : ""}
         </div>
@@ -140,12 +145,26 @@ function renderTabEnfermeros(el) {
       .join("")}
   </div>`;
 
-  el.querySelectorAll(".btn-ver-matricula").forEach((btn) => {
+  enfermeros
+    .filter((e) => e.fotoPerfilPath)
+    .forEach(async (e) => {
+      const fotoEl = document.getElementById(`foto-${e.id}`);
+      if (!fotoEl) return;
+      try {
+        const url = await EnfApp.storage.ref(e.fotoPerfilPath).getDownloadURL();
+        fotoEl.innerHTML = `<img src="${url}" alt="" style="width:100%; height:100%; object-fit:cover;" />`;
+      } catch (err) {
+        // sin foto disponible, se queda el placeholder vacío
+      }
+    });
+
+  el.querySelectorAll(".btn-ver-archivo").forEach((btn) => {
     btn.addEventListener("click", async () => {
       // Hay que abrir la pestaña en el mismo instante del click (antes de cualquier
       // await) — si no, el navegador del celular (sobre todo Safari) la bloquea
       // silenciosamente por no considerarlo ya parte del gesto del usuario.
       const nuevaPestania = window.open("", "_blank", "noreferrer");
+      const textoOriginal = btn.textContent;
       btn.textContent = "Abriendo…";
       try {
         const url = await EnfApp.storage.ref(btn.dataset.path).getDownloadURL();
@@ -153,9 +172,9 @@ function renderTabEnfermeros(el) {
         else location.href = url; // por si el navegador igual bloqueó la ventana en blanco
       } catch (err) {
         if (nuevaPestania) nuevaPestania.close();
-        alert("No se pudo abrir la matrícula: " + err.message);
+        alert(`No se pudo abrir el ${btn.dataset.label}: ` + err.message);
       }
-      btn.textContent = "Ver matrícula";
+      btn.textContent = textoOriginal;
     });
   });
   el.querySelectorAll(".btn-aprobar").forEach((btn) => {

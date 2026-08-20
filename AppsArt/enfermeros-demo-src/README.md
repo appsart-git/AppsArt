@@ -207,6 +207,20 @@ service firebase.storage {
       allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
       allow write: if request.auth != null && request.auth.uid == uid;
     }
+
+    // Foto de perfil del enfermero — cualquier usuario logueado la puede ver (el
+    // paciente debería poder ver a quién le van a asignar), solo el dueño la escribe.
+    match /perfiles/{uid}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Certificado del seguro de mala praxis — mismo criterio que la matrícula:
+    // solo el dueño y el admin lo pueden ver.
+    match /seguros/{uid}/{fileName} {
+      allow read: if request.auth != null && (request.auth.uid == uid || isAdmin());
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
   }
 }
 ```
@@ -287,6 +301,20 @@ catch-all, así que si en algún momento se pega solo una parte del bloque de re
 la consola, las colecciones que falten quedan bloqueadas por defecto sin ningún aviso.
 Siempre reemplazar el archivo de reglas completo, no pegar solo el bloque nuevo.
 
+## Seguro de mala praxis y foto de perfil (registro de enfermero)
+
+María pidió sumar esto al registro del enfermero pero sin especificar el formato exacto,
+así que se implementó la versión más verificable (mismo criterio que la matrícula):
+**N° de póliza obligatorio** + **certificado opcional para subir** (si no lo tiene a mano
+en el momento, puede completarlo después escribiéndole al admin). La foto de perfil es
+obligatoria. **Confirmar con María si esto es lo que tenía en mente** — si prefería algo
+más simple (una declaración con checkbox, por ejemplo) hay que ajustar el formulario y
+sacar el campo de N° de póliza como obligatorio.
+
+Ninguno de los dos campos se muestra todavía al paciente (ni la foto ni el seguro) —
+hoy solo los ve el admin en su panel. Mostrarle la foto al paciente al ver un pedido
+asignado queda pendiente como mejora aparte.
+
 ## Lo que falta para el MVP completo (no incluido en este demo)
 
 - **Cobro con Mercado Pago**: hoy el pago se marca a mano desde el panel admin
@@ -303,9 +331,6 @@ Siempre reemplazar el archivo de reglas completo, no pegar solo el bloque nuevo.
   tratamiento de datos sensibles de salud (Ley 25.326).
 - **Entrada por WhatsApp / QR / dominio corto**: tal como se conversó, la app web
   necesita estos canales porque no pasa por tiendas de aplicaciones.
-- **Seguro de mala praxis + foto de perfil del enfermero** (pedido de la clienta, falta
-  definir qué campo exacto — ¿número de póliza, upload de certificado, o una simple
-  declaración?) antes de agregarlo al formulario de registro.
 - **Disclaimer de política de cancelación** en el botón "Cancelar pedido" del paciente —
   el botón ya funciona, falta el texto (plazos, si hay penalidad, etc.).
 - **Borrar cuenta** — falta decidir qué pasa con los pedidos históricos de esa cuenta

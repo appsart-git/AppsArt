@@ -76,6 +76,14 @@ function renderRegistro() {
           <div class="field"><label>Foto o PDF de la matrícula</label>
             <input type="file" id="re-archivo" accept="image/*,application/pdf" required />
           </div>
+          <div class="field"><label>Foto de perfil</label>
+            <input type="file" id="re-foto" accept="image/*" required />
+            <div class="muted" style="font-size:12px; margin-top:4px;">Así te ve el paciente antes de que llegues.</div>
+          </div>
+          <div class="field"><label>N° de póliza de seguro de mala praxis</label><input id="re-poliza" required /></div>
+          <div class="field"><label>Certificado del seguro (opcional)</label>
+            <input type="file" id="re-seguro-archivo" accept="image/*,application/pdf" />
+          </div>
           <div class="field"><label>Email</label><input type="email" id="re-email" required /></div>
           <div class="field">
             <label>Contraseña</label>
@@ -102,8 +110,15 @@ function renderRegistro() {
     errEl.style.display = "none";
 
     const archivo = document.getElementById("re-archivo").files[0];
+    const foto = document.getElementById("re-foto").files[0];
+    const seguroArchivo = document.getElementById("re-seguro-archivo").files[0];
     if (!archivo) {
       errEl.textContent = "Subí una foto o PDF de tu matrícula.";
+      errEl.style.display = "block";
+      return;
+    }
+    if (!foto) {
+      errEl.textContent = "Subí una foto de perfil.";
       errEl.style.display = "block";
       return;
     }
@@ -118,9 +133,21 @@ function renderRegistro() {
       );
       cred.user.sendEmailVerification().catch(() => {});
       const uid = cred.user.uid;
+
       const ext = archivo.name.split(".").pop();
       const path = `matriculas/${uid}/matricula.${ext}`;
       await EnfApp.storage.ref(path).put(archivo);
+
+      const fotoExt = foto.name.split(".").pop();
+      const fotoPath = `perfiles/${uid}/foto.${fotoExt}`;
+      await EnfApp.storage.ref(fotoPath).put(foto);
+
+      let seguroArchivoPath = null;
+      if (seguroArchivo) {
+        const seguroExt = seguroArchivo.name.split(".").pop();
+        seguroArchivoPath = `seguros/${uid}/certificado.${seguroExt}`;
+        await EnfApp.storage.ref(seguroArchivoPath).put(seguroArchivo);
+      }
 
       const enfermero = {
         nombre: document.getElementById("re-nombre").value,
@@ -128,6 +155,9 @@ function renderRegistro() {
         zona: getZonaValue("re"),
         matricula: document.getElementById("re-matricula").value,
         matriculaArchivoPath: path,
+        fotoPerfilPath: fotoPath,
+        seguroPoliza: document.getElementById("re-poliza").value,
+        seguroArchivoPath,
         estado: "pendiente",
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       };
