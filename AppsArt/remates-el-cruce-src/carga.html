@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Lote 11 · Carga</title>
+<title>Remates El Cruce · Carga</title>
 <meta name="theme-color" content="#14171A">
 <link rel="icon" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
@@ -15,7 +15,7 @@
   :root{
     --bg:#14171A; --surface:#1D2126; --surface-2:#262B32; --border:#2E343C;
     --text:#ECEDEF; --text-muted:#8B92A0; --text-faint:#5C6470;
-    --accent:#E8A33D; --accent-ink:#1A1305;
+    --accent:#C24B3F; --accent-ink:#FFFFFF;
     --green:#4C8B5A; --red:#E15252; --amber:#E8A33D;
     --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
     --radius:12px;
@@ -135,7 +135,7 @@
 <div id="app">
   <aside class="sidebar">
     <div class="brand">
-      <div class="name">Lote 11<small>Carga de catálogo</small></div>
+      <div class="name">Remates El Cruce<small>Carga de catálogo</small></div>
     </div>
     <nav class="nav">
       <div class="nav-item" data-action="setTab" data-tab="escanear">📷 Escanear cuaderno</div>
@@ -160,12 +160,12 @@
 <script>
 'use strict';
 
-const FIREBASE_CONFIG_KEY = 'lote11_firebase_config';
-const LOCAL_PRODUCTOS_KEY = 'lote11_productos_local';
-const LOCAL_CATEGORIAS_KEY = 'lote11_categorias_local';
-const LOCAL_ETIQUETAS_KEY = 'lote11_etiquetas_local';
+const FIREBASE_CONFIG_KEY = 'remates_firebase_config';
+const LOCAL_PRODUCTOS_KEY = 'remates_productos_local';
+const LOCAL_CATEGORIAS_KEY = 'remates_categorias_local';
+const LOCAL_ETIQUETAS_KEY = 'remates_etiquetas_local';
 const DEFAULT_FIREBASE_CONFIG = null; // se completa cuando el cliente cree su proyecto Firebase
-const DEFAULT_CATEGORIAS = ['Muebles','Cuadros y decoración','Cerámica y vidrio','Iluminación','Vajilla','Adornos','Textiles','Herramientas','Jardín','Otros'];
+const DEFAULT_CATEGORIAS = ['Muebles','Cuadros y decoración','Cerámica y vidrio','Iluminación','Vajilla','Adornos','Textiles','Herramientas','Piezas de demolición','Jardín','Otros'];
 
 let db = null, storage = null;
 

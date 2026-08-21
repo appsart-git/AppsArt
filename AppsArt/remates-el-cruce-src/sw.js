@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lote11-catalogo-v1';
+const CACHE_NAME = 'remates-el-cruce-catalogo-v1';
 const APP_SHELL = [
   './',
   './index.html',

@@ -1,13 +1,13 @@
 {
-  "name": "Catálogo de Antigüedades - Lote 11",
-  "short_name": "Lote 11",
-  "description": "Catálogo de antigüedades y piezas de demolición, con búsqueda por código, nombre o categoría",
+  "name": "Remates El Cruce - Catálogo",
+  "short_name": "El Cruce",
+  "description": "Catálogo de antigüedades, muebles y piezas de demolición de Remates El Cruce, con búsqueda por código, nombre o categoría",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#14171A",
-  "theme_color": "#14171A",
+  "background_color": "#FBF6EC",
+  "theme_color": "#FBF6EC",
   "lang": "es-AR",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
