@@ -36,6 +36,15 @@ const DEFAULT_FIREBASE_CONFIG = {
 const APP_CHECK_ACTIVO = false;
 const RECAPTCHA_SITE_KEY = "6LfhQY0tAAAAANPzWpubAUSjFyBgSM3vDkYG9j--";
 
+/* Mercado Pago (split de pagos — ver README, sección "Mercado Pago") — el Client ID
+   de una app OAuth es público por diseño (va en la URL de autorización), lo secreto
+   es el Client Secret, que vive solo del lado de la Cloud Function (nunca acá).
+   PENDIENTE: pegar el Client ID real de la app Marketplace una vez creada en
+   mercadopago.com.ar/developers. Hasta entonces "Conectar Mercado Pago" no va a
+   funcionar (MP va a rechazar un client_id inválido). */
+const MP_CLIENT_ID_PUBLICO = "PENDIENTE_CLIENT_ID_MARKETPLACE";
+const MP_OAUTH_REDIRECT_URI = "https://us-central1-cuidahoy-6442d.cloudfunctions.net/mpOauthCallback";
+
 const FB_CONFIG_LS_KEY = "enfermerosDemo_firebaseConfig";
 
 function getStoredFirebaseConfig() {
@@ -146,6 +155,9 @@ function initFirebaseOrShowSetup() {
     db: firebase.firestore(),
     auth: firebase.auth(),
     storage: firebase.storage(),
+    // Solo paciente.html y enfermero.html cargan el SDK de functions (lo necesitan
+    // para Mercado Pago) — en las otras páginas queda null.
+    functions: firebase.functions ? firebase.functions() : null,
   };
   return window.EnfApp;
 }

@@ -209,6 +209,7 @@ function renderDashboard(enfermero) {
         </div>`
           : `
         <div id="push-status" style="margin-bottom:16px;"></div>
+        <div id="mp-status" style="margin-bottom:16px;"></div>
         <div style="font-weight:600; margin-bottom:10px; font-size:14px;" class="muted">Tus turnos asignados</div>
         <div id="lista-turnos" style="display:flex; flex-direction:column; gap:10px;">
           <div class="muted">Cargando…</div>
@@ -228,6 +229,7 @@ function renderDashboard(enfermero) {
 
   if (enfermero.estado === "aprobado") {
     renderPushStatus("enfermeroTokens", "Activar avisos de pedido asignado");
+    renderMPStatus(enfermero);
     const uid = EnfApp.auth.currentUser.uid;
     if (unsubTurnos) unsubTurnos();
     unsubTurnos = EnfApp.db
@@ -246,6 +248,52 @@ function renderDashboard(enfermero) {
         }
       );
   }
+}
+
+/* ===================== Mercado Pago (cobro directo del enfermero) ===================== */
+function renderMPStatus(enfermero) {
+  const el = document.getElementById("mp-status");
+  if (!el) return;
+
+  const aviso = new URLSearchParams(location.search).get("mp");
+  const avisoHTML =
+    aviso === "ok"
+      ? `<div class="muted" style="font-size:13px; margin-bottom:8px;">✅ Mercado Pago conectado.</div>`
+      : aviso === "error"
+        ? `<div class="error-text" style="font-size:13px; margin-bottom:8px;">No se pudo conectar Mercado Pago, probá de nuevo.</div>`
+        : "";
+
+  if (enfermero.mpConectado) {
+    el.innerHTML = `${avisoHTML}<div class="muted" style="font-size:13px;">💳 Mercado Pago conectado — los pacientes ya te pueden pagar directo.</div>`;
+    return;
+  }
+
+  el.innerHTML = `
+    ${avisoHTML}
+    <button class="btn-ghost" id="btn-conectar-mp" style="width:auto; padding:10px 14px; font-size:13.5px;">
+      💳 Conectar Mercado Pago para cobrar online
+    </button>
+    <div class="muted" style="font-size:12px; margin-top:6px;">Mientras no lo conectes, tus pacientes solo van a poder pagarte en efectivo.</div>
+  `;
+  document.getElementById("btn-conectar-mp").addEventListener("click", async () => {
+    const btn = document.getElementById("btn-conectar-mp");
+    btn.disabled = true;
+    btn.textContent = "Conectando…";
+    try {
+      const uid = EnfApp.auth.currentUser.uid;
+      const stateRef = EnfApp.db.collection("mpOauthState").doc();
+      await stateRef.set({ uid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+      const url =
+        `https://auth.mercadopago.com.ar/authorization?client_id=${encodeURIComponent(MP_CLIENT_ID_PUBLICO)}` +
+        `&response_type=code&platform_id=mp&state=${stateRef.id}` +
+        `&redirect_uri=${encodeURIComponent(MP_OAUTH_REDIRECT_URI)}`;
+      location.href = url;
+    } catch (err) {
+      alert("No se pudo iniciar la conexión: " + err.message);
+      btn.disabled = false;
+      btn.textContent = "💳 Conectar Mercado Pago para cobrar online";
+    }
+  });
 }
 
 function renderFormPerfil(enfermero) {

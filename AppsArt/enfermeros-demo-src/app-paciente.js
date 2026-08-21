@@ -278,14 +278,14 @@ function renderListaPedidos(pedidos) {
     .filter((p) => p.estado === "completado")
     .forEach((p) => renderCalificacionSlot(EnfApp.db, p.id, "paciente", "al enfermero"));
 
-  pedidos.filter((p) => p.enfermeroId).forEach((p) => renderEnfermeroAsignado(p.id, p.enfermeroId));
+  pedidos.filter((p) => p.enfermeroId).forEach((p) => renderEnfermeroAsignado(p));
 }
 
-async function renderEnfermeroAsignado(pedidoId, enfermeroId) {
-  const el = document.getElementById(`enfermero-${pedidoId}`);
+async function renderEnfermeroAsignado(pedido) {
+  const el = document.getElementById(`enfermero-${pedido.id}`);
   if (!el) return;
   try {
-    const doc = await EnfApp.db.collection("enfermeros").doc(enfermeroId).get();
+    const doc = await EnfApp.db.collection("enfermeros").doc(pedido.enfermeroId).get();
     if (!doc.exists) return;
     const enfermero = doc.data();
 
@@ -299,6 +299,8 @@ async function renderEnfermeroAsignado(pedidoId, enfermeroId) {
       }
     }
 
+    const puedeCobrarOnline = enfermero.mpConectado && pedido.pagoEstado === "pendiente" && pedido.precio != null;
+
     el.innerHTML = `
       <div style="display:flex; align-items:center; gap:10px; margin-top:8px;">
         ${fotoHTML}
@@ -308,7 +310,35 @@ async function renderEnfermeroAsignado(pedidoId, enfermeroId) {
           <div class="muted">Matrícula ${escapeHTML(enfermero.matricula)} · Póliza de seguro ${enfermero.seguroPoliza ? escapeHTML(enfermero.seguroPoliza) : "—"}</div>
         </div>
       </div>
+      ${
+        puedeCobrarOnline
+          ? `<button class="btn-primary btn-pagar-mp" data-id="${pedido.id}" style="margin-top:10px; width:auto; padding:8px 14px; font-size:13.5px;">💳 Pagar con Mercado Pago</button>
+             <div id="pagar-mp-error-${pedido.id}" class="error-text" style="display:none; margin-top:6px; font-size:12.5px;"></div>`
+          : pedido.pagoEstado === "pendiente"
+            ? `<div class="muted" style="font-size:12.5px; margin-top:8px;">💵 Coordiná el pago en efectivo directo con el enfermero.</div>`
+            : ""
+      }
     `;
+
+    if (puedeCobrarOnline) {
+      el.querySelector(".btn-pagar-mp").addEventListener("click", async () => {
+        const btn = el.querySelector(".btn-pagar-mp");
+        const errEl = document.getElementById(`pagar-mp-error-${pedido.id}`);
+        errEl.style.display = "none";
+        btn.disabled = true;
+        btn.textContent = "Generando link de pago…";
+        try {
+          const crearPreferencia = EnfApp.functions.httpsCallable("crearPreferenciaMP");
+          const { data } = await crearPreferencia({ pedidoId: pedido.id });
+          location.href = data.initPoint;
+        } catch (err) {
+          errEl.textContent = "No se pudo generar el pago: " + (err.message || err);
+          errEl.style.display = "block";
+          btn.disabled = false;
+          btn.textContent = "💳 Pagar con Mercado Pago";
+        }
+      });
+    }
   } catch (err) {
     // sin acceso al doc del enfermero (por ej. reglas todavía no actualizadas): no
     // mostramos nada, no rompe el resto de la tarjeta.

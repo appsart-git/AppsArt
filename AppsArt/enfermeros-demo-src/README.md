@@ -184,6 +184,20 @@ service cloud.firestore {
       allow delete: if isSignedIn() && resource.data.uid == request.auth.uid;
       allow read: if false;
     }
+
+    // Token de un solo uso para el "state" del OAuth de Mercado Pago — el cliente lo
+    // crea con su propio uid antes de mandar al enfermero a autorizar en MP; solo la
+    // Cloud Function (Admin SDK, no pasa por estas reglas) lo lee y lo borra.
+    match /mpOauthState/{token} {
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+
+    // access_token/refresh_token de la cuenta de Mercado Pago de cada enfermero —
+    // nunca deben ser legibles desde el cliente, ni siquiera por su dueño.
+    match /enfermerosMPTokens/{uid} {
+      allow read, write: if false;
+    }
   }
 }
 ```
@@ -319,11 +333,9 @@ en la tarjeta del pedido (`paciente.html`).
 
 ## Lo que falta para el MVP completo (no incluido en este demo)
 
-- **Cobro con Mercado Pago**: hoy el pago se marca a mano desde el panel admin
-  (`pagoEstado`). El pedido ya tiene un `precio` (ver tab "Tarifas" en `admin.html`),
-  pero falta el link de cobro y la confirmación automática — necesita una Cloud Function
-  (desplegable por GitHub Actions, sin instalar nada local), no se puede hacer 100%
-  client-side por el token privado de Mercado Pago.
+- **Cobro con Mercado Pago**: armazón de código ya hecho (ver sección "Mercado Pago"
+  más abajo), pero no probado contra Mercado Pago real — falta crear la app Marketplace
+  y cargar las credenciales.
 - **Resumen de facturación**: hoy se ve el precio y la comisión estimada pedido por
   pedido (tab "Pedidos" del admin), pero no hay un panel de "este mes se facturaron $X,
   la comisión fue $Y".
@@ -340,6 +352,46 @@ en la tarjeta del pedido (`paciente.html`).
   el botón ya funciona, falta el texto (plazos, si hay penalidad, etc.).
 - **Borrar cuenta** — falta decidir qué pasa con los pedidos históricos de esa cuenta
   (¿se anonimizan, quedan igual, se borran?) antes de implementarlo.
+
+## Mercado Pago (split de pagos — 2026-08-20, sin probar todavía)
+
+Decidido con el usuario: cada enfermero cobra directo a su propia cuenta de Mercado
+Pago, la comisión de la plataforma se descuenta sola (función "Marketplace" de MP,
+`marketplace_fee`), el paciente paga **al confirmarle un enfermero** (no al crear el
+pedido — recién ahí se sabe a qué cuenta de MP cobrarle), y el efectivo sigue siendo
+una opción alternativa.
+
+**Código ya armado** (`functions/mercadopago.js`, 3 Cloud Functions):
+- `mpOauthCallback`: recibe la vuelta del OAuth cuando un enfermero conecta su cuenta
+  de MP, guarda el token en `enfermerosMPTokens/{uid}` (colección bloqueada al cliente,
+  solo la lee el Admin SDK) y marca `enfermeros/{uid}.mpConectado = true`.
+- `crearPreferenciaMP` (callable): genera el link de pago de un pedido ya asignado,
+  usando la cuenta del enfermero como cobrador y `marketplace_fee` = comisión.
+- `mpWebhook`: recibe el aviso de pago de MP y marca el pedido como `pagado`.
+
+**⚠️ No probado contra Mercado Pago real** — está escrito siguiendo la documentación
+de MP (OAuth Marketplace + Checkout Pro + `marketplace_fee`), pero nombres de campos o
+detalles del webhook pueden no ser exactos hasta probarlo con una cuenta de test.
+
+**Lo que falta hacer (fuera del código, en mercadopago.com.ar/developers):**
+1. Crear una cuenta/aplicación de tipo **Marketplace** con la cuenta de MP de María
+   (la que va a recibir la comisión).
+2. De ahí salen un **Client ID** (público) y un **Client Secret** (privado).
+3. Pegar el Client ID en `firebase-init.js` → `MP_CLIENT_ID_PUBLICO` (hoy dice
+   `"PENDIENTE_CLIENT_ID_MARKETPLACE"`).
+4. Cargar el Client ID/Secret como *secrets* de la Cloud Function (no van en el código,
+   los lee `defineSecret` desde Secret Manager):
+   ```
+   firebase functions:secrets:set MP_CLIENT_ID --project cuidahoy-6442d
+   firebase functions:secrets:set MP_CLIENT_SECRET --project cuidahoy-6442d
+   ```
+   (pide instalar `firebase-tools` y estar logueado — se hace una sola vez, no en
+   cada deploy; se puede correr desde cualquier PC con Node, no hace falta que sea
+   esta).
+5. Cada enfermero va a necesitar su propia cuenta de Mercado Pago para poder conectar
+   (paso obligatorio de MP, no se puede saltear).
+6. Recomendado: probar todo el flujo primero con una **cuenta de test** de MP (se crea
+   gratis desde el mismo panel de developers) antes de ir con la cuenta real de María.
 
 ## Nombre y marca
 

@@ -3,6 +3,11 @@ const admin = require("firebase-admin");
 
 admin.initializeApp();
 
+const { mpOauthCallback, crearPreferenciaMP, mpWebhook } = require("./mercadopago");
+exports.mpOauthCallback = mpOauthCallback;
+exports.crearPreferenciaMP = crearPreferenciaMP;
+exports.mpWebhook = mpWebhook;
+
 // tokensCollection: "adminTokens" (todos los admins) o "enfermeroTokens" (filtrado por uid)
 async function notificarTokens(tokensCollection, tokenDocs, title, body, url) {
   if (tokenDocs.empty) return;
