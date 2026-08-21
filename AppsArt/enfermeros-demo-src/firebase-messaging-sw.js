@@ -21,7 +21,9 @@ messaging.onBackgroundMessage((payload) => {
   const { title, body } = payload.notification || {};
   self.registration.showNotification(title || "CUIDAR+", {
     body: body || "",
-    icon: "https://cuida-hoy.netlify.app/favicon.ico",
+    // Ruta relativa a la raíz del sitio (no absoluta con dominio) — así no se
+    // rompe si el dominio de Netlify vuelve a cambiar.
+    icon: "/img/icon-192.png",
     data: payload.data || {},
   });
 });

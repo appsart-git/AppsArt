@@ -18,14 +18,20 @@ const DEFAULT_FIREBASE_CONFIG = {
    Check (ver README). No es secreta.
 
    DESACTIVADO (2026-08) — la clave actual no tiene bien registrado el dominio
-   real (cuida-hoy.netlify.app) en reCAPTCHA, y mientras eso pase, App Check
-   entra en un bucle de "throttled" que bloquea CUALQUIER escritura a Firestore
-   — se reprodujo en producción, no solo en localhost, e impedía que un
-   paciente/enfermero nuevo pudiera registrarse. Se prioriza que la app
-   funcione: las reglas de Firestore/Storage por-usuario ya construidas siguen
-   siendo la protección real, App Check es una capa extra opcional. Para
-   reactivarlo: confirmar el dominio en google.com/recaptcha/admin para esta
-   clave, poner APP_CHECK_ACTIVO en true, y probar un registro real en
+   real en reCAPTCHA, y mientras eso pase, App Check entra en un bucle de
+   "throttled" que bloquea CUALQUIER escritura a Firestore — se reprodujo en
+   producción, no solo en localhost, e impedía que un paciente/enfermero nuevo
+   pudiera registrarse. Se prioriza que la app funcione: las reglas de
+   Firestore/Storage por-usuario ya construidas siguen siendo la protección
+   real, App Check es una capa extra opcional.
+
+   El dominio cambió el 2026-08-20 (de cuida-hoy.netlify.app a
+   cuidar-mas.netlify.app) — reCAPTCHA admin todavía tiene registrado el
+   dominio VIEJO, así que además del problema original hay que sumar el
+   dominio nuevo antes de reactivar esto.
+
+   Para reactivarlo: confirmar/agregar el dominio en google.com/recaptcha/admin
+   para esta clave, poner APP_CHECK_ACTIVO en true, y probar un registro real en
    producción (no solo en localhost) antes de confiar en que quedó bien. */
 const APP_CHECK_ACTIVO = false;
 const RECAPTCHA_SITE_KEY = "6LfhQY0tAAAAANPzWpubAUSjFyBgSM3vDkYG9j--";

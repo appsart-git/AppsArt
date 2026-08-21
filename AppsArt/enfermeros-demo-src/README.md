@@ -244,7 +244,7 @@ imágenes con semáforos").
 1. **Generar la site key**: entrar a
    [google.com/recaptcha/admin/create](https://www.google.com/recaptcha/admin/create) →
    crear un sitio nuevo → tipo **reCAPTCHA v3** → en "Dominios" agregar
-   `cuida-hoy.netlify.app` y `localhost` (para probar local) → aceptar términos → Enviar.
+   `cuidar-mas.netlify.app` y `localhost` (para probar local) → aceptar términos → Enviar.
    Quedan dos claves: la **"Clave del sitio"** (pública, es la que pegamos en el código) y
    la **"Clave secreta"** (para el siguiente paso, no se sube al repo).
 2. **Registrar en Firebase**: Firebase Console → menú lateral → **App Check** → "Comenzar"
@@ -349,5 +349,5 @@ de cada archivo), paleta de `styles.css` alineada a la guía de marca
 (`img/brand-guide.pdf`: teal oscuro `#0B5F58`, teal medio `#0E7C73`, naranja acento
 `#F2994A`, fondo crema `#FAF8F6`). El banner "MODO DEMO" ya se sacó de las 4 páginas.
 
-El link de Netlify sigue siendo `cuida-hoy.netlify.app` (nombre técnico, no visible
-como marca) — cambiarlo es una decisión aparte, no automática por el cambio de nombre.
+Link de Netlify: **`cuidar-mas.netlify.app`** (cambiado desde `cuida-hoy.netlify.app`
+el 2026-08-20).
