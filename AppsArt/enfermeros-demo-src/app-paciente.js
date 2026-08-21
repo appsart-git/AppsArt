@@ -289,11 +289,11 @@ async function renderEnfermeroAsignado(pedidoId, enfermeroId) {
     if (!doc.exists) return;
     const enfermero = doc.data();
 
-    let fotoHTML = `<div style="width:56px; height:56px; border-radius:10px; background:var(--surface-2); flex-shrink:0;"></div>`;
+    let fotoHTML = `<div style="width:76px; height:76px; border-radius:12px; background:var(--surface-2); flex-shrink:0;"></div>`;
     if (enfermero.fotoPerfilPath) {
       try {
         const url = await EnfApp.storage.ref(enfermero.fotoPerfilPath).getDownloadURL();
-        fotoHTML = `<img src="${url}" alt="" style="width:56px; height:56px; border-radius:10px; object-fit:cover; flex-shrink:0;" />`;
+        fotoHTML = `<img src="${url}" alt="" style="width:76px; height:76px; border-radius:12px; object-fit:cover; flex-shrink:0;" />`;
       } catch (err) {
         // sin foto disponible, se queda el placeholder vacío
       }

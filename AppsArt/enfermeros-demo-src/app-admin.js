@@ -166,21 +166,19 @@ function renderTabEnfermeros(el) {
 
   el.querySelectorAll(".btn-ver-archivo").forEach((btn) => {
     btn.addEventListener("click", async () => {
-      // Hay que abrir la pestaña en el mismo instante del click (antes de cualquier
-      // await) — si no, el navegador del celular (sobre todo Safari) la bloquea
-      // silenciosamente por no considerarlo ya parte del gesto del usuario.
-      const nuevaPestania = window.open("", "_blank", "noreferrer");
+      // Navegamos la misma pestaña en vez de abrir una nueva: en iOS Safari, una
+      // pestaña en blanco abierta con window.open() y redirigida recién después de
+      // esperar la URL (por más rápido que sea) queda bloqueada en silencio, sin
+      // ningún error — el usuario solo ve "about:blank" para siempre.
       const textoOriginal = btn.textContent;
       btn.textContent = "Abriendo…";
       try {
         const url = await EnfApp.storage.ref(btn.dataset.path).getDownloadURL();
-        if (nuevaPestania) nuevaPestania.location.href = url;
-        else location.href = url; // por si el navegador igual bloqueó la ventana en blanco
+        location.href = url;
       } catch (err) {
-        if (nuevaPestania) nuevaPestania.close();
         alert(`No se pudo abrir el ${btn.dataset.label}: ` + err.message);
+        btn.textContent = textoOriginal;
       }
-      btn.textContent = textoOriginal;
     });
   });
   el.querySelectorAll(".btn-aprobar").forEach((btn) => {
