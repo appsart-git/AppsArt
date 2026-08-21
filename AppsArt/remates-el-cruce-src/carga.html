@@ -98,6 +98,7 @@
   .progress-bar{height:6px; background:var(--surface-2); border-radius:4px; margin-top:10px; overflow:hidden;}
   .progress-bar .fill{height:100%; background:var(--accent); transition:width .2s;}
   .empty-hint{color:var(--text-faint); font-size:13.5px; padding:30px 0; text-align:center; border:1px dashed var(--border); border-radius:10px;}
+  .ocr-raw-text{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:12px 14px; font-size:12px; line-height:1.5; color:var(--text-muted); white-space:pre-wrap; word-break:break-word; max-height:340px; overflow-y:auto;}
 
   .ocr-rows{display:flex; flex-direction:column; gap:14px;}
   .ocr-row{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:14px;}
@@ -335,7 +336,9 @@ function renderEscanear(){
       </div>
       <div class="ocr-col-rows">
         ${o.rows.length ? renderOcrRowsTable() : `<div class="empty-hint">Las filas detectadas van a aparecer acá para revisar.</div>
-        <div class="ocr-footer-actions"><button class="btn" data-action="ocrAgregarFilaVacia">+ Agregar línea manual</button></div>`}
+        <div class="ocr-footer-actions"><button class="btn" data-action="ocrAgregarFilaVacia">+ Agregar línea manual</button></div>
+        ${o.rawText ? `<h3 style="margin-top:18px;">Texto que reconoció el OCR (crudo, sin procesar)</h3>
+        <pre class="ocr-raw-text">${esc(o.rawText) || '(vacío — no reconoció ningún texto)'}</pre>` : ''}`}
       </div>
     </div>
     <datalist id="etiquetasList">${state.etiquetas.map(e => `<option value="${esc(e)}">`).join('')}</datalist>`;
@@ -396,9 +399,10 @@ Object.assign(actions, {
         const bar = document.querySelector('.progress-bar .fill');
         if(bar) bar.style.width = pct + '%';
       });
+      state.ocr.rawText = text;
       state.ocr.rows = parseCuadernoText(text).map(r => Object.assign(r, { etiquetasTexto: '', fotoPreview: null, fotoCompressed: null }));
       state.ocr.processing = false;
-      if(!state.ocr.rows.length) toast('No se detectaron filas automáticamente. Probá con más luz/foco, o cargá las líneas a mano con "+ Agregar línea manual".');
+      if(!state.ocr.rows.length) toast('No se detectaron filas automáticamente. Mirá abajo lo que reconoció el OCR, o cargá las líneas a mano con "+ Agregar línea manual".');
       render();
     }catch(err){
       console.error(err); state.ocr.processing = false; toast('No se pudo procesar la imagen.'); render();
