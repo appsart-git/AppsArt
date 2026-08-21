@@ -17,7 +17,7 @@ function renderLogin() {
     <div class="auth-wrap">
       <div class="card" style="width:100%; max-width:380px;">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
-          <div class="brand-icon">⚕</div>
+          <div class="brand-icon"><img src="img/icon.png" alt="CUIDAR+" /></div>
           <div style="font-family:var(--font-display); font-weight:600; font-size:17px;">Iniciar sesión</div>
         </div>
         <p class="muted" style="margin:0 0 18px;">Panel de enfermero.</p>
@@ -64,7 +64,7 @@ function renderRegistro() {
     <div class="auth-wrap">
       <div class="card" style="width:100%; max-width:380px;">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
-          <div class="brand-icon">⚕</div>
+          <div class="brand-icon"><img src="img/icon.png" alt="CUIDAR+" /></div>
           <div style="font-family:var(--font-display); font-weight:600; font-size:17px;">Sumate como enfermero</div>
         </div>
         <p class="muted" style="margin:0 0 18px;">Revisamos tu matrícula antes de activarte en la plataforma.</p>
@@ -215,7 +215,7 @@ function renderDashboard(enfermero) {
         </div>`
       }
 
-      <div class="by-appsart">by AppsArt</div>
+      <div class="by-appsart">by <img src="img/appsart-brand.png" alt="AppsArt" /></div>
     </div>
   `);
 

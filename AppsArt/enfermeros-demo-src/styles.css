@@ -1,15 +1,17 @@
 @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap");
 
 :root {
-  --bg: #f5f9f9;
+  /* Paleta oficial de la guía de marca (img/brand-guide.pdf) */
+  --bg: #faf8f6; /* fondo crema */
   --surface: #ffffff;
-  --surface-2: #eef4f4;
-  --border: #dbe6e6;
+  --surface-2: #f1ece6;
+  --border: #e4dcd3;
   --text: #10241f;
   --text-muted: #5b6f6b;
-  --teal: #0e7c73;
-  --teal-dark: #0b5f58;
+  --teal: #0e7c73; /* teal medio */
+  --teal-dark: #0b5f58; /* teal oscuro */
   --teal-light: #e3f2f0;
+  --naranja: #f2994a; /* naranja acento — uso puntual, no como color primario */
   --green: #1f9d55;
   --amber: #d18c1b;
   --red: #d64545;
@@ -52,20 +54,6 @@ a {
   text-decoration: none;
 }
 
-/* ===================== DEMO banner ===================== */
-.demo-banner {
-  background: #3a2a0a;
-  color: #f6d9a0;
-  font-size: 12.5px;
-  font-weight: 600;
-  text-align: center;
-  padding: 8px 14px;
-  line-height: 1.4;
-}
-.demo-banner strong {
-  color: #ffdd7a;
-}
-
 /* ===================== Layout ===================== */
 .page {
   min-height: 100vh;
@@ -95,18 +83,13 @@ a {
   width: 36px;
   height: 36px;
   border-radius: 9px;
-  background: linear-gradient(135deg, var(--teal), var(--teal-dark));
-  display: flex;
-  align-items: center;
-  justify-content: center;
   flex-shrink: 0;
-  color: #fff;
-  font-size: 18px;
+  overflow: hidden;
 }
-.brand-name {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 17px;
+.brand-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 .auth-wrap {
   min-height: calc(100vh - 34px);

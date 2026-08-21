@@ -327,7 +327,10 @@ en la tarjeta del pedido (`paciente.html`).
 - **Resumen de facturación**: hoy se ve el precio y la comisión estimada pedido por
   pedido (tab "Pedidos" del admin), pero no hay un panel de "este mes se facturaron $X,
   la comisión fue $Y".
-- **Íconos reales de PWA / manifest / service worker**: todavía no están.
+- **Service worker de PWA / soporte offline**: el manifest e íconos ya están (ver
+  "Nombre y marca" abajo), pero no hay un service worker que cachee la app para uso
+  sin conexión — solo el de Cloud Messaging (`firebase-messaging-sw.js`), que es para
+  los avisos push, no para offline.
 - **Términos y Condiciones / Política de Privacidad**: falta la página con el disclaimer
   de que la plataforma es intermediaria y no presta el servicio de salud en sí, más el
   tratamiento de datos sensibles de salud (Ley 25.326).
@@ -340,8 +343,11 @@ en la tarjeta del pedido (`paciente.html`).
 
 ## Nombre y marca
 
-Nombre confirmado con la clienta: **CUIDAR+**. El logo todavía queda pendiente — hoy
-usa un ícono de emoji como placeholder en vez de un logo real; reemplazar el
-`brand-icon`/`brand-name` en los 4 HTML cuando esté listo. El link de Netlify sigue
-siendo `cuida-hoy.netlify.app` (nombre técnico, no visible como marca) — cambiarlo es
-una decisión aparte, no automática por el cambio de nombre.
+Nombre confirmado con la clienta: **CUIDAR+**. Branding real ya aplicado (2026-08-20) —
+logo, isologo, favicon e íconos de PWA en `img/` (ver `img/README.md` para el detalle
+de cada archivo), paleta de `styles.css` alineada a la guía de marca
+(`img/brand-guide.pdf`: teal oscuro `#0B5F58`, teal medio `#0E7C73`, naranja acento
+`#F2994A`, fondo crema `#FAF8F6`). El banner "MODO DEMO" ya se sacó de las 4 páginas.
+
+El link de Netlify sigue siendo `cuida-hoy.netlify.app` (nombre técnico, no visible
+como marca) — cambiarlo es una decisión aparte, no automática por el cambio de nombre.

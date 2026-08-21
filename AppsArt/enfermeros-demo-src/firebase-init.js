@@ -89,7 +89,6 @@ function renderSetupScreen(onSaved) {
   const root = document.createElement("div");
   root.className = "setup-wrap";
   root.innerHTML = `
-    <div class="demo-banner"><strong>MODO DEMO</strong> — versión de prueba de AppsArt, no usar con datos reales.</div>
     <div class="card" style="margin-top:16px;">
       <h2 style="margin-bottom:10px;">Configurar Firebase (una sola vez)</h2>
       <ol class="muted" style="margin:0 0 14px; padding-left:18px; line-height:1.7;">
@@ -143,8 +142,4 @@ function initFirebaseOrShowSetup() {
     storage: firebase.storage(),
   };
   return window.EnfApp;
-}
-
-function demoBannerHTML() {
-  return `<div class="demo-banner"><strong>MODO DEMO</strong> — versión de prueba de AppsArt, no usar con datos reales.</div>`;
 }
