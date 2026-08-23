@@ -12,6 +12,12 @@
       "runtimeExecutable": "powershell",
       "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "AppsArt/enfermeros-demo-src/_serve.ps1"],
       "port": 8899
+    },
+    {
+      "name": "remates-el-cruce",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["AppsArt/remates-el-cruce-src/_serve.js"],
+      "port": 8900
     }
   ]
 }
