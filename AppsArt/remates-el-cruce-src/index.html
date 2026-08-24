@@ -272,7 +272,15 @@ function toast(msg){
   toastTimer = setTimeout(()=> el.classList.remove('show'), 3200);
 }
 
-function getVisionApiKey(){ return (localStorage.getItem(VISION_API_KEY_KEY) || '').trim(); }
+// Restringida a "Cloud Vision API" solamente en Google Cloud Console. Recomendado ademas agregar
+// una restriccion HTTP referrer (solo remates-el-cruce.netlify.app) para que no sirva si alguien
+// la copia del codigo fuente (el repo es publico).
+const DEFAULT_VISION_API_KEY = 'AIzaSyCf2uLXZym4J8M6R6GI4JWO6ScvnxYIBKA';
+function getVisionApiKey(){
+  const raw = localStorage.getItem(VISION_API_KEY_KEY);
+  if(raw !== null) return raw.trim(); // el usuario guardo o vacio la clave a proposito en este navegador
+  return DEFAULT_VISION_API_KEY;
+}
 
 /* ===================== Backend: Firestore o localStorage ===================== */
 function getSavedFirebaseConfig(){
@@ -774,7 +782,7 @@ Object.assign(actions, {
     render();
   },
   quitarVisionKey(){
-    localStorage.removeItem(VISION_API_KEY_KEY);
+    localStorage.setItem(VISION_API_KEY_KEY, ''); // vacio a propósito: no volver a caer en DEFAULT_VISION_API_KEY
     toast('Clave quitada. Vuelve a usar Tesseract.');
     render();
   }
