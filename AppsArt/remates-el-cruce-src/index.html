@@ -410,9 +410,7 @@ function renderEscanear(){
   document.getElementById('content').innerHTML = `
     <div class="section-head"><h1>Cargar producto</h1></div>
     <p class="muted">Sacá una foto de la página del cuaderno (de frente, con buena luz) o subí una imagen para que el sistema intente separar cada renglón en código / descripción / precio — <b>es manuscrito, la lectura puede fallar: revisá cada fila contra la foto original antes de guardar.</b> También podés saltear el escaneo y cargar un producto directo a mano con "+ Agregar línea manual".</p>
-    <p class="muted" style="font-size:12.5px;">${visionOn
-      ? '🟢 Leyendo con Google Cloud Vision (mejor lectura de manuscrito).'
-      : '🟡 Leyendo con Tesseract (motor más básico, lee bastante mal esta letra) — configurá una clave de Google Cloud Vision en ⚙ Configuración para mejorar mucho la lectura.'}</p>
+    ${visionOn ? '' : `<p class="muted" style="font-size:12.5px;">🟡 Leyendo con Tesseract (motor más básico, lee bastante mal esta letra) — configurá una clave de Google Cloud Vision en ⚙ Configuración para mejorar mucho la lectura.</p>`}
     <div class="ocr-layout">
       <div class="ocr-col-img">
         <input type="file" id="ocr_file" accept="image/*" capture="environment" style="display:none;" data-change="ocrPageFile">
