@@ -1,5 +1,4 @@
 [build]
-  base = "AppsArt/remates-el-cruce-src"
   publish = "."
 
 [[headers]]
