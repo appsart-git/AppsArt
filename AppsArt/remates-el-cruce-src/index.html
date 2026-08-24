@@ -235,7 +235,17 @@ const VISION_API_KEY_KEY = 'remates_vision_api_key';
 const LOCAL_PRODUCTOS_KEY = 'remates_productos_local';
 const LOCAL_CATEGORIAS_KEY = 'remates_categorias_local';
 const LOCAL_ETIQUETAS_KEY = 'remates_etiquetas_local';
-const DEFAULT_FIREBASE_CONFIG = null; // se completa cuando el cliente cree su proyecto Firebase
+// Config publico del proyecto Firebase real de Remates El Cruce — no es un secreto (la seguridad
+// la dan las reglas de Firestore/Storage, no ocultar esto). Hardcodeado para que cualquier
+// dispositivo nuevo (celular, PC del cliente, etc.) se conecte solo, sin pegar nada a mano.
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBb2lkgf-kq5DWkg6a16WNwIbBw6DZUX40",
+  authDomain: "remates-el-cruce.firebaseapp.com",
+  projectId: "remates-el-cruce",
+  storageBucket: "remates-el-cruce.firebasestorage.app",
+  messagingSenderId: "949160194825",
+  appId: "1:949160194825:web:08dd2f5410013f0fc899d8"
+};
 const DEFAULT_CATEGORIAS = ['Muebles','Cuadros y decoración','Cerámica y vidrio','Iluminación','Vajilla','Adornos','Textiles','Herramientas','Piezas de demolición','Jardín','Otros'];
 
 let db = null, storage = null;
@@ -722,7 +732,7 @@ function renderConfig(){
     <div class="section-head"><h1>Configuración</h1></div>
     <div class="card" style="max-width:560px;">
       <p><b>Modo actual:</b> ${state.backendMode === 'firebase' ? '🟢 Conectado (datos compartidos en la nube)' : '🟡 Local (datos guardados solo en este navegador — sirve para probar la app)'}</p>
-      <p class="muted" style="font-size:13px;">Para que los productos se compartan entre dispositivos (en vez de quedar guardados solo en este navegador), hay que crear un proyecto gratis de Firebase (Firestore Database + Storage, plan Blaze) y pegar acá su configuración: <a href="https://console.firebase.google.com/" target="_blank" rel="noopener">console.firebase.google.com</a> → crear proyecto → Firestore Database + Storage → ⚙ Configuración del proyecto → copiar el objeto "firebaseConfig".</p>
+      <p class="muted" style="font-size:13px;">Cualquier dispositivo nuevo se conecta solo al proyecto real de Firebase (los productos se comparten automáticamente). Esto es solo para casos puntuales — por ejemplo, probar con otro proyecto de Firebase distinto.</p>
       <label>Pegar firebaseConfig
         <textarea id="fbConfigInput" rows="6" placeholder='{"apiKey":"...", "projectId":"...", ...}'></textarea>
       </label>
