@@ -69,8 +69,8 @@
   .overlay{position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:40; opacity:0; pointer-events:none; transition:opacity .2s;}
   .overlay.show{opacity:1; pointer-events:auto;}
 
-  .detail{position:fixed; inset:0; z-index:50; background:var(--surface); display:flex; flex-direction:column; transform:translateX(100%); transition:transform .22s ease;}
-  .detail.show{transform:translateX(0);}
+  .detail{position:fixed; inset:0; z-index:50; background:var(--surface); display:flex; flex-direction:column; transform:translateX(100%); transition:transform .22s ease; pointer-events:none;}
+  .detail.show{transform:translateX(0); pointer-events:auto;}
   @media (min-width:720px){
     .detail{ inset:auto; left:50%; top:50%; width:640px; max-width:92vw; max-height:86vh; transform:translate(-50%,-46%) scale(.97); opacity:0; border-radius:18px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.4);}
     .detail.show{transform:translate(-50%,-50%) scale(1); opacity:1;}
