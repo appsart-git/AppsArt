@@ -1,13 +1,13 @@
 {
-  "name": "Remates El Cruce - Catálogo",
+  "name": "Remates El Cruce - Gestión",
   "short_name": "El Cruce",
-  "description": "Catálogo de antigüedades, muebles y piezas de demolición de Remates El Cruce, con búsqueda por código, nombre o categoría",
+  "description": "Carga y gestión interna del catálogo de antigüedades, muebles y piezas de demolición de Remates El Cruce",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#FBF6EC",
-  "theme_color": "#FBF6EC",
+  "background_color": "#14171A",
+  "theme_color": "#14171A",
   "lang": "es-AR",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

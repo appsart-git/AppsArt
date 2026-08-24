@@ -3,7 +3,7 @@
    El cuaderno tiene 3 columnas por renglón: código (4-6 dígitos) · descripción · precio ($ con puntos de miles).
    A diferencia de una factura impresa, esto es manuscrito — la lectura va a fallar bastante más seguido.
    Este parser es un punto de partida para ahorrar tipeo, no una lectura confiable: siempre se revisa a mano
-   con la imagen original visible al lado (ver renderOcrTab en carga.html). */
+   con la imagen original visible al lado (ver renderEscanear en index.html). */
 
 // Igual que en el parser de facturas de Mundo Repuestos: soporta miles con "." o "," y decimales opcionales.
 const CUADERNO_NUMBER_RE = /\d{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?/g;

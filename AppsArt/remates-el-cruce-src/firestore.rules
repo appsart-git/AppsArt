@@ -4,10 +4,10 @@ service cloud.firestore {
 
     // productos: catalogo publico de "El Cruce". El catalogo (index.html) necesita
     // leer TODOS los productos sin autenticacion (filtra "disponible" del lado del
-    // cliente). carga.html tampoco tiene login (URL sin listar) — hoy no hay forma
-    // de distinguir a nivel de reglas un pedido de carga.html de cualquier otro,
+    // cliente). index.html (herramienta interna) tampoco tiene login (URL sin listar) — hoy no hay forma
+    // de distinguir a nivel de reglas un pedido de index.html (herramienta interna) de cualquier otro,
     // asi que la escritura queda abierta y la unica proteccion es que la URL de
-    // carga.html no se comparte. Si en algun momento se quiere cerrar esto en
+    // index.html (herramienta interna) no se comparte. Si en algun momento se quiere cerrar esto en
     // serio, hay que agregar Firebase Auth (aunque sea anonima + un PIN) y
     // condicionar "allow write" a "request.auth != null".
     match /productos/{codigo} {

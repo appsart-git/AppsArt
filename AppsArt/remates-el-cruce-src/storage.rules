@@ -4,7 +4,7 @@ service firebase.storage {
 
     // fotos de productos: publicas para lectura (el catalogo las muestra sin login).
     // Escritura sin autenticacion, mismo criterio que firestore.rules — ver el
-    // comentario ahi sobre el trade-off de carga.html sin login.
+    // comentario ahi sobre el trade-off de index.html (herramienta interna) sin login.
     match /productos/{codigo}/{archivo} {
       allow read: if true;
       allow write: if request.resource.size < 8 * 1024 * 1024
