@@ -558,12 +558,22 @@ Object.assign(actions, {
     render();
   }
 });
-inputActions.ocrPageFile = (el) => {
+inputActions.ocrPageFile = async (el) => {
   const file = el.files[0];
   if(!file) return;
-  const reader = new FileReader();
-  reader.onload = () => { state.ocr = { imageDataUrl: reader.result, imageName: file.name, processing: false, progress: 0, rows: [] }; render(); };
-  reader.readAsDataURL(file);
+  // Se redibuja en un canvas y se reconvierte a JPEG en vez de mandar el archivo tal cual: normaliza
+  // formatos que Vision no soporta (ej. HEIC/HEIF, el default de la camara del iPhone — el celular lo
+  // sabe decodificar solo al mostrarlo, así que esto funciona sin librerías externas) y evita mandar
+  // fotos enormes sin comprimir. maxSide mas alto que en compressImageFile por default porque acá
+  // importa que se sigan leyendo bien los numeros de código chiquitos.
+  try{
+    const compressed = await compressImageFile(file, 2200, 0.92);
+    state.ocr = { imageDataUrl: compressed.dataUrl, imageName: file.name, processing: false, progress: 0, rows: [] };
+    render();
+  }catch(err){
+    console.error(err);
+    toast('No se pudo abrir esa imagen. Probá con otra foto.');
+  }
 };
 inputActions.ocrCodigo = (el) => { state.ocr.rows[Number(el.dataset.i)].codigo = el.value.trim(); };
 inputActions.ocrNombre = (el) => { state.ocr.rows[Number(el.dataset.i)].nombre = el.value; };
