@@ -4,27 +4,32 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Remates El Cruce</title>
-<meta name="theme-color" content="#14171A">
+<meta name="theme-color" content="#FBF6EC">
 <link rel="manifest" href="./manifest.json">
 <link rel="icon" href="./icon-192.png">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-storage-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <style>
   :root{
-    --bg:#14171A; --surface:#1D2126; --surface-2:#262B32; --border:#2E343C;
-    --text:#ECEDEF; --text-muted:#8B92A0; --text-faint:#5C6470;
-    --accent:#C24B3F; --accent-ink:#FFFFFF;
-    --green:#4C8B5A; --red:#E15252; --amber:#E8A33D;
-    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    --bg:#FBF6EC; --surface:#FFFFFF; --surface-2:#F3ECDC; --border:#E5D9C0;
+    --text:#2A2118; --text-muted:#7A6E5A; --text-faint:#B7AB90;
+    --accent:#8B2E2A; --accent-ink:#FFFFFF;
+    --green:#3F7A4C; --red:#C0392B; --amber:#A6690A;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
     --radius:12px;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{background:var(--bg); color:var(--text); font-family:var(--font); -webkit-font-smoothing:antialiased;}
-  h1,h2,h3{margin:0 0 8px; font-weight:800;}
+  h1,h2,h3{margin:0 0 8px; font-family:var(--font-display); font-weight:700; letter-spacing:-.01em;}
+  h1{font-weight:800;}
   p{line-height:1.5;}
   .muted{color:var(--text-muted);}
   a{color:var(--accent);}
@@ -49,7 +54,7 @@
   .btn-primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
   .btn-ghost{background:transparent;}
   .btn-sm{padding:6px 10px; font-size:12px;}
-  .btn-danger{color:#ff8378; border-color:#5a2620;}
+  .btn-danger{color:var(--red); border-color:#E8C4BC;}
 
   .card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px;}
 
@@ -59,7 +64,7 @@
     display:flex; flex-direction:column; padding:18px 14px; position:sticky; top:0; height:100vh;
   }
   .brand{display:flex; align-items:center; gap:10px; margin-bottom:18px; padding:0 4px;}
-  .brand .name{font-weight:800; font-size:15.5px; line-height:1.2;}
+  .brand .name{font-family:var(--font-display); font-weight:700; font-size:18px; line-height:1.2;}
   .brand .name small{display:block; font-size:10.5px; color:var(--text-muted); font-weight:500;}
   .nav{display:flex; flex-direction:column; gap:2px; flex:1;}
   .nav-item{
@@ -68,6 +73,7 @@
   }
   .nav-item:hover{background:var(--surface-2); color:var(--text);}
   .nav-item.active{background:var(--accent); color:var(--accent-ink);}
+  .nav-ico{width:17px; height:17px; flex-shrink:0;}
   .backend-badge{font-size:11px; color:var(--text-muted); padding:8px 6px; display:flex; align-items:center; gap:6px;}
   .dot{width:7px; height:7px; border-radius:50%; background:var(--green); flex-shrink:0;}
   .dot.local{background:var(--amber);}
@@ -130,6 +136,55 @@
     border-radius:10px; font-size:13.5px; z-index:100; transition:.2s; pointer-events:none; max-width:90vw;
   }
   .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  /* ---- Buscar (vista visual, con fotos) ---- */
+  .categoria-tabs{display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; margin-bottom:16px; scrollbar-width:none;}
+  .categoria-tabs::-webkit-scrollbar{display:none;}
+  .tab-chip{flex:none; padding:8px 14px; border-radius:20px; border:1px solid var(--border); background:var(--surface); color:var(--text-muted); font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;}
+  .tab-chip.active{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
+  .result-count{font-size:12.5px; color:var(--text-muted); font-weight:600; margin-bottom:10px;}
+  .prod-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:12px;}
+  @media (min-width:640px){ .prod-grid{grid-template-columns:repeat(3,1fr);} }
+  @media (min-width:900px){ .prod-grid{grid-template-columns:repeat(4,1fr); gap:16px;} }
+  @media (min-width:1300px){ .prod-grid{grid-template-columns:repeat(5,1fr);} }
+  .p-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; cursor:pointer; text-align:left; padding:0;}
+  .p-card:hover{box-shadow:0 4px 16px rgba(42,33,24,.12);}
+  .p-card-img{width:100%; aspect-ratio:1/1; background:var(--surface-2); overflow:hidden; position:relative;}
+  .p-card-img img{width:100%; height:100%; object-fit:cover; display:block;}
+  .p-card-img .noimg{width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:var(--text-faint); font-size:28px;}
+  .estado-flag{position:absolute; top:6px; left:6px; font-size:10px; font-weight:700; padding:2px 7px; border-radius:6px; color:#fff;}
+  .estado-flag.reservado{background:var(--amber);}
+  .estado-flag.vendido{background:var(--text-faint);}
+  .p-card-body{padding:9px 10px 11px;}
+  .p-card-title{font-size:12.5px; font-weight:700; line-height:1.25; margin:0 0 4px; color:var(--text); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;}
+  .p-card-meta{display:flex; flex-wrap:wrap; align-items:center; gap:4px; justify-content:space-between;}
+  .badge{font-size:10.5px; font-weight:600; background:var(--surface-2); color:var(--text-muted); border-radius:6px; padding:2px 6px;}
+  .price{font-family:var(--font-display); font-size:14px; font-weight:700; color:var(--accent);}
+  .empty-state{padding:60px 20px; text-align:center; color:var(--text-muted); grid-column:1/-1;}
+  .empty-state .big{font-size:34px; margin-bottom:8px;}
+
+  .overlay{position:fixed; inset:0; background:rgba(42,33,24,.45); z-index:40; opacity:0; pointer-events:none; transition:opacity .2s;}
+  .overlay.show{opacity:1; pointer-events:auto;}
+  .detail{position:fixed; inset:0; z-index:50; background:var(--surface); display:flex; flex-direction:column; transform:translateX(100%); transition:transform .22s ease; pointer-events:none;}
+  .detail.show{transform:translateX(0); pointer-events:auto;}
+  @media (min-width:720px){
+    .detail{ inset:auto; left:50%; top:50%; width:520px; max-width:92vw; max-height:86vh; transform:translate(-50%,-46%) scale(.97); opacity:0; border-radius:18px; overflow:hidden; box-shadow:0 20px 60px rgba(42,33,24,.3);}
+    .detail.show{transform:translate(-50%,-50%) scale(1); opacity:1;}
+  }
+  .detail-img{width:100%; aspect-ratio:4/3; background:var(--surface-2); overflow:hidden; position:relative;}
+  .detail-img img{width:100%; height:100%; object-fit:cover; display:block;}
+  .detail-img .noimg{width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:var(--text-faint); font-size:44px;}
+  .detail-close{position:absolute; top:12px; right:12px; width:34px; height:34px; border-radius:50%; background:rgba(0,0,0,.45); color:#fff; border:none; font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center;}
+  .detail-body{overflow-y:auto; padding:16px 18px calc(20px + env(safe-area-inset-bottom));}
+  .detail-title{font-size:18px; font-weight:800; margin:0 0 3px;}
+  .detail-sub{color:var(--text-muted); font-size:13px; margin:0 0 10px;}
+  .detail-price{font-family:var(--font-display); font-size:24px; font-weight:700; color:var(--accent); margin:0 0 14px;}
+  .spec-table{width:100%; border-collapse:collapse;}
+  .spec-table tr{border-bottom:1px solid var(--border);}
+  .spec-table tr:last-child{border-bottom:none;}
+  .spec-table td{padding:9px 0; font-size:13px; vertical-align:top;}
+  .spec-table td:first-child{color:var(--text-muted); width:46%; font-weight:600;}
+  .spec-table td:last-child{color:var(--text); text-align:right; font-weight:600;}
 </style>
 </head>
 <body>
@@ -140,20 +195,34 @@
       <div class="name">Remates El Cruce<small>Carga de catálogo</small></div>
     </div>
     <nav class="nav">
-      <div class="nav-item" data-action="setTab" data-tab="productos">📦 Productos</div>
-      <div class="nav-item" data-action="setTab" data-tab="escanear">📷 Cargar producto</div>
-      <div class="nav-item" data-action="setTab" data-tab="fotos">🖼 Agregar foto</div>
+      <div class="nav-item" data-action="setTab" data-tab="productos"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg> Productos</div>
+      <div class="nav-item" data-action="setTab" data-tab="escanear"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg> Carga</div>
+      <div class="nav-item" data-action="setTab" data-tab="fotos"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-2h6l2 2h3v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8Z"/><circle cx="12" cy="13.5" r="3.3"/></svg> Agregar foto</div>
     </nav>
     <div class="backend-badge" id="backendBadge"></div>
     <a href="./catalogo.html" class="internal-link" style="font-size:10.5px; color:var(--text-muted); opacity:.6; text-decoration:none; padding:2px 6px;">Ver catálogo</a>
   </aside>
   <div style="flex:1; min-width:0;">
     <div class="topbar">
-      <div class="nav-item" data-action="setTab" data-tab="productos">📦 Productos</div>
-      <div class="nav-item" data-action="setTab" data-tab="escanear">📷 Cargar</div>
-      <div class="nav-item" data-action="setTab" data-tab="fotos">🖼 Foto</div>
+      <div class="nav-item" data-action="setTab" data-tab="productos"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5 9 5 9-5Z"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg> Productos</div>
+      <div class="nav-item" data-action="setTab" data-tab="escanear"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg> Carga</div>
+      <div class="nav-item" data-action="setTab" data-tab="fotos"><svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-2h6l2 2h3v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8Z"/><circle cx="12" cy="13.5" r="3.3"/></svg> Foto</div>
     </div>
     <main id="content"></main>
+  </div>
+</div>
+
+<div class="overlay" id="overlay" data-action="cerrarDetalle"></div>
+<div class="detail" id="detail">
+  <div class="detail-img" id="detailImg">
+    <button class="detail-close" data-action="cerrarDetalle">✕</button>
+  </div>
+  <div class="detail-body">
+    <h2 class="detail-title" id="detailTitle"></h2>
+    <p class="detail-sub" id="detailSub"></p>
+    <p class="detail-price" id="detailPrice"></p>
+    <table class="spec-table" id="detailSpecs"></table>
+    <div id="detailActions" style="margin-top:14px;"></div>
   </div>
 </div>
 
@@ -177,7 +246,8 @@ let state = {
   productos: [], categorias: [], etiquetas: [],
   ocr: { imageDataUrl: null, imageName: '', processing: false, progress: 0, rows: [] },
   fotoBusqueda: { codigo: '', producto: null, buscado: false, compressed: null, previewUrl: null, uploading: false },
-  prodFiltro: ''
+  buscar: { search: '', categoria: 'Todas' },
+  detalleCodigo: null
 };
 
 function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -347,6 +417,14 @@ function renderEscanear(){
         ${o.rawText ? `<h3 style="margin-top:18px;">Texto que reconoció el OCR (crudo, sin procesar)</h3>
         <pre class="ocr-raw-text">${esc(o.rawText) || '(vacío — no reconoció ningún texto)'}</pre>` : ''}`}
       </div>
+    </div>
+    <div class="card" style="margin-top:24px; max-width:640px;">
+      <h3>Categorías</h3>
+      <div class="chips">${state.categorias.map((c, i) => `<span class="chip">${esc(c)} <button data-action="catQuitar" data-i="${i}">✕</button></span>`).join('')}</div>
+      <div class="inline-add"><input id="catNueva" placeholder="Nueva categoría…"><button class="btn btn-sm" data-action="catAgregar">+ Agregar</button></div>
+      <h3>Etiquetas / aclaraciones (uso interno del negocio, no se muestran al buscar productos)</h3>
+      <div class="chips">${state.etiquetas.map((e, i) => `<span class="chip">${esc(e)} <button data-action="etqQuitar" data-i="${i}">✕</button></span>`).join('')}</div>
+      <div class="inline-add"><input id="etqNueva" placeholder="Nueva etiqueta…"><button class="btn btn-sm" data-action="etqAgregar">+ Agregar</button></div>
     </div>
     <datalist id="etiquetasList">${state.etiquetas.map(e => `<option value="${esc(e)}">`).join('')}</datalist>`;
 }
@@ -529,53 +607,93 @@ inputActions.fotoArchivo = async (el) => {
   render();
 };
 
-/* ---- Productos ---- */
-function renderProductos(){
-  document.getElementById('content').innerHTML = `
-    <div class="section-head">
-      <h1>Productos (${state.productos.length})</h1>
-      <div class="searchbar"><span class="ico">🔎</span><input placeholder="Buscar código, nombre o categoría…" value="${esc(state.prodFiltro)}" data-change="prodFiltro"></div>
-    </div>
-    <div class="card" style="margin-bottom:18px;">
-      <h3>Categorías</h3>
-      <div class="chips">${state.categorias.map((c, i) => `<span class="chip">${esc(c)} <button data-action="catQuitar" data-i="${i}">✕</button></span>`).join('')}</div>
-      <div class="inline-add"><input id="catNueva" placeholder="Nueva categoría…"><button class="btn btn-sm" data-action="catAgregar">+ Agregar</button></div>
-      <h3>Etiquetas / aclaraciones (uso interno, no se muestran en el catálogo público)</h3>
-      <div class="chips">${state.etiquetas.map((e, i) => `<span class="chip">${esc(e)} <button data-action="etqQuitar" data-i="${i}">✕</button></span>`).join('')}</div>
-      <div class="inline-add"><input id="etqNueva" placeholder="Nueva etiqueta…"><button class="btn btn-sm" data-action="etqAgregar">+ Agregar</button></div>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Código</th><th>Nombre</th><th>Categoría</th><th>Precio</th><th>Estado</th><th></th></tr></thead>
-        <tbody id="prodTbody"></tbody>
-      </table>
-    </div>`;
-  renderProdRows();
+/* ---- Productos (búsqueda visual con fotos; cambiar estado/eliminar se hace desde el detalle) ---- */
+function estadoBadgeHtml(estado){
+  if(estado === 'reservado') return `<span class="estado-flag reservado">Reservado</span>`;
+  if(estado === 'vendido') return `<span class="estado-flag vendido">Vendido</span>`;
+  return '';
 }
-function renderProdRows(){
-  const tbody = document.getElementById('prodTbody');
-  if(!tbody) return;
-  const q = state.prodFiltro.trim().toLowerCase();
-  const list = state.productos
-    .filter(p => !q || (p.codigo + ' ' + p.nombre + ' ' + (p.categoria || '')).toLowerCase().includes(q))
-    .sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
-  tbody.innerHTML = list.map(p => `
-    <tr>
-      <td>${esc(p.codigo)}</td>
-      <td>${esc(p.nombre)}</td>
-      <td>${esc(p.categoria || '—')}</td>
-      <td>${formatMoney(p.precio, p.moneda)}${p.porUnidad ? ' c/u' : ''}</td>
-      <td>
-        <select data-change="prodEstado" data-codigo="${esc(p.codigo)}">
-          <option value="disponible" ${p.estado === 'disponible' ? 'selected' : ''}>Disponible</option>
-          <option value="reservado" ${p.estado === 'reservado' ? 'selected' : ''}>Reservado</option>
-          <option value="vendido" ${p.estado === 'vendido' ? 'selected' : ''}>Vendido</option>
-        </select>
-      </td>
-      <td><button class="btn btn-sm btn-danger" data-action="prodEliminar" data-codigo="${esc(p.codigo)}">Eliminar</button></td>
-    </tr>`).join('') || `<tr><td colspan="6" class="muted" style="text-align:center; padding:24px;">Sin productos todavía.</td></tr>`;
+function pCardHtml(p){
+  const foto = p.fotos && p.fotos[0];
+  const img = foto ? `<img src="${esc(foto)}" alt="${esc(p.nombre)}" loading="lazy">` : `<div class="noimg">◈</div>`;
+  return `<div class="p-card" data-action="verDetalle" data-codigo="${esc(p.codigo)}">
+    <div class="p-card-img">${img}${estadoBadgeHtml(p.estado)}</div>
+    <div class="p-card-body">
+      <p class="p-card-title">${esc(p.nombre)}</p>
+      <div class="p-card-meta">
+        <span class="badge">#${esc(p.codigo)}</span>
+        <span class="price">${formatMoney(p.precio, p.moneda)}${p.porUnidad ? ' c/u' : ''}</span>
+      </div>
+    </div>
+  </div>`;
+}
+function buscarFiltrados(){
+  const b = state.buscar;
+  const q = b.search.trim().toLowerCase();
+  return state.productos
+    .filter(p => b.categoria === 'Todas' || (p.categoria || '') === b.categoria)
+    .filter(p => !q || [p.codigo, p.nombre, p.categoria].join(' ').toLowerCase().includes(q))
+    .sort((a, b2) => a.codigo.localeCompare(b2.codigo, undefined, { numeric: true }));
+}
+function renderProductos(){
+  const b = state.buscar;
+  const list = buscarFiltrados();
+  document.getElementById('content').innerHTML = `
+    <div class="section-head"><h1>Productos</h1></div>
+    <div class="searchbar" style="max-width:420px; margin-bottom:14px;">
+      <span class="ico"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+      <input placeholder="Buscar por código, producto o categoría…" value="${esc(b.search)}" data-change="buscarTexto">
+    </div>
+    <div class="categoria-tabs">
+      ${['Todas', ...state.categorias].map(c => `<button class="tab-chip ${c === b.categoria ? 'active' : ''}" data-action="buscarCategoria" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}
+    </div>
+    <div class="result-count">${list.length} ${list.length === 1 ? 'producto encontrado' : 'productos encontrados'}</div>
+    <div class="prod-grid">
+      ${list.length ? list.map(pCardHtml).join('') : `<div class="empty-state"><div class="big">🔍</div>No encontramos productos con esos filtros.</div>`}
+    </div>`;
+}
+function renderDetalle(){
+  const p = state.productos.find(x => x.codigo === state.detalleCodigo);
+  if(!p) return;
+  const foto = p.fotos && p.fotos[0];
+  document.getElementById('detailImg').innerHTML = (foto ? `<img src="${esc(foto)}" alt="${esc(p.nombre)}">` : `<div class="noimg">◈</div>`) + `<button class="detail-close" data-action="cerrarDetalle">✕</button>`;
+  document.getElementById('detailTitle').textContent = p.nombre || 'Producto';
+  document.getElementById('detailSub').textContent = ['Código ' + p.codigo, p.categoria].filter(Boolean).join(' · ');
+  document.getElementById('detailPrice').textContent = formatMoney(p.precio, p.moneda) + (p.porUnidad ? ' c/u' : '');
+  const rows = [
+    `<tr><td>Estado</td><td>
+      <select data-change="detalleEstado" style="width:auto;">
+        <option value="disponible" ${(!p.estado || p.estado === 'disponible') ? 'selected' : ''}>Disponible</option>
+        <option value="reservado" ${p.estado === 'reservado' ? 'selected' : ''}>Reservado</option>
+        <option value="vendido" ${p.estado === 'vendido' ? 'selected' : ''}>Vendido</option>
+      </select>
+    </td></tr>`,
+    p.etiquetas && p.etiquetas.length ? `<tr><td>Etiquetas</td><td>${esc(p.etiquetas.join(', '))}</td></tr>` : ''
+  ].filter(Boolean).join('');
+  document.getElementById('detailSpecs').innerHTML = rows;
+  document.getElementById('detailActions').innerHTML = `<button class="btn btn-danger" style="width:100%;" data-action="detalleEliminar">Eliminar producto</button>`;
 }
 Object.assign(actions, {
+  buscarCategoria(el){ state.buscar.categoria = el.dataset.cat; renderProductos(); },
+  verDetalle(el){
+    state.detalleCodigo = el.dataset.codigo;
+    renderDetalle();
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('detail').classList.add('show');
+  },
+  cerrarDetalle(){
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('detail').classList.remove('show');
+  },
+  async detalleEliminar(){
+    const p = state.productos.find(x => x.codigo === state.detalleCodigo);
+    if(!p) return;
+    if(!confirm('¿Eliminar este producto del catálogo?')) return;
+    await deleteProducto(p.codigo);
+    state.productos = state.productos.filter(x => x.codigo !== p.codigo);
+    actions.cerrarDetalle();
+    if(state.tab === 'productos') renderProductos();
+  },
   async catAgregar(){
     const el = document.getElementById('catNueva'); const v = el.value.trim();
     if(!v || state.categorias.includes(v)) return;
@@ -587,21 +705,15 @@ Object.assign(actions, {
     if(!v || state.etiquetas.includes(v)) return;
     state.etiquetas.push(v); await saveEtiquetas(state.etiquetas); render();
   },
-  async etqQuitar(el){ state.etiquetas.splice(Number(el.dataset.i), 1); await saveEtiquetas(state.etiquetas); render(); },
-  async prodEliminar(el){
-    if(!confirm('¿Eliminar este producto del catálogo?')) return;
-    await deleteProducto(el.dataset.codigo);
-    state.productos = state.productos.filter(p => p.codigo !== el.dataset.codigo);
-    renderProdRows();
-    document.querySelector('.section-head h1').textContent = 'Productos (' + state.productos.length + ')';
-  }
+  async etqQuitar(el){ state.etiquetas.splice(Number(el.dataset.i), 1); await saveEtiquetas(state.etiquetas); render(); }
 });
-inputActions.prodFiltro = (el) => { state.prodFiltro = el.value; renderProdRows(); };
-inputActions.prodEstado = async (el) => {
-  const p = state.productos.find(x => x.codigo === el.dataset.codigo);
+inputActions.buscarTexto = (el) => { state.buscar.search = el.value; renderProductos(); };
+inputActions.detalleEstado = async (el) => {
+  const p = state.productos.find(x => x.codigo === state.detalleCodigo);
   if(!p) return;
   p.estado = el.value;
   await saveProducto(p);
+  if(state.tab === 'productos') renderProductos();
 };
 
 /* ---- Configuración ---- */
@@ -609,8 +721,8 @@ function renderConfig(){
   document.getElementById('content').innerHTML = `
     <div class="section-head"><h1>Configuración</h1></div>
     <div class="card" style="max-width:560px;">
-      <p><b>Modo actual:</b> ${state.backendMode === 'firebase' ? '🟢 Conectado a Firebase (datos compartidos en la nube)' : '🟡 Local (datos guardados solo en este navegador — sirve para probar la app)'}</p>
-      <p class="muted" style="font-size:13px;">Para que el catálogo público muestre los mismos productos en cualquier dispositivo, hay que crear un proyecto gratis de Firebase (Firestore Database + Storage, plan Blaze) y pegar acá su configuración: <a href="https://console.firebase.google.com/" target="_blank" rel="noopener">console.firebase.google.com</a> → crear proyecto → Firestore Database + Storage → ⚙ Configuración del proyecto → copiar el objeto "firebaseConfig".</p>
+      <p><b>Modo actual:</b> ${state.backendMode === 'firebase' ? '🟢 Conectado (datos compartidos en la nube)' : '🟡 Local (datos guardados solo en este navegador — sirve para probar la app)'}</p>
+      <p class="muted" style="font-size:13px;">Para que los productos se compartan entre dispositivos (en vez de quedar guardados solo en este navegador), hay que crear un proyecto gratis de Firebase (Firestore Database + Storage, plan Blaze) y pegar acá su configuración: <a href="https://console.firebase.google.com/" target="_blank" rel="noopener">console.firebase.google.com</a> → crear proyecto → Firestore Database + Storage → ⚙ Configuración del proyecto → copiar el objeto "firebaseConfig".</p>
       <label>Pegar firebaseConfig
         <textarea id="fbConfigInput" rows="6" placeholder='{"apiKey":"...", "projectId":"...", ...}'></textarea>
       </label>
@@ -668,7 +780,7 @@ function updateBackendBadge(){
   const el = document.getElementById('backendBadge');
   if(!el) return;
   el.innerHTML = state.backendMode === 'firebase'
-    ? `<span class="dot"></span> Conectado a Firebase`
+    ? `<span class="dot"></span> Conectado`
     : `<span class="dot local"></span> Modo local (prueba)`;
 }
 function render(){
