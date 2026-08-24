@@ -485,7 +485,10 @@ function renderOcrRowsTable(){
               ${r.fotoPreview ? `<img src="${r.fotoPreview}" class="row-foto-preview">` : ''}
             </label>
           </div>
-          <button class="btn btn-sm btn-danger" data-action="ocrQuitarFila" data-i="${i}">Quitar fila</button>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-sm" data-action="ocrDuplicarFila" data-i="${i}">Duplicar fila</button>
+            <button class="btn btn-sm btn-danger" data-action="ocrQuitarFila" data-i="${i}">Quitar fila</button>
+          </div>
         </div>`;
       }).join('')}
     </div>
@@ -525,6 +528,12 @@ Object.assign(actions, {
     }
   },
   ocrQuitarFila(el){ state.ocr.rows.splice(Number(el.dataset.i), 1); render(); },
+  ocrDuplicarFila(el){
+    const i = Number(el.dataset.i);
+    const copia = Object.assign({}, state.ocr.rows[i], { codigo: '', fotoPreview: null, fotoCompressed: null });
+    state.ocr.rows.splice(i + 1, 0, copia);
+    render();
+  },
   ocrAgregarFilaVacia(){ state.ocr.rows.push({ codigo: '', nombre: '', categoria: '', precio: 0, moneda: 'ARS', porUnidad: false, etiquetasTexto: '', fotoPreview: null, fotoCompressed: null }); render(); },
   ocrReiniciar(){ state.ocr = { imageDataUrl: null, imageName: '', processing: false, progress: 0, rows: [] }; render(); },
   async ocrGuardarTodo(){
