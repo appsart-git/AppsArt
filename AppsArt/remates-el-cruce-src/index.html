@@ -421,7 +421,7 @@ function renderEscanear(){
     ${visionOn ? '' : `<p class="muted" style="font-size:12.5px;">🟡 Leyendo con Tesseract (motor más básico, lee bastante mal esta letra) — configurá una clave de Google Cloud Vision en ⚙ Configuración para mejorar mucho la lectura.</p>`}
     <div class="ocr-layout">
       <div class="ocr-col-img">
-        <input type="file" id="ocr_file" accept="image/*" capture="environment" style="display:none;" data-change="ocrPageFile">
+        <input type="file" id="ocr_file" accept="image/*" style="display:none;" data-change="ocrPageFile">
         <button class="btn btn-primary" data-action="ocrElegirImagen">📷 Elegir / sacar foto de la página</button>
         ${o.imageDataUrl ? `<img src="${o.imageDataUrl}" class="ocr-preview" id="ocrPreviewImg" data-action="ocrZoom">` : ''}
         ${o.imageDataUrl && !o.rows.length ? `<button class="btn btn-primary" style="width:100%; margin-top:10px;" data-action="ocrProcesar" ${o.processing ? 'disabled' : ''}>${o.processing ? 'Leyendo página…' : 'Leer página'}</button>` : ''}
@@ -475,7 +475,7 @@ function renderOcrRowsTable(){
               <input value="${esc(r.etiquetasTexto || '')}" placeholder="ej: Socio A" list="etiquetasList" data-change="ocrEtiquetas" data-i="${i}">
             </label>
             <label class="col-span2">Foto (opcional ahora, se puede agregar después desde "Agregar foto")
-              <input type="file" accept="image/*" capture="environment" data-change="ocrFoto" data-i="${i}">
+              <input type="file" accept="image/*" data-change="ocrFoto" data-i="${i}">
               ${r.fotoPreview ? `<img src="${r.fotoPreview}" class="row-foto-preview">` : ''}
             </label>
           </div>
@@ -588,7 +588,7 @@ function renderFotoProductoCard(){
       <p><b>${esc(p.nombre)}</b><br><span class="muted">Código ${esc(p.codigo)} · ${esc(p.categoria || 'Sin categoría')}</span></p>
       ${fotoActual ? `<img src="${fotoActual}" class="ocr-preview">` : `<p class="muted">Todavía no tiene foto.</p>`}
       ${f.previewUrl ? `<p class="muted" style="margin-top:8px;">Nueva foto a subir:</p><img src="${f.previewUrl}" class="ocr-preview">` : ''}
-      <label style="margin-top:12px;">Elegir foto<input type="file" accept="image/*" capture="environment" data-change="fotoArchivo"></label>
+      <label style="margin-top:12px;">Elegir foto<input type="file" accept="image/*" data-change="fotoArchivo"></label>
       <button class="btn btn-primary" style="width:100%;" data-action="fotoSubir" ${f.uploading ? 'disabled' : ''}>${f.uploading ? 'Subiendo…' : 'Guardar foto'}</button>
     </div>`;
 }
