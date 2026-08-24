@@ -142,7 +142,6 @@
       <div class="nav-item" data-action="setTab" data-tab="escanear">📷 Escanear cuaderno</div>
       <div class="nav-item" data-action="setTab" data-tab="fotos">🖼 Agregar foto</div>
       <div class="nav-item" data-action="setTab" data-tab="productos">📦 Productos</div>
-      <div class="nav-item" data-action="setTab" data-tab="config">⚙ Configuración</div>
     </nav>
     <div class="backend-badge" id="backendBadge"></div>
   </aside>
@@ -151,7 +150,6 @@
       <div class="nav-item" data-action="setTab" data-tab="escanear">📷 Escanear</div>
       <div class="nav-item" data-action="setTab" data-tab="fotos">🖼 Foto</div>
       <div class="nav-item" data-action="setTab" data-tab="productos">📦 Productos</div>
-      <div class="nav-item" data-action="setTab" data-tab="config">⚙ Config</div>
     </div>
     <main id="content"></main>
   </div>
@@ -680,6 +678,9 @@ function render(){
   else if(state.tab === 'config') renderConfig();
 }
 async function init(){
+  // ⚙ Configuración queda sin pestaña visible en el menú (ahí se ve la clave de Vision y se puede
+  // cambiar a que Firebase apunta la app) — se llega solo entrando directo a carga.html#config.
+  if(location.hash === '#config') state.tab = 'config';
   initBackend();
   await loadAll();
   render();
