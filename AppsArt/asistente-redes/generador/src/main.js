@@ -1,11 +1,12 @@
 'use strict';
 const { initFirebase } = require('./firebase');
 const { cuentasActivas, cuentasVencidas, proximoTema } = require('./cuentas');
-const { generarTexto } = require('./texto');
+const { generarTexto, generarTextoCarrusel } = require('./texto');
 const { generarImagen } = require('./imagen');
 const { generarVideo } = require('./video');
 const { generarNarracion } = require('./narracion');
 const { mezclarVideoYNarracion } = require('./merge');
+const { renderCarrusel } = require('./carrusel');
 const { subirArchivo } = require('./storage');
 const { notificarNtfy } = require('./notificar');
 const { registrarCorrida } = require('./runLog');
@@ -19,11 +20,15 @@ const SOLO_CUENTA = process.env.SOLO_CUENTA || '';
 async function procesarCuenta(db, bucket, cuenta){
   const { tema, nuevoIndex } = proximoTema(cuenta);
   const esVideo = cuenta.mediaType === 'imagen+video';
+  // Fallback temporal: hasta que el dashboard tenga un campo para esto, AppsArt
+  // (la única cuenta con identidad de marca real verificada) siempre usa carrusel.
+  const esCarrusel = cuenta.formatoCarrusel === true || cuenta.slug === 'appsart';
 
   if(DRY_RUN){
     // No llama a ninguna API paga: valida que Firestore/Storage/ntfy respondan de punta a punta.
+    const tipoDry = esCarrusel ? 'carrusel' : (esVideo ? 'video' : 'imagen');
     const ref = await db.collection('contenido').add({
-      cuentaId: cuenta.id, estado: 'pendiente', tipo: esVideo ? 'video' : 'imagen',
+      cuentaId: cuenta.id, estado: 'pendiente', tipo: tipoDry,
       tema, caption: `[DRY RUN] ${cuenta.nombre} — ${tema}`,
       mediaUrl: null, generadoEn: new Date().toISOString()
     });
@@ -31,6 +36,26 @@ async function procesarCuenta(db, bucket, cuenta){
       ultimaGeneracion: new Date().toISOString(), ultimoTemaIndex: nuevoIndex
     });
     return { cuentaId: cuenta.id, ok: true, contenidoId: ref.id, dryRun: true };
+  }
+
+  if(esCarrusel){
+    const texto = await generarTextoCarrusel(cuenta, tema);
+    const buffers = await renderCarrusel(texto.slides);
+    const base = `cuentas/${cuenta.slug}/${Date.now()}`;
+    const mediaUrls = [];
+    for(let i = 0; i < buffers.length; i++){
+      mediaUrls.push(await subirArchivo(bucket, buffers[i], `${base}/slide-${i + 1}.png`, 'image/png'));
+    }
+    const contenidoRef = await db.collection('contenido').add({
+      cuentaId: cuenta.id, estado: 'pendiente', tipo: 'carrusel', tema,
+      caption: texto.caption, mediaUrl: mediaUrls[0], mediaUrls,
+      metadatos: { modeloTexto: 'claude-sonnet-5', render: 'html-carrusel' },
+      generadoEn: new Date().toISOString()
+    });
+    await db.collection('cuentas').doc(cuenta.id).update({
+      ultimaGeneracion: new Date().toISOString(), ultimoTemaIndex: nuevoIndex
+    });
+    return { cuentaId: cuenta.id, ok: true, contenidoId: contenidoRef.id };
   }
 
   const texto = await generarTexto(cuenta, tema);

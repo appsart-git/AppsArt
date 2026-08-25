@@ -40,7 +40,10 @@ function renderContenidoCard(c){
   const cuenta = findCuenta(c.cuentaId);
   const estado = c.estado || 'pendiente';
   let mediaHtml = `<div class="cnt-noimg">Sin media todavía</div>`;
-  if(c.mediaUrl){
+  if(c.tipo==='carrusel' && Array.isArray(c.mediaUrls) && c.mediaUrls.length>0){
+    mediaHtml = `<div class="cnt-carrusel">${c.mediaUrls.map((url,i)=>
+      `<img src="${esc(url)}" alt="${esc(c.tema||'')} — lámina ${i+1}">`).join('')}</div>`;
+  } else if(c.mediaUrl){
     mediaHtml = c.tipo==='video'
       ? `<video src="${esc(c.mediaUrl)}" ${c.thumbnailUrl?`poster="${esc(c.thumbnailUrl)}"`:''} controls preload="metadata"></video>`
       : `<img src="${esc(c.mediaUrl)}" alt="${esc(c.tema||'')}">`;
@@ -67,7 +70,7 @@ function renderContenidoCard(c){
           <span class="cnt-cuenta">${esc(cuenta ? cuenta.nombre : '(cuenta eliminada)')}</span>
           ${pillEstado(estado)}
         </div>
-        <div class="cnt-tema">${esc(c.tema||'')} · ${c.tipo==='video'?'Video':'Imagen'}</div>
+        <div class="cnt-tema">${esc(c.tema||'')} · ${c.tipo==='video'?'Video':c.tipo==='carrusel'?`Carrusel (${(c.mediaUrls||[]).length} láminas)`:'Imagen'}</div>
         <div class="cnt-caption">${esc(c.caption||'(sin caption)')}</div>
         ${c.estado==='error' && c.errorGeneracion ? `<div class="muted" style="color:var(--red); font-size:12px;">Error: ${esc(c.errorGeneracion)}</div>` : ''}
         <div class="cnt-fecha">Generado: ${c.generadoEn ? fmtDate(c.generadoEn) : '—'}</div>
@@ -101,8 +104,13 @@ Object.assign(actions, {
   descargarContenido(el){
     const c = findContenido(el.dataset.id); if(!c || !c.mediaUrl) return;
     const cuenta = findCuenta(c.cuentaId);
+    const base = `${slugify(cuenta?cuenta.nombre:'contenido')}-${(c.tema||c.id)}`;
+    if(c.tipo==='carrusel' && Array.isArray(c.mediaUrls)){
+      c.mediaUrls.forEach((url,i) => downloadUrl(url, `${base}-lamina-${i+1}.png`));
+      return;
+    }
     const ext = c.tipo==='video' ? 'mp4' : 'png';
-    downloadUrl(c.mediaUrl, `${slugify(cuenta?cuenta.nombre:'contenido')}-${(c.tema||c.id)}.${ext}`);
+    downloadUrl(c.mediaUrl, `${base}.${ext}`);
   },
   editarCaption(el){
     const c = findContenido(el.dataset.id); if(!c) return;

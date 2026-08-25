@@ -39,6 +39,10 @@ jobs:
         working-directory: AppsArt/asistente-redes/generador
         run: npm install
 
+      - name: Instalar Chromium para el renderizado de carruseles (Playwright)
+        working-directory: AppsArt/asistente-redes/generador
+        run: npx playwright install --with-deps chromium
+
       - name: Generar contenido (llama a Claude / gpt-image-1 / Runway / ElevenLabs, sube a Firebase)
         working-directory: AppsArt/asistente-redes/generador
         env:
