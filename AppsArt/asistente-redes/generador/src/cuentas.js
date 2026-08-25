@@ -14,6 +14,9 @@ async function cuentasVencidas(db){
   const hoy = Date.now();
   const cuentas = await cuentasActivas(db);
   return cuentas.filter(c => {
+    // Un pedido de "Regenerar" desde el dashboard fuerza la corrida aunque no
+    // le toque todavía por cadencia — si no, quedaría esperando sin procesarse.
+    if(c.regenerarTema) return true;
     const ultimaMs = c.ultimaGeneracion ? new Date(c.ultimaGeneracion).getTime() : 0;
     const diasPasados = (hoy - ultimaMs) / 86400000;
     return diasPasados >= (c.cadenciaDias || 3);

@@ -64,6 +64,12 @@ function renderContenidoCard(c){
   }
   if(c.mediaUrl) botones.push(`<button class="btn btn-sm" data-action="descargarContenido" data-id="${c.id}">⬇ Descargar</button>`);
   if(estado!=='publicado') botones.push(`<button class="btn btn-sm" data-action="editarCaption" data-id="${c.id}">Editar caption</button>`);
+  const yaEnCola = cuenta && cuenta.regenerarTema === c.tema;
+  if(c.tema){
+    botones.push(yaEnCola
+      ? `<span class="pill pill-warn" style="align-self:center;">En cola para regenerar</span>`
+      : `<button class="btn btn-sm" data-action="regenerarContenido" data-id="${c.id}">🔁 Regenerar</button>`);
+  }
 
   return `
     <div class="cnt-card">
@@ -103,6 +109,14 @@ Object.assign(actions, {
   marcarPublicado(el){
     markSaving();
     collectionRef('contenido').update(el.dataset.id, {estado:'publicado', revisadoEn:new Date().toISOString()}).then(doneSaving).catch(saveError);
+  },
+  regenerarContenido(el){
+    const c = findContenido(el.dataset.id); if(!c || !c.tema) return;
+    markSaving();
+    collectionRef('cuentas').update(c.cuentaId, {regenerarTema: c.tema}).then(()=>{
+      doneSaving();
+      toast('Marcado para regenerar. Se genera en la próxima corrida del workflow (cron diario, o pedile a alguien que dispare "soloCuenta" a mano si querés que sea ya).');
+    }).catch(saveError);
   },
   descargarContenido(el){
     const c = findContenido(el.dataset.id); if(!c || !c.mediaUrl) return;

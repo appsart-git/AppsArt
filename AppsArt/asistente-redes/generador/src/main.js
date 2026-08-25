@@ -18,7 +18,14 @@ const SOLO_CUENTA = process.env.SOLO_CUENTA || '';
    contenido 'pendiente' en Firestore. Se llama en paralelo por cuenta desde
    main() con Promise.allSettled — si esto tira, esa cuenta no bloquea a las demás. */
 async function procesarCuenta(db, bucket, cuenta){
-  const { tema, nuevoIndex } = proximoTema(cuenta);
+  /* "Regenerar" desde el dashboard: el usuario no puede llamar a las APIs (viven
+     solo acá, con las keys de GitHub Actions), así que lo único que puede hacer
+     es dejar pedido un tema puntual en Firestore. Si hay uno pendiente, se usa
+     ese en vez de avanzar la rotación normal, y se limpia el pedido al terminar. */
+  const regenerando = !!cuenta.regenerarTema;
+  const { tema, nuevoIndex } = regenerando
+    ? { tema: cuenta.regenerarTema, nuevoIndex: cuenta.ultimoTemaIndex || 0 }
+    : proximoTema(cuenta);
   const esVideo = cuenta.mediaType === 'imagen+video';
   // Fallback temporal: hasta que el dashboard tenga un campo para esto, AppsArt
   // (la única cuenta con identidad de marca real verificada) siempre usa carrusel.
@@ -33,7 +40,7 @@ async function procesarCuenta(db, bucket, cuenta){
       mediaUrl: null, generadoEn: new Date().toISOString()
     });
     await db.collection('cuentas').doc(cuenta.id).update({
-      ultimaGeneracion: new Date().toISOString(), ultimoTemaIndex: nuevoIndex
+      ultimaGeneracion: new Date().toISOString(), ultimoTemaIndex: nuevoIndex, regenerarTema: null
     });
     return { cuentaId: cuenta.id, ok: true, contenidoId: ref.id, dryRun: true };
   }
@@ -53,7 +60,7 @@ async function procesarCuenta(db, bucket, cuenta){
       generadoEn: new Date().toISOString()
     });
     await db.collection('cuentas').doc(cuenta.id).update({
-      ultimaGeneracion: new Date().toISOString(), ultimoTemaIndex: nuevoIndex
+      ultimaGeneracion: new Date().toISOString(), ultimoTemaIndex: nuevoIndex, regenerarTema: null
     });
     return { cuentaId: cuenta.id, ok: true, contenidoId: contenidoRef.id };
   }
@@ -91,7 +98,7 @@ async function procesarCuenta(db, bucket, cuenta){
   });
 
   await db.collection('cuentas').doc(cuenta.id).update({
-    ultimaGeneracion: new Date().toISOString(), ultimoTemaIndex: nuevoIndex
+    ultimaGeneracion: new Date().toISOString(), ultimoTemaIndex: nuevoIndex, regenerarTema: null
   });
 
   return { cuentaId: cuenta.id, ok: true, contenidoId: contenidoRef.id };
