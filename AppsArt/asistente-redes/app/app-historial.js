@@ -60,7 +60,7 @@ function renderHistorial(){
             return `<tr>
               <td>${c.generadoEn?fmtDate(c.generadoEn):'—'}</td>
               <td>${esc(cuenta?cuenta.nombre:'(eliminada)')}</td>
-              <td>${c.tipo==='video'?'Video':'Imagen'}</td>
+              <td>${c.tipo==='video'?'Video':c.tipo==='carrusel'?`Carrusel (${(c.mediaUrls||[]).length})`:'Imagen'}</td>
               <td>${esc(c.tema||'')}</td>
               <td>${pillEstado(c.estado||'pendiente')}</td>
               <td>${c.mediaUrl?`<a href="${esc(c.mediaUrl)}" target="_blank" rel="noopener">Ver</a>`:''}</td>

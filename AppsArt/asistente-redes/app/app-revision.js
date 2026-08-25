@@ -41,8 +41,11 @@ function renderContenidoCard(c){
   const estado = c.estado || 'pendiente';
   let mediaHtml = `<div class="cnt-noimg">Sin media todavía</div>`;
   if(c.tipo==='carrusel' && Array.isArray(c.mediaUrls) && c.mediaUrls.length>0){
-    mediaHtml = `<div class="cnt-carrusel">${c.mediaUrls.map((url,i)=>
-      `<img src="${esc(url)}" alt="${esc(c.tema||'')} — lámina ${i+1}">`).join('')}</div>`;
+    mediaHtml = `
+      <div class="cnt-carrusel">${c.mediaUrls.map((url,i)=>
+        `<img src="${esc(url)}" alt="${esc(c.tema||'')} — lámina ${i+1}">`).join('')}</div>
+      ${c.mediaUrls.length>1 ? `<span class="cnt-carrusel-badge">⇆ 1/${c.mediaUrls.length} — deslizá para ver más</span>` : ''}
+    `;
   } else if(c.mediaUrl){
     mediaHtml = c.tipo==='video'
       ? `<video src="${esc(c.mediaUrl)}" ${c.thumbnailUrl?`poster="${esc(c.thumbnailUrl)}"`:''} controls preload="metadata"></video>`

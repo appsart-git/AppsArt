@@ -145,11 +145,12 @@ main{flex:1; min-width:0; padding:24px 28px 60px;}
 /* ===== CONTENIDO CARDS (revisión / historial) ===== */
 .contenido-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px;}
 .cnt-card{background:var(--panel); border:1px solid var(--border); border-radius:14px; overflow:hidden; display:flex; flex-direction:column;}
-.cnt-media{width:100%; aspect-ratio:4/5; background:#000; display:flex; align-items:center; justify-content:center; overflow:hidden;}
+.cnt-media{width:100%; aspect-ratio:4/5; background:#000; display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative;}
 .cnt-media img, .cnt-media video{width:100%; height:100%; object-fit:cover; display:block;}
 .cnt-media .cnt-noimg{color:var(--text-muted); font-size:12.5px; padding:20px; text-align:center;}
 .cnt-carrusel{display:flex; width:100%; height:100%; overflow-x:auto; scroll-snap-type:x mandatory; gap:2px;}
 .cnt-carrusel img{height:100%; width:auto; flex:0 0 auto; object-fit:cover; scroll-snap-align:start;}
+.cnt-carrusel-badge{position:absolute; left:50%; bottom:10px; transform:translateX(-50%); background:rgba(0,0,0,0.65); color:#fff; font-size:11px; font-weight:600; padding:5px 10px; border-radius:999px; white-space:nowrap; pointer-events:none;}
 .cnt-body{padding:14px; display:flex; flex-direction:column; gap:8px; flex:1;}
 .cnt-top{display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;}
 .cnt-cuenta{font-weight:700; font-size:13px;}
@@ -253,10 +254,18 @@ const ESTADOS = [
 ];
 
 /* ===================== BACKEND MODE (Firestore o localStorage) ===================== */
-// No hay DEFAULT_FIREBASE_CONFIG hardcodeado a propósito: cada instalación (la del usuario,
-// o la de un futuro cliente de AppsArt) pega su propio config en la pantalla de setup.
-// Eso es lo que hace que este mismo código sirva de base reusable sin tocar nada.
-const DEFAULT_FIREBASE_CONFIG = null;
+// Fijo al proyecto real de AppsArt para que cualquier dispositivo que abra la app quede
+// conectado sin pegar el config a mano. Si el día de mañana se reusa este código para un
+// cliente nuevo de AppsArt, este es el único valor que hay que cambiar (o volver a `null`
+// para que cada instalación pegue el suyo en la pantalla de setup, como era antes).
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCYSrSIod1IeR1PLFGt0cepHucp2C5IpCI",
+  authDomain: "asistente-redes-appsart.firebaseapp.com",
+  projectId: "asistente-redes-appsart",
+  storageBucket: "asistente-redes-appsart.firebasestorage.app",
+  messagingSenderId: "83401942047",
+  appId: "1:83401942047:web:8824be05bfee9892b4e12a"
+};
 let backendMode = null; // 'firebase' | 'local'
 let db = null;
 const localRegistry = {};
