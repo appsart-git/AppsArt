@@ -3,17 +3,21 @@
    Así, sumar una cuenta nueva (propia o de un futuro cliente de AppsArt) es solo
    completar el formulario en el dashboard — nunca hay que tocar el workflow. */
 
-async function cuentasVencidas(db){
+async function cuentasActivas(db){
   const snap = await db.collection('cuentas').where('activo', '==', true).get();
-  const hoy = Date.now();
   const cuentas = [];
-  snap.forEach(doc => {
-    const c = Object.assign({ id: doc.id }, doc.data());
+  snap.forEach(doc => cuentas.push(Object.assign({ id: doc.id }, doc.data())));
+  return cuentas;
+}
+
+async function cuentasVencidas(db){
+  const hoy = Date.now();
+  const cuentas = await cuentasActivas(db);
+  return cuentas.filter(c => {
     const ultimaMs = c.ultimaGeneracion ? new Date(c.ultimaGeneracion).getTime() : 0;
     const diasPasados = (hoy - ultimaMs) / 86400000;
-    if(diasPasados >= (c.cadenciaDias || 3)) cuentas.push(c);
+    return diasPasados >= (c.cadenciaDias || 3);
   });
-  return cuentas;
 }
 
 function proximoTema(cuenta){
@@ -23,4 +27,4 @@ function proximoTema(cuenta){
   return { tema: temas[idx], nuevoIndex: (idx + 1) % temas.length };
 }
 
-module.exports = { cuentasVencidas, proximoTema };
+module.exports = { cuentasActivas, cuentasVencidas, proximoTema };

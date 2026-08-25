@@ -1,6 +1,6 @@
 'use strict';
 const { initFirebase } = require('./firebase');
-const { cuentasVencidas, proximoTema } = require('./cuentas');
+const { cuentasActivas, cuentasVencidas, proximoTema } = require('./cuentas');
 const { generarTexto } = require('./texto');
 const { generarImagen } = require('./imagen');
 const { generarVideo } = require('./video');
@@ -76,8 +76,15 @@ async function main(){
   const inicio = Date.now();
   const { db, bucket } = initFirebase();
 
-  let cuentas = await cuentasVencidas(db);
-  if(SOLO_CUENTA) cuentas = cuentas.filter(c => c.slug === SOLO_CUENTA || c.id === SOLO_CUENTA);
+  /* soloCuenta es una orden manual explícita (para probar una cuenta puntual):
+     se procesa esa cuenta sin importar si le tocaba por cadencia todavía. */
+  let cuentas;
+  if(SOLO_CUENTA){
+    const activas = await cuentasActivas(db);
+    cuentas = activas.filter(c => c.slug === SOLO_CUENTA || c.id === SOLO_CUENTA);
+  } else {
+    cuentas = await cuentasVencidas(db);
+  }
 
   console.log(`Modo: ${DRY_RUN ? 'DRY RUN' : 'real'}. Cuentas a procesar: ${cuentas.map(c => c.nombre).join(', ') || '(ninguna vencida hoy)'}`);
 
