@@ -3,10 +3,10 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-async function pedirJSON(prompt){
+async function pedirJSON(prompt, maxTokens){
   const msg = await anthropic.messages.create({
     model: 'claude-sonnet-5',
-    max_tokens: 1024,
+    max_tokens: maxTokens || 1024,
     messages: [{ role: 'user', content: prompt }]
   });
   const raw = msg.content.map(b => (b.type === 'text' ? b.text : '')).join('').trim();
@@ -96,7 +96,7 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) c
   ]
 }`.trim();
 
-  const data = await pedirJSON(prompt);
+  const data = await pedirJSON(prompt, 2048);
   if(!data.caption || !Array.isArray(data.slides) || data.slides.length !== 3){
     throw new Error('La respuesta de Claude no tiene caption/slides válidos para el carrusel.');
   }
