@@ -1,12 +1,14 @@
 'use strict';
 const { initFirebase } = require('./firebase');
 const { cuentasActivas, cuentasVencidas, proximoTema } = require('./cuentas');
-const { generarTexto, generarTextoCarrusel } = require('./texto');
+const { generarTexto, generarTextoCarrusel, generarTextoFichaProducto, generarTextoInstitucional } = require('./texto');
 const { generarImagen } = require('./imagen');
 const { generarVideo } = require('./video');
 const { generarNarracion } = require('./narracion');
 const { mezclarVideoYNarracion } = require('./merge');
 const { renderCarrusel } = require('./carrusel');
+const { renderFicha, renderInstitucionalImg } = require('./ficha');
+const productosEntrePymes = require('./entrepymes-productos.json');
 const { subirArchivo } = require('./storage');
 const { notificarNtfy } = require('./notificar');
 const { registrarCorrida } = require('./runLog');
@@ -43,6 +45,47 @@ async function procesarCuenta(db, bucket, cuenta){
       ultimaGeneracion: new Date().toISOString(), ultimoTemaIndex: nuevoIndex, regenerarTema: null
     });
     return { cuentaId: cuenta.id, ok: true, contenidoId: ref.id, dryRun: true };
+  }
+
+  if(cuenta.slug === 'entre-pymes'){
+    const producto = productosEntrePymes.find(p => p.nombre === tema);
+    const base = `cuentas/${cuenta.slug}/${Date.now()}`;
+
+    if(producto){
+      // Varias fotos reales por máquina: un contador global de la cuenta va
+      // rotando cuál foto toca, así dos posts seguidos de la misma máquina no
+      // repiten la misma imagen.
+      const contadorFotos = cuenta.entrepymesFotoContador || 0;
+      const fotoUrl = producto.fotos[contadorFotos % producto.fotos.length];
+      const texto = await generarTextoFichaProducto(cuenta, producto);
+      const buffer = await renderFicha({ fotoUrl, nombre: producto.nombre, specs: texto.specs, cta: texto.cta });
+      const mediaUrl = await subirArchivo(bucket, buffer, `${base}/imagen.png`, 'image/png');
+      const contenidoRef = await db.collection('contenido').add({
+        cuentaId: cuenta.id, estado: 'pendiente', tipo: 'imagen', tema,
+        caption: texto.caption, mediaUrl,
+        metadatos: { modeloTexto: 'claude-sonnet-5', render: 'html-ficha-producto', fotoUrl },
+        generadoEn: new Date().toISOString()
+      });
+      await db.collection('cuentas').doc(cuenta.id).update({
+        ultimaGeneracion: new Date().toISOString(), ultimoTemaIndex: nuevoIndex, regenerarTema: null,
+        entrepymesFotoContador: contadorFotos + 1
+      });
+      return { cuentaId: cuenta.id, ok: true, contenidoId: contenidoRef.id };
+    }
+
+    const texto = await generarTextoInstitucional(cuenta, tema);
+    const buffer = await renderInstitucionalImg({ eyebrow: texto.eyebrow, titulo: texto.titulo, texto: texto.texto });
+    const mediaUrl = await subirArchivo(bucket, buffer, `${base}/imagen.png`, 'image/png');
+    const contenidoRef = await db.collection('contenido').add({
+      cuentaId: cuenta.id, estado: 'pendiente', tipo: 'imagen', tema,
+      caption: texto.caption, mediaUrl,
+      metadatos: { modeloTexto: 'claude-sonnet-5', render: 'html-institucional' },
+      generadoEn: new Date().toISOString()
+    });
+    await db.collection('cuentas').doc(cuenta.id).update({
+      ultimaGeneracion: new Date().toISOString(), ultimoTemaIndex: nuevoIndex, regenerarTema: null
+    });
+    return { cuentaId: cuenta.id, ok: true, contenidoId: contenidoRef.id };
   }
 
   if(esCarrusel){

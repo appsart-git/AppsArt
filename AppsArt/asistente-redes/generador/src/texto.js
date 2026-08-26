@@ -120,4 +120,76 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) c
   return data;
 }
 
-module.exports = { generarTexto, generarTextoCarrusel };
+/* Ficha de producto de Entre PyMES: las specs vienen de datos reales scrapeados de
+   entrepymes.com.ar (ver generador/src/entrepymes-productos.json) — a Claude solo se
+   le pide elegir y pulir la redacción de las más relevantes, nunca inventar ninguna. */
+async function generarTextoFichaProducto(cuenta, producto){
+  const prompt = `
+Sos el/la community manager de "${cuenta.nombre}" (${cuenta.rubro || ''}), un marketplace B2B de
+maquinaria industrial usada.
+Descripción del negocio: ${cuenta.descripcionNegocio || '-'}
+Voz de marca / tono: ${cuenta.vozMarca || '-'}
+Público objetivo: ${cuenta.publicoObjetivo || '-'}
+Instrucciones extra: ${cuenta.promptExtra || '-'}
+
+Vas a armar el posteo de Instagram para esta máquina real, publicada en la web de la empresa:
+Nombre: ${producto.nombre}
+Descripción: ${producto.descripcionCorta || '-'}
+Características reales (tal como están cargadas en la web — no inventes ninguna, no agregues datos
+que no estén acá, y si algo dice "a confirmar" o similar, no lo presentes como un dato cerrado):
+${(producto.caracteristicas || []).map(c => `- ${c}`).join('\n')}
+
+Tarea:
+1. Elegí las 3 o 4 características de la lista de arriba que más le importan a un comprador industrial
+   (capacidad, estado, marca, medidas, tipo de accionamiento) y reescribilas cortas y claras para leer
+   de un vistazo en una imagen — sin inventar ni agregar ningún dato que no esté en la lista.
+2. Escribí un caption de Instagram (2-4 líneas + 2-4 hashtags relevantes al final) que genere interés
+   real en compradores industriales, sin exagerar ni prometer nada que no esté respaldado por la
+   descripción o las características de arriba.
+3. Un texto corto para el botón CTA (ej: "Consultá disponibilidad", "Escribinos por esta máquina").
+
+Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) con esta forma exacta:
+{
+  "caption": "...",
+  "specs": ["...", "...", "...", "..."],
+  "cta": "..."
+}`.trim();
+
+  const data = await pedirJSON(prompt, 1024);
+  if(!data.caption || !Array.isArray(data.specs) || data.specs.length === 0){
+    throw new Error('La respuesta de Claude no tiene caption/specs válidos para la ficha de producto.');
+  }
+  return data;
+}
+
+/* Institucional (Quiénes somos, Misión, Visión, etc.): grounded únicamente en los
+   datos reales de la cuenta (descripcionNegocio/vozMarca/publicoObjetivo) — sin
+   inventar casos de clientes, cifras ni logros que no se puedan sostener con eso. */
+async function generarTextoInstitucional(cuenta, tema){
+  const prompt = `
+Sos el/la community manager de "${cuenta.nombre}" (${cuenta.rubro || ''}).
+Descripción del negocio: ${cuenta.descripcionNegocio || '-'}
+Voz de marca / tono: ${cuenta.vozMarca || '-'}
+Público objetivo: ${cuenta.publicoObjetivo || '-'}
+Instrucciones extra: ${cuenta.promptExtra || '-'}
+
+Armá un posteo institucional de Instagram sobre: "${tema}". Basate únicamente en la descripción del
+negocio de arriba — no inventes casos de clientes, cifras, alianzas ni afirmaciones que no se puedan
+sostener con esa descripción.
+
+Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) con esta forma exacta:
+{
+  "caption": "el texto del posteo en español, con 2 a 4 hashtags relevantes al final",
+  "eyebrow": "texto corto en mayúsculas para la placa, ej: QUIÉNES SOMOS",
+  "titulo": "titular corto y potente (hasta 8 palabras)",
+  "texto": "1-2 líneas de apoyo que desarrollan el titular"
+}`.trim();
+
+  const data = await pedirJSON(prompt, 1024);
+  if(!data.caption || !data.titulo){
+    throw new Error('La respuesta de Claude no tiene caption/titulo válidos para el institucional.');
+  }
+  return data;
+}
+
+module.exports = { generarTexto, generarTextoCarrusel, generarTextoFichaProducto, generarTextoInstitucional };

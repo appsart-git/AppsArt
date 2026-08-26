@@ -27,7 +27,7 @@ Uso inicial: personal, para las 4 cuentas propias. **Intención explícita: prod
 - Solo imágenes (no video).
 
 ### 3. Entre PyMES
-- Qué es: marketplace B2B que conecta industrias/PyMEs del conurbano bonaerense para reutilizar maquinaria industrial, inmuebles productivos y remanentes de stock (economía circular industrial).
+- Qué es: marketplace B2B que conecta industrias/PyMEs de todo el país para reutilizar maquinaria industrial, inmuebles productivos y remanentes de stock (economía circular industrial).
 - Misión: optimizar recursos productivos, generar valor económico/social/ambiental para la comunidad PyME.
 - Visión: ser la plataforma líder en Argentina/región para reutilización inteligente de activos industriales.
 - Web: https://entrepymes.com.ar
