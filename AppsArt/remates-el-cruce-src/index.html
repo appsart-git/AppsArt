@@ -623,7 +623,6 @@ function buscarFiltrados(){
 }
 function renderProductos(){
   const b = state.buscar;
-  const list = buscarFiltrados();
   document.getElementById('content').innerHTML = `
     <div class="section-head"><h1>Productos</h1></div>
     <div class="searchbar" style="max-width:420px; margin-bottom:14px;">
@@ -633,10 +632,19 @@ function renderProductos(){
     <div class="categoria-tabs">
       ${['Todas', ...state.categorias].map(c => `<button class="tab-chip ${c === b.categoria ? 'active' : ''}" data-action="buscarCategoria" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}
     </div>
-    <div class="result-count">${list.length} ${list.length === 1 ? 'producto encontrado' : 'productos encontrados'}</div>
-    <div class="prod-grid">
-      ${list.length ? list.map(pCardHtml).join('') : `<div class="empty-state"><div class="big">🔍</div>No encontramos productos con esos filtros.</div>`}
-    </div>`;
+    <div class="result-count" id="resultCount"></div>
+    <div class="prod-grid" id="prodGrid"></div>`;
+  renderProductosResultados();
+}
+// Actualiza solo el contador y la grilla, sin tocar el input de busqueda ni las categorias —
+// si se reemplaza el <input> en cada letra tipeada, en el celular el teclado pierde el foco y se cierra solo.
+function renderProductosResultados(){
+  const countEl = document.getElementById('resultCount');
+  const gridEl = document.getElementById('prodGrid');
+  if(!countEl || !gridEl) return;
+  const list = buscarFiltrados();
+  countEl.textContent = list.length + (list.length === 1 ? ' producto encontrado' : ' productos encontrados');
+  gridEl.innerHTML = list.length ? list.map(pCardHtml).join('') : `<div class="empty-state"><div class="big">🔍</div>No encontramos productos con esos filtros.</div>`;
 }
 function renderDetalle(){
   const p = state.productos.find(x => x.codigo === state.detalleCodigo);
@@ -700,7 +708,7 @@ Object.assign(actions, {
   },
   async etqQuitar(el){ state.etiquetas.splice(Number(el.dataset.i), 1); await saveEtiquetas(state.etiquetas); render(); }
 });
-inputActions.buscarTexto = (el) => { state.buscar.search = el.value; renderProductos(); };
+inputActions.buscarTexto = (el) => { state.buscar.search = el.value; renderProductosResultados(); };
 inputActions.detalleEstado = async (el) => {
   const p = state.productos.find(x => x.codigo === state.detalleCodigo);
   if(!p) return;
