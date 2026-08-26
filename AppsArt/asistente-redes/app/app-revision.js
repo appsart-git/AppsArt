@@ -62,7 +62,16 @@ function renderContenidoCard(c){
   } else if(estado==='descartado' || estado==='error'){
     botones.push(`<button class="btn btn-sm" data-action="reabrirContenido" data-id="${c.id}">Volver a pendiente</button>`);
   }
-  if(c.mediaUrl) botones.push(`<button class="btn btn-sm" data-action="descargarContenido" data-id="${c.id}">⬇ Descargar</button>`);
+  if(c.tipo==='carrusel' && Array.isArray(c.mediaUrls) && c.mediaUrls.length>0){
+    // Un solo botón no sirve para varias láminas: al ser de otro dominio (Storage),
+    // el navegador ignora "forzar descarga" y solo abre la primera, bloqueando las
+    // demás como si fueran popups. Un botón por lámina = un clic = un gesto propio.
+    c.mediaUrls.forEach((url,i) => {
+      botones.push(`<button class="btn btn-sm" data-action="descargarLamina" data-id="${c.id}" data-idx="${i}">⬇ Lámina ${i+1}</button>`);
+    });
+  } else if(c.mediaUrl){
+    botones.push(`<button class="btn btn-sm" data-action="descargarContenido" data-id="${c.id}">⬇ Descargar</button>`);
+  }
   if(estado!=='publicado') botones.push(`<button class="btn btn-sm" data-action="editarCaption" data-id="${c.id}">Editar caption</button>`);
   const yaEnCola = cuenta && cuenta.regenerarTema === c.tema;
   if(c.tema){
@@ -122,12 +131,16 @@ Object.assign(actions, {
     const c = findContenido(el.dataset.id); if(!c || !c.mediaUrl) return;
     const cuenta = findCuenta(c.cuentaId);
     const base = `${slugify(cuenta?cuenta.nombre:'contenido')}-${(c.tema||c.id)}`;
-    if(c.tipo==='carrusel' && Array.isArray(c.mediaUrls)){
-      c.mediaUrls.forEach((url,i) => downloadUrl(url, `${base}-lamina-${i+1}.png`));
-      return;
-    }
     const ext = c.tipo==='video' ? 'mp4' : 'png';
     downloadUrl(c.mediaUrl, `${base}.${ext}`);
+  },
+  descargarLamina(el){
+    const c = findContenido(el.dataset.id); if(!c || !Array.isArray(c.mediaUrls)) return;
+    const idx = Number(el.dataset.idx);
+    const url = c.mediaUrls[idx]; if(!url) return;
+    const cuenta = findCuenta(c.cuentaId);
+    const base = `${slugify(cuenta?cuenta.nombre:'contenido')}-${(c.tema||c.id)}`;
+    downloadUrl(url, `${base}-lamina-${idx+1}.png`);
   },
   editarCaption(el){
     const c = findContenido(el.dataset.id); if(!c) return;

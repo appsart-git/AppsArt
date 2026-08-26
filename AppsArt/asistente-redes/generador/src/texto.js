@@ -54,7 +54,9 @@ const ICONOS_VALIDOS = ['stock', 'pago', 'produccion', 'informes', 'ficha', 'cli
 /* Para cuentas con formatoCarrusel: en vez de un prompt de imagen suelto, le pide a
    Claude el copy de cada lámina (portada + contenido + cierre), que después
    generador/src/carrusel.js renderiza como HTML/CSS real con la identidad de marca
-   exacta (no aproximada por un modelo de imágenes). */
+   exacta (no aproximada por un modelo de imágenes). La lámina 2 tiene 3 formas
+   posibles (dolor / antes-ahora / grilla de íconos), elegida al azar en el render,
+   así que acá se le pide a Claude el contenido de las 3 en un solo llamado. */
 async function generarTextoCarrusel(cuenta, tema){
   const prompt = `
 Sos el/la community manager senior de "${cuenta.nombre}" (${cuenta.rubro || ''}), especializado/a en
@@ -66,33 +68,41 @@ Instrucciones extra: ${cuenta.promptExtra || '-'}
 
 Armá un carrusel de Instagram de 3 láminas sobre: "${tema}". Pensalo con criterio de experto, no como
 un redactor genérico:
-- Lámina 1 (portada): debajo del logo va un titular corto (2-5 palabras) que sea un gancho — que en
-  2 segundos de scroll haga que alguien pare el dedo — y un subtítulo de una línea que lo respalde con
-  un beneficio concreto. Nada de frases corporativas gastadas ("soluciones innovadoras", "revolucioná
-  tu negocio"). Hablale directo al dolor concreto del dueño de PyME/comercio/industria (tiempo perdido,
-  errores manuales, caos de papeles, no saber qué pasa en el negocio).
-- Lámina 2 (contenido): 6 beneficios concretos y tangibles, no features técnicas — cada label corto
-  (3-5 palabras) tiene que poder leerse de un vistazo en el feed.
-- Lámina 3 (cierre): remate que refuerce el gancho de la portada (no un genérico "contactanos"), + CTA
-  claro y de baja fricción.
+- Lámina 1 (portada): titular corto (2-6 palabras) que sea un gancho — que en 2 segundos de scroll
+  haga que alguien pare el dedo — y un subtítulo de una línea que lo respalde con un beneficio concreto.
+- Lámina 2 (contenido): el render elige al azar una de TRES formas de mostrarla, así que necesito
+  que completes las 3 (no dupliques texto entre sí, cada una parada sola):
+  · Como titular corrido (el dolor concreto de este tema, nada genérico): hasta 3 líneas cortas +
+    una línea de apoyo más chica que lo aterriza en la vida diaria del dueño de PyME/comercio/
+    industria (planillas sueltas, datos desactualizados, tiempo perdido, decisiones a ciegas —
+    específico al tema, no genérico).
+  · Como contraste antes/ahora: "antes" describe el problema actual en pocas palabras (sin la palabra
+    "antes"), "ahora" describe cómo queda resuelto con un sistema a medida (sin la palabra "ahora").
+  · Como grilla de 6 beneficios concretos y tangibles relacionados con el tema (no funcionalidades
+    técnicas genéricas), cada uno con un ícono de esta lista fija (elegí el que mejor calce
+    semánticamente, podés repetir si hace falta): ${ICONOS_VALIDOS.join(', ')}. Cada label corto
+    (3-5 palabras) tiene que poder leerse de un vistazo.
+- Lámina 3 (cierre): la solución que refuerza el gancho de la portada (no un genérico "contactanos"),
+  + CTA claro y de baja fricción.
 El caption complementa el carrusel, no lo repite: agregá contexto o un dato/pregunta que invite a comentar.
 
-La lámina "contenido" debe listar exactamente 6 funcionalidades/beneficios concretos, cada uno con
-un ícono de esta lista fija (elegí el que mejor calce semánticamente, podés repetir si hace falta):
-${ICONOS_VALIDOS.join(', ')}.
+Nada de frases corporativas gastadas ("soluciones innovadoras", "revolucioná tu negocio"). Y ojo con
+emparejar palabras que no combinan en sentido: releé cada titular y preguntate si las palabras que
+elegiste realmente van juntas (ej. "una oportunidad de error" no tiene sentido — "oportunidad" es
+positivo, "error" no; sería "cada actualización manual es un riesgo de error", por ejemplo).
 
-Podés marcar UNA palabra o frase corta clave dentro de "titulo" envolviéndola en asteriscos,
+Podés marcar UNA palabra o frase corta clave dentro de un "titulo" envolviéndola en asteriscos,
 ej: "Un stock *siempre* bajo control" — se resalta en el color de acento. Usalo como mucho una vez por lámina.
 
 Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) con esta forma exacta:
 {
   "caption": "el texto del posteo en español, con 2 a 4 hashtags relevantes al final",
   "slides": [
-    {"tipo":"portada", "eyebrow":"texto corto en mayúsculas, ej: NOMBRE · TEMA", "titulo":"titular corto y potente (2-5 palabras)", "subtitulo":"una línea que respalda el titular con un beneficio concreto"},
-    {"tipo":"contenido", "eyebrow":"texto corto en mayúsculas", "titulo":"titular corto", "items":[
-      {"icono":"uno de los íconos fijos", "label":"texto corto del beneficio"}
+    {"tipo":"portada", "eyebrow":"texto corto en mayúsculas, ej: NOMBRE · TEMA", "titulo":"titular corto y potente (2-6 palabras)", "subtitulo":"una línea que respalda el titular con un beneficio concreto"},
+    {"tipo":"contenido", "titulo":"titular del dolor concreto (hasta 3 líneas cortas)", "subtitulo":"línea de apoyo más chica que lo aterriza", "antes":"el problema actual en pocas palabras", "ahora":"cómo queda resuelto, en pocas palabras", "items":[
+      {"icono":"uno de los íconos fijos", "label":"beneficio corto"}
     ] (exactamente 6 items)},
-    {"tipo":"cierre", "titulo":"titular corto de cierre", "cta":"texto corto para un botón, ej: Diagnóstico gratuito — escribinos"}
+    {"tipo":"cierre", "titulo":"titular corto de cierre (la solución)", "cta":"texto corto para un botón, ej: Diagnóstico gratuito — escribinos"}
   ]
 }`.trim();
 
@@ -101,8 +111,11 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) c
     throw new Error('La respuesta de Claude no tiene caption/slides válidos para el carrusel.');
   }
   const contenido = data.slides.find(s => s.tipo === 'contenido');
-  if(!contenido || !Array.isArray(contenido.items) || contenido.items.length !== 6){
-    throw new Error('La lámina "contenido" del carrusel no tiene exactamente 6 items.');
+  if(!contenido || !contenido.titulo || !contenido.antes || !contenido.ahora){
+    throw new Error('La lámina "contenido" del carrusel no tiene los campos de titular/antes/ahora.');
+  }
+  if(!Array.isArray(contenido.items) || contenido.items.length !== 6){
+    throw new Error('La lámina "contenido" del carrusel no tiene los 6 items de la variante grilla.');
   }
   return data;
 }
