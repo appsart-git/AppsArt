@@ -35,14 +35,25 @@
       "Gestión de producción",
       "Informes profesionales",
       "Fichas técnicas",
-      "Gestión de clientes"
+      "Gestión de clientes",
+      "Alertas automáticas de stock bajo",
+      "Cobros y pagos sin planillas paralelas",
+      "Seguimiento de órdenes de producción en tiempo real",
+      "Informes a medida sin depender de Excel",
+      "Fichas técnicas siempre actualizadas y accesibles",
+      "Historial completo de cada cliente en un solo lugar",
+      "Relevamiento: así arrancamos cada proyecto",
+      "Diseño: así pensamos la solución antes de programar",
+      "Desarrollo: así construimos tu sistema a medida",
+      "Entrega: así dejamos todo funcionando y con soporte",
+      "Bots y automatizaciones a medida para tu negocio"
     ],
     "hashtagsBase": ["#AppsArt", "#SoftwareAMedida", "#PyMEs", "#DigitalizacionPyme"],
     "webUrl": "",
     "linkBio": "",
     "mediaType": "imagen",
     "cadenciaDias": 4,
-    "promptExtra": "Mantener el mismo estilo del carrusel ya publicado (fondo negro, acento naranja, tipografía bold); no encasillar el mensaje solo en rubro automotor.",
+    "promptExtra": "Mantener el mismo estilo del carrusel ya publicado (fondo negro, acento naranja, tipografía bold); no encasillar el mensaje solo en rubro automotor. Para el tema de bots/automatizaciones: es un servicio que se ofrece, todavía no hay un desarrollo entregado — no inventar casos de clientes ni resultados concretos, hablar en términos de lo que se puede resolver.",
     "activo": true
   },
   {

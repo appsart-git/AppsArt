@@ -55,12 +55,20 @@ function iconoSvg(nombre){
   return `<svg viewBox="0 0 40 40" width="108" height="108" fill="none" stroke="${MARCA.acento}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${path_}</svg>`;
 }
 
-/* El motivo de marca: círculos ascendentes de chico a grande, en diagonal. */
+/* El motivo de marca: 5 círculos ascendentes de chico a grande, en diagonal
+   (calcado del recorte real — antes tenía 4 y el más grande quedaba cortado
+   por el borde del SVG, se veía como una "gota" en vez de un círculo). */
 function dotTrail(escala){
   const e = escala || 1;
-  const dots = [{r:4,x:0,y:36},{r:7,x:14,y:26},{r:11,x:30,y:14},{r:16,x:50,y:-2}];
-  return `<svg viewBox="0 0 70 55" width="${90 * e}" height="${70 * e}">${dots.map(d =>
-    `<circle cx="${d.x + d.r}" cy="${d.y + d.r + 2}" r="${d.r}" fill="${MARCA.acento}"/>`).join('')}</svg>`;
+  const dots = [
+    { r: 4,   cx: 82, cy: 4  },
+    { r: 6.5, cx: 68, cy: 16 },
+    { r: 9.5, cx: 53, cy: 30 },
+    { r: 13,  cx: 36, cy: 46 },
+    { r: 18,  cx: 18, cy: 64 }
+  ];
+  return `<svg viewBox="0 0 90 86" width="${90 * e}" height="${86 * e}">${dots.map(d =>
+    `<circle cx="${d.cx}" cy="${d.cy}" r="${d.r}" fill="${MARCA.acento}"/>`).join('')}</svg>`;
 }
 
 function contador(n, total, colorMuted){
