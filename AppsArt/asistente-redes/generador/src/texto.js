@@ -37,7 +37,7 @@ Generá contenido para un posteo de Instagram sobre este tema/colección: "${tem
 
 Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) con esta forma exacta:
 {
-  "caption": "el texto del posteo en español, con 2 a 4 hashtags relevantes al final",
+  "caption": "el texto del posteo en español, con 2 a 4 hashtags relevantes al final (todo en minúsculas y sin espacios ni separadores dentro de cada hashtag, ej. #economiacircular)",
   "promptImagen": "prompt en inglés, detallado, para un generador de imágenes, coherente con la identidad visual de la marca"${necesitaVideo ? `,
   "guion": "guion narrado en español, pensado para 10 a 20 segundos hablados, para un reel corto",
   "promptVideo": "prompt en inglés, detallado, describiendo la escena/movimiento de cámara para un generador de video"` : ''}
@@ -96,7 +96,7 @@ ej: "Un stock *siempre* bajo control" — se resalta en el color de acento. Usal
 
 Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) con esta forma exacta:
 {
-  "caption": "el texto del posteo en español, con 2 a 4 hashtags relevantes al final",
+  "caption": "el texto del posteo en español, con 2 a 4 hashtags relevantes al final (todo en minúsculas y sin espacios ni separadores dentro de cada hashtag, ej. #economiacircular)",
   "slides": [
     {"tipo":"portada", "eyebrow":"texto corto en mayúsculas, ej: NOMBRE · TEMA", "titulo":"titular corto y potente (2-6 palabras)", "subtitulo":"una línea que respalda el titular con un beneficio concreto"},
     {"tipo":"contenido", "titulo":"titular del dolor concreto (hasta 3 líneas cortas)", "subtitulo":"línea de apoyo más chica que lo aterriza", "antes":"el problema actual en pocas palabras", "ahora":"cómo queda resuelto, en pocas palabras", "items":[
@@ -143,7 +143,8 @@ Tarea:
 1. Elegí las 3 o 4 características de la lista de arriba que más le importan a un comprador industrial
    (capacidad, estado, marca, medidas, tipo de accionamiento) y reescribilas cortas y claras para leer
    de un vistazo en una imagen — sin inventar ni agregar ningún dato que no esté en la lista.
-2. Escribí un caption de Instagram (2-4 líneas + 2-4 hashtags relevantes al final) que genere interés
+2. Escribí un caption de Instagram (2-4 líneas + 2-4 hashtags relevantes al final, todo en minúsculas y
+   sin espacios ni separadores dentro de cada hashtag, ej. #maquinariaindustrial) que genere interés
    real en compradores industriales, sin exagerar ni prometer nada que no esté respaldado por la
    descripción o las características de arriba.
 3. Un texto corto para el botón CTA (ej: "Consultá disponibilidad", "Escribinos por esta máquina").
@@ -179,7 +180,7 @@ sostener con esa descripción.
 
 Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) con esta forma exacta:
 {
-  "caption": "el texto del posteo en español, con 2 a 4 hashtags relevantes al final",
+  "caption": "el texto del posteo en español, con 2 a 4 hashtags relevantes al final (todo en minúsculas y sin espacios ni separadores dentro de cada hashtag, ej. #economiacircular)",
   "eyebrow": "texto corto en mayúsculas para la placa, ej: QUIÉNES SOMOS",
   "titulo": "titular corto y potente (hasta 8 palabras)",
   "texto": "1-2 líneas de apoyo que desarrollan el titular"
