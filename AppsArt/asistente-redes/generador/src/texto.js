@@ -212,10 +212,12 @@ usalo como base de sentido, no lo repitas literal a los gritos en la locución h
 ${producto.descripcion}
 
 Tarea:
-1. Guion narrado en español, pensado para hablarse en 10 a 20 segundos, tono cálido y
-   directo (no gritado como el copy escrito), que transmita la esencia de este diseño
-   específico. Variá la frase de apertura — no empieces siempre con la misma estructura
-   ("Esta remera es...", etc.) entre un reel y otro.
+1. Guion narrado en español, CORTO — pensado para hablarse en 6 a 8 segundos como máximo
+   (aproximadamente 15 a 22 palabras, ni una más), tono cálido y directo (no gritado como
+   el copy escrito), que transmita la esencia de este diseño específico. El video dura 10
+   segundos y necesita silencio al final para el cierre de marca, así que priorizá que sea
+   corto y contundente por sobre completo. Variá la frase de apertura — no empieces siempre
+   con la misma estructura ("Esta remera es...", etc.) entre un reel y otro.
 2. Caption de Instagram (2-4 líneas + 2-4 hashtags relevantes al final, todo en minúsculas
    y sin espacios ni separadores dentro de cada hashtag, ej. #ritmosdelalma).
 

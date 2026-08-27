@@ -8,15 +8,19 @@
    verificado en @tecnologiartesanal: reels de producto = foto/detalle real de la prenda,
    sin locución de por medio hoy; acá se le suma narración real sin tocar esa base visual. */
 
+/* La primera corrida real salió con movimiento casi imperceptible (Runway interpretó
+   "subtle"/"slowly" de forma demasiado literal) — se reescriben con lenguaje mucho más
+   enfático e insistente sobre la intensidad/velocidad del efecto, repitiendo la idea de
+   varias formas dentro del mismo prompt para que el modelo no lo suavice. */
 const VARIANTES = [
   // 1. Glitch de entrada
-  (color) => `A close-up of a folded ${color} cotton t-shirt with a screen-printed graphic design, resting on a plain surface. The shot begins with heavy VHS glitch and static distortion, tracking lines rolling across the frame, then stabilizes into a smooth, subtle slow zoom-in on the fabric and print detail. Retro-futuristic mood, moody lighting, no text overlays, no logos added.`,
+  (color) => `Extreme close-up of a folded ${color} cotton t-shirt with a screen-printed graphic design. INTENSE, AGGRESSIVE VHS glitch throughout the entire shot: heavy static noise, strong RGB color-channel splitting, tracking lines violently rolling and jumping across the frame, the image tearing and glitching repeatedly, fast and chaotic — never fully calm. Constant camera drift pushing in. High-energy retro-futuristic mood, dramatic contrast, no text overlays, no logos added.`,
   // 2. Escaneo wireframe
-  (color) => `A close-up of a folded ${color} cotton t-shirt with a screen-printed graphic design. A thin horizontal scan-line of bright glowing light sweeps slowly from top to bottom across the fabric, like an old CRT display or radar scanner, leaving a brief afterglow trail. Dark moody background, retro-futuristic sci-fi atmosphere, camera holds steady, no text overlays, no logos added.`,
+  (color) => `Extreme close-up of a folded ${color} cotton t-shirt with a screen-printed graphic design. A bright, thick, high-contrast scan-line of glowing light sweeps FAST and repeatedly from top to bottom and back, like an aggressive radar/CRT sweep, leaving strong glowing afterimage trails each pass — continuous fast motion for the whole shot, never static. Camera also slowly rotates around the fabric. Dark high-contrast background, dramatic retro-futuristic sci-fi atmosphere, no text overlays, no logos added.`,
   // 3. Zoom lento + pulso neón
-  (color) => `A slow, cinematic push-in zoom on a folded ${color} cotton t-shirt with a screen-printed graphic design, the fabric texture and print detail becoming gradually clearer. A soft neon glow subtly pulses in the background rim light, breathing in and out slowly. Moody, retro-futuristic lighting, no text overlays, no logos added.`,
+  (color) => `Extreme close-up of a folded ${color} cotton t-shirt with a screen-printed graphic design. Fast, continuous cinematic push-in zoom throughout the whole shot, the fabric texture and print detail rushing closer. A strong, high-contrast neon glow pulses rapidly and dramatically in the rim light, brightening and dimming noticeably again and again. Intense retro-futuristic lighting, no text overlays, no logos added.`,
   // 4. Cortes tipo VHS
-  (color) => `A series of 2-3 quick cuts between different close-up angles of a folded ${color} cotton t-shirt with a screen-printed graphic design, each transition marked by a brief VHS tape glitch — color bleed, tracking distortion, a quick static flash. Retro-futuristic mood, moody lighting, handheld camera feel, no text overlays, no logos added.`
+  (color) => `A fast-paced series of 4-5 quick jump cuts between different extreme close-up angles of a folded ${color} cotton t-shirt with a screen-printed graphic design, each cut punctuated by a strong, violent VHS tape glitch — heavy color bleed, tracking distortion, full-frame static flash. High energy, constant motion, dramatic retro-futuristic mood, no text overlays, no logos added.`
 ];
 
 const NOMBRES_VARIANTES = ['glitch-entrada', 'escaneo-wireframe', 'zoom-pulso-neon', 'cortes-vhs'];
