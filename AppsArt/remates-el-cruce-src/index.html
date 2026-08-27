@@ -263,7 +263,9 @@ let state = {
   ocr: { imageDataUrl: null, imageName: '', processing: false, progress: 0, rows: [] },
   buscar: { search: '', categoria: 'Todas' },
   detalleCodigo: null,
-  detalleUploading: false
+  detalleUploading: false,
+  detalleEditando: false,
+  detalleEdit: null
 };
 
 function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -657,6 +659,28 @@ function renderDetalle(){
         ${state.detalleUploading ? 'Subiendo…' : (foto ? 'Cambiar foto' : 'Agregar foto')}
       </button>
       <input type="file" accept="image/*" id="detalleFotoInput" style="display:none;" data-change="detalleFotoArchivo">`;
+  if(state.detalleEditando){
+    const ed = state.detalleEdit;
+    document.getElementById('detailTitle').innerHTML = `<input value="${esc(ed.nombre)}" placeholder="Descripción" data-change="editNombre">`;
+    document.getElementById('detailSub').innerHTML = `Código ${esc(p.codigo)} ·
+      <select data-change="editCategoria" style="width:auto; display:inline-block;">
+        <option value="">Sin categoría</option>
+        ${state.categorias.map(c => `<option value="${esc(c)}" ${ed.categoria === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+      </select>`;
+    document.getElementById('detailPrice').innerHTML = `
+      <input type="number" min="0" step="1" value="${ed.precio}" style="display:inline-block; width:auto; max-width:130px;" data-change="editPrecio">
+      <select data-change="editMoneda" style="display:inline-block; width:auto;">
+        <option value="ARS" ${ed.moneda === 'ARS' ? 'selected' : ''}>$ ARS</option>
+        <option value="USD" ${ed.moneda === 'USD' ? 'selected' : ''}>U$S</option>
+      </select>
+      <label class="checkbox" style="display:inline-flex; margin-top:8px;"><input type="checkbox" ${ed.porUnidad ? 'checked' : ''} data-change="editPorUnidad"> Precio por unidad (c/u)</label>`;
+    document.getElementById('detailActions').innerHTML = `
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-primary" style="flex:1;" data-action="guardarEdicionProducto">Guardar cambios</button>
+        <button class="btn" style="flex:1;" data-action="cancelarEdicionProducto">Cancelar</button>
+      </div>`;
+    return;
+  }
   document.getElementById('detailTitle').textContent = p.nombre || 'Producto';
   document.getElementById('detailSub').textContent = ['Código ' + p.codigo, p.categoria].filter(Boolean).join(' · ');
   document.getElementById('detailPrice').textContent = formatMoney(p.precio, p.moneda) + (p.porUnidad ? ' c/u' : '');
@@ -671,12 +695,18 @@ function renderDetalle(){
     p.etiquetas && p.etiquetas.length ? `<tr><td>Etiquetas</td><td>${esc(p.etiquetas.join(', '))}</td></tr>` : ''
   ].filter(Boolean).join('');
   document.getElementById('detailSpecs').innerHTML = rows;
-  document.getElementById('detailActions').innerHTML = `<button class="btn btn-danger" style="width:100%;" data-action="detalleEliminar">Eliminar producto</button>`;
+  document.getElementById('detailActions').innerHTML = `
+    <div style="display:flex; gap:8px;">
+      <button class="btn" style="flex:1;" data-action="editarProducto">Editar producto</button>
+      <button class="btn btn-danger" style="flex:1;" data-action="detalleEliminar">Eliminar producto</button>
+    </div>`;
 }
 Object.assign(actions, {
   buscarCategoria(el){ state.buscar.categoria = el.dataset.cat; renderProductos(); },
   verDetalle(el){
     state.detalleCodigo = el.dataset.codigo;
+    state.detalleEditando = false;
+    state.detalleEdit = null;
     renderDetalle();
     document.getElementById('overlay').classList.add('show');
     document.getElementById('detail').classList.add('show');
@@ -684,6 +714,8 @@ Object.assign(actions, {
   cerrarDetalle(){
     document.getElementById('overlay').classList.remove('show');
     document.getElementById('detail').classList.remove('show');
+    state.detalleEditando = false;
+    state.detalleEdit = null;
   },
   elegirFotoDetalle(){ document.getElementById('detalleFotoInput').click(); },
   async detalleEliminar(){
@@ -694,6 +726,33 @@ Object.assign(actions, {
     state.productos = state.productos.filter(x => x.codigo !== p.codigo);
     actions.cerrarDetalle();
     if(state.tab === 'productos') renderProductos();
+  },
+  editarProducto(){
+    const p = state.productos.find(x => x.codigo === state.detalleCodigo);
+    if(!p) return;
+    state.detalleEditando = true;
+    state.detalleEdit = { nombre: p.nombre || '', categoria: p.categoria || '', precio: p.precio || 0, moneda: p.moneda || 'ARS', porUnidad: !!p.porUnidad };
+    renderDetalle();
+  },
+  cancelarEdicionProducto(){
+    state.detalleEditando = false;
+    state.detalleEdit = null;
+    renderDetalle();
+  },
+  async guardarEdicionProducto(){
+    const p = state.productos.find(x => x.codigo === state.detalleCodigo);
+    if(!p) return;
+    const ed = state.detalleEdit;
+    if(!ed.nombre.trim()){ toast('La descripción no puede quedar vacía.'); return; }
+    await saveProducto(Object.assign({}, p, {
+      nombre: ed.nombre.trim(), categoria: ed.categoria, precio: Number(ed.precio) || 0,
+      moneda: ed.moneda, porUnidad: !!ed.porUnidad
+    }));
+    state.detalleEditando = false;
+    state.detalleEdit = null;
+    renderDetalle();
+    if(state.tab === 'productos') renderProductosResultados();
+    toast('Producto actualizado.');
   },
   async catAgregar(){
     const el = document.getElementById('catNueva'); const v = el.value.trim();
@@ -709,6 +768,13 @@ Object.assign(actions, {
   async etqQuitar(el){ state.etiquetas.splice(Number(el.dataset.i), 1); await saveEtiquetas(state.etiquetas); render(); }
 });
 inputActions.buscarTexto = (el) => { state.buscar.search = el.value; renderProductosResultados(); };
+// Solo actualizan el borrador en memoria, sin re-render — igual que con buscarTexto, si se redibuja
+// el formulario en cada tecla el input pierde el foco y el teclado del celular se cierra solo.
+inputActions.editNombre = (el) => { state.detalleEdit.nombre = el.value; };
+inputActions.editCategoria = (el) => { state.detalleEdit.categoria = el.value; };
+inputActions.editPrecio = (el) => { state.detalleEdit.precio = el.value; };
+inputActions.editMoneda = (el) => { state.detalleEdit.moneda = el.value; };
+inputActions.editPorUnidad = (el) => { state.detalleEdit.porUnidad = el.checked; };
 inputActions.detalleEstado = async (el) => {
   const p = state.productos.find(x => x.codigo === state.detalleCodigo);
   if(!p) return;
