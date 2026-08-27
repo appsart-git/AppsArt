@@ -1,14 +1,16 @@
 'use strict';
 const { initFirebase } = require('./firebase');
 const { cuentasActivas, cuentasVencidas, proximoTema } = require('./cuentas');
-const { generarTexto, generarTextoCarrusel, generarTextoFichaProducto, generarTextoInstitucional } = require('./texto');
+const { generarTexto, generarTextoCarrusel, generarTextoFichaProducto, generarTextoInstitucional, generarTextoVideoProducto } = require('./texto');
 const { generarImagen } = require('./imagen');
 const { generarVideo } = require('./video');
 const { generarNarracion } = require('./narracion');
 const { mezclarVideoYNarracion } = require('./merge');
 const { renderCarrusel } = require('./carrusel');
 const { renderFicha, renderInstitucionalImg } = require('./ficha');
+const { elegirPromptVideo } = require('./video-tecnoart');
 const productosEntrePymes = require('./entrepymes-productos.json');
+const productosTecnoArt = require('./tecnoart-productos.json');
 const { subirArchivo } = require('./storage');
 const { notificarNtfy } = require('./notificar');
 const { registrarCorrida } = require('./runLog');
@@ -88,6 +90,37 @@ async function procesarCuenta(db, bucket, cuenta){
     return { cuentaId: cuenta.id, ok: true, contenidoId: contenidoRef.id };
   }
 
+  if(cuenta.slug === 'tecno-art'){
+    const producto = productosTecnoArt.find(p => p.nombre === tema);
+    if(!producto){
+      throw new Error(`No se encontró el producto real "${tema}" en tecnoart-productos.json — revisar temasContenido de la cuenta.`);
+    }
+    const contadorFotos = cuenta.tecnoArtFotoContador || 0;
+    const fotoUrl = producto.fotos[contadorFotos % producto.fotos.length];
+    const { promptVideo, variante } = elegirPromptVideo(producto);
+    const texto = await generarTextoVideoProducto(cuenta, producto);
+
+    const videoUrl = await generarVideo(promptVideo, fotoUrl);
+    const { audioBuffer, voz } = await generarNarracion(texto.guion);
+    const { videoBuffer, posterBuffer } = await mezclarVideoYNarracion(videoUrl, audioBuffer);
+
+    const base = `cuentas/${cuenta.slug}/${Date.now()}`;
+    const mediaUrl = await subirArchivo(bucket, videoBuffer, `${base}/video.mp4`, 'video/mp4');
+    const thumbnailUrl = await subirArchivo(bucket, posterBuffer, `${base}/poster.jpg`, 'image/jpeg');
+
+    const contenidoRef = await db.collection('contenido').add({
+      cuentaId: cuenta.id, estado: 'pendiente', tipo: 'video', tema,
+      caption: texto.caption, guion: texto.guion, mediaUrl, thumbnailUrl,
+      metadatos: { modeloTexto: 'claude-sonnet-5', modeloVideo: 'runway-gen4_turbo', modeloTTS: 'elevenlabs', fotoUrl, variante, voz },
+      generadoEn: new Date().toISOString()
+    });
+    await db.collection('cuentas').doc(cuenta.id).update({
+      ultimaGeneracion: new Date().toISOString(), ultimoTemaIndex: nuevoIndex, regenerarTema: null,
+      tecnoArtFotoContador: contadorFotos + 1
+    });
+    return { cuentaId: cuenta.id, ok: true, contenidoId: contenidoRef.id };
+  }
+
   if(esCarrusel){
     const texto = await generarTextoCarrusel(cuenta, tema);
     const buffers = await renderCarrusel(texto.slides);
@@ -108,35 +141,20 @@ async function procesarCuenta(db, bucket, cuenta){
     return { cuentaId: cuenta.id, ok: true, contenidoId: contenidoRef.id };
   }
 
+  /* A partir de acá solo llegan cuentas con mediaType 'imagen' simple (hoy, Casa Quinta
+     Tres Estaciones) — AppsArt/Entre PyMES/Tecno Art ya volvieron antes con su propia
+     rama, cada una con su propio pipeline de datos reales. */
   const texto = await generarTexto(cuenta, tema);
   const imagenBuffer = await generarImagen(texto.promptImagen);
-
   const base = `cuentas/${cuenta.slug}/${Date.now()}`;
-  let mediaUrl, thumbnailUrl = null, tipo = 'imagen', guionFinal = null;
-
-  if(esVideo){
-    const videoUrl = await generarVideo(texto.promptVideo, imagenBuffer);
-    const narracionBuffer = await generarNarracion(texto.guion);
-    const { videoBuffer, posterBuffer } = await mezclarVideoYNarracion(videoUrl, narracionBuffer);
-    mediaUrl = await subirArchivo(bucket, videoBuffer, `${base}/video.mp4`, 'video/mp4');
-    thumbnailUrl = await subirArchivo(bucket, posterBuffer, `${base}/poster.jpg`, 'image/jpeg');
-    tipo = 'video';
-    guionFinal = texto.guion;
-  } else {
-    mediaUrl = await subirArchivo(bucket, imagenBuffer, `${base}/imagen.png`, 'image/png');
-  }
+  const mediaUrl = await subirArchivo(bucket, imagenBuffer, `${base}/imagen.png`, 'image/png');
 
   const contenidoRef = await db.collection('contenido').add({
-    cuentaId: cuenta.id, estado: 'pendiente', tipo, tema,
-    caption: texto.caption, guion: guionFinal,
-    mediaUrl, thumbnailUrl,
-    promptImagen: texto.promptImagen, promptVideo: texto.promptVideo || null,
-    metadatos: {
-      modeloImagen: 'gpt-image-1',
-      modeloVideo: esVideo ? 'runway-gen3a_turbo' : null,
-      modeloTTS: esVideo ? 'elevenlabs' : null,
-      modeloTexto: 'claude-sonnet-5'
-    },
+    cuentaId: cuenta.id, estado: 'pendiente', tipo: 'imagen', tema,
+    caption: texto.caption,
+    mediaUrl,
+    promptImagen: texto.promptImagen,
+    metadatos: { modeloImagen: 'gpt-image-1', modeloTexto: 'claude-sonnet-5' },
     generadoEn: new Date().toISOString()
   });
 

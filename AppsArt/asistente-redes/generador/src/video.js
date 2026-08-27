@@ -9,9 +9,9 @@
 const RUNWAY_API_BASE = 'https://api.dev.runwayml.com/v1';
 const RUNWAY_VERSION = '2024-11-06';
 
-async function generarVideo(prompt, imagenBuffer){
-  const imagenB64 = `data:image/png;base64,${imagenBuffer.toString('base64')}`;
-
+/* promptImagen: URL https real de la foto del producto (Runway acepta la URL directamente,
+   no hace falta bajarla ni convertirla a base64 — ver docs.dev.runwayml.com). */
+async function generarVideo(prompt, promptImagen){
   const startRes = await fetch(`${RUNWAY_API_BASE}/image_to_video`, {
     method: 'POST',
     headers: {
@@ -21,7 +21,7 @@ async function generarVideo(prompt, imagenBuffer){
     },
     body: JSON.stringify({
       model: 'gen4_turbo',
-      promptImage: imagenB64,
+      promptImage: promptImagen,
       promptText: prompt,
       duration: 10,
       ratio: '720:1280'

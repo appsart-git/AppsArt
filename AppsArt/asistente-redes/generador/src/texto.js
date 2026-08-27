@@ -193,4 +193,43 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) c
   return data;
 }
 
-module.exports = { generarTexto, generarTextoCarrusel, generarTextoFichaProducto, generarTextoInstitucional };
+/* Reel de producto de Tecno Art: el guion se basa en el copy real ya escrito por la
+   marca para esa remera (tono propio, con mayúsculas/frases de impacto) — acá se le pide
+   a Claude que lo adapte a una locución hablada natural de 10-20s, no que lo lea tal cual
+   a los gritos, y que varíe la apertura para que dos reels seguidos no arranquen igual. */
+async function generarTextoVideoProducto(cuenta, producto){
+  const prompt = `
+Sos el/la community manager de "${cuenta.nombre}" (${cuenta.rubro || ''}).
+Voz de marca / tono: ${cuenta.vozMarca || '-'}
+Público objetivo: ${cuenta.publicoObjetivo || '-'}
+Instrucciones extra: ${cuenta.promptExtra || '-'}
+
+Vas a armar un reel de Instagram para esta remera real, de la colección "${producto.coleccion || '-'}":
+Nombre: ${producto.nombre}
+Precio: ${producto.precio || '-'}
+Copy real de la marca para este diseño (está en mayúsculas y con mucha carga emocional —
+usalo como base de sentido, no lo repitas literal a los gritos en la locución hablada):
+${producto.descripcion}
+
+Tarea:
+1. Guion narrado en español, pensado para hablarse en 10 a 20 segundos, tono cálido y
+   directo (no gritado como el copy escrito), que transmita la esencia de este diseño
+   específico. Variá la frase de apertura — no empieces siempre con la misma estructura
+   ("Esta remera es...", etc.) entre un reel y otro.
+2. Caption de Instagram (2-4 líneas + 2-4 hashtags relevantes al final, todo en minúsculas
+   y sin espacios ni separadores dentro de cada hashtag, ej. #ritmosdelalma).
+
+Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown):
+{
+  "guion": "...",
+  "caption": "..."
+}`.trim();
+
+  const data = await pedirJSON(prompt, 1024);
+  if(!data.guion || !data.caption){
+    throw new Error('La respuesta de Claude no tiene guion/caption válidos para el reel de producto.');
+  }
+  return data;
+}
+
+module.exports = { generarTexto, generarTextoCarrusel, generarTextoFichaProducto, generarTextoInstitucional, generarTextoVideoProducto };

@@ -1,13 +1,20 @@
 'use strict';
-/* NOTA: verificar que ELEVENLABS_VOICE_ID corresponda a una voz en español disponible en la
-   cuenta (https://elevenlabs.io/app/voice-library) antes de la primera corrida real —
-   el valor por defecto de acá es solo un placeholder. Solo se usa para cuentas con
-   mediaType 'imagen+video' (hoy, únicamente Tecno Art). */
-
-const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM';
+/* Voces reales elegidas por el cliente en la librería de ElevenLabs (español
+   latinoamericano/argentino, acordes al público joven-adulto de Tecno Art). Se sortea
+   una al azar por reel (no siempre la misma) — mismo criterio de variedad que las
+   4 variantes visuales de video-tecnoart.js, aplicado a la narración. */
+const VOCES = [
+  { id: 'p7AwDmKvTdoHTBuueGvP', nombre: 'Kate' },
+  { id: 'zR7eV8hMFnxhSSAcCYW0', nombre: 'Martín Álvarez' },
+  { id: 'vgekQLm3GYiKMHUnPVvY', nombre: 'Regis' },
+  { id: 'Wl3O9lmFSMgGFTTwuS6f', nombre: 'Agus' },
+  { id: 'AqTsqzKuY71B3KFBr39g', nombre: 'Malena' }
+];
 
 async function generarNarracion(guion){
-  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}`, {
+  const voz = VOCES[Math.floor(Math.random() * VOCES.length)];
+
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voz.id}`, {
     method: 'POST',
     headers: {
       'xi-api-key': process.env.ELEVENLABS_API_KEY,
@@ -21,7 +28,7 @@ async function generarNarracion(guion){
   });
   if(!res.ok) throw new Error(`ElevenLabs: ${res.status} ${await res.text()}`);
   const arrayBuffer = await res.arrayBuffer();
-  return Buffer.from(arrayBuffer);
+  return { audioBuffer: Buffer.from(arrayBuffer), voz: voz.nombre };
 }
 
 module.exports = { generarNarracion };
