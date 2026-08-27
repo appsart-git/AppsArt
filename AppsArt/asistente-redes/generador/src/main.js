@@ -9,6 +9,7 @@ const { mezclarVideoYNarracion } = require('./merge');
 const { renderCarrusel } = require('./carrusel');
 const { renderFicha, renderInstitucionalImg } = require('./ficha');
 const { elegirPromptVideo } = require('./video-tecnoart');
+const { elegirSfx } = require('./sfx');
 const productosEntrePymes = require('./entrepymes-productos.json');
 const productosTecnoArt = require('./tecnoart-productos.json');
 const { subirArchivo } = require('./storage');
@@ -102,7 +103,8 @@ async function procesarCuenta(db, bucket, cuenta){
 
     const videoUrl = await generarVideo(promptVideo, fotoUrl);
     const { audioBuffer, voz } = await generarNarracion(texto.guion);
-    const { videoBuffer, posterBuffer } = await mezclarVideoYNarracion(videoUrl, audioBuffer);
+    const { buffer: sfxBuffer, nombre: sfxNombre } = elegirSfx();
+    const { videoBuffer, posterBuffer } = await mezclarVideoYNarracion(videoUrl, audioBuffer, sfxBuffer);
 
     const base = `cuentas/${cuenta.slug}/${Date.now()}`;
     const mediaUrl = await subirArchivo(bucket, videoBuffer, `${base}/video.mp4`, 'video/mp4');
@@ -111,7 +113,7 @@ async function procesarCuenta(db, bucket, cuenta){
     const contenidoRef = await db.collection('contenido').add({
       cuentaId: cuenta.id, estado: 'pendiente', tipo: 'video', tema,
       caption: texto.caption, guion: texto.guion, mediaUrl, thumbnailUrl,
-      metadatos: { modeloTexto: 'claude-sonnet-5', modeloVideo: 'runway-gen4_turbo', modeloTTS: 'elevenlabs', fotoUrl, variante, voz },
+      metadatos: { modeloTexto: 'claude-sonnet-5', modeloVideo: 'runway-gen4_turbo', modeloTTS: 'elevenlabs', fotoUrl, variante, voz, sfx: sfxNombre },
       generadoEn: new Date().toISOString()
     });
     await db.collection('cuentas').doc(cuenta.id).update({

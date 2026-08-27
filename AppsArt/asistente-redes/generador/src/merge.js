@@ -13,13 +13,15 @@ async function descargarArchivo(url, destino){
 }
 
 /* Reemplaza el audio del clip de Runway (mudo o con música genérica) por la locución de
-   ElevenLabs, y saca un frame como poster para el <video poster=""> del dashboard.
-   Corre acá (dentro del runner de GitHub Actions, que tiene ffmpeg) en vez de con
-   ffmpeg.wasm en el navegador: es más simple porque toda la generación ya pasa por acá. */
-async function mezclarVideoYNarracion(videoUrl, narracionBuffer){
+   ElevenLabs (opcionalmente con un efecto de interferencia/glitch de fondo, bajo en
+   volumen para no tapar la voz), y saca un frame como poster para el <video poster="">
+   del dashboard. Corre acá (dentro del runner de GitHub Actions, que tiene ffmpeg) en vez
+   de con ffmpeg.wasm en el navegador: es más simple porque toda la generación ya pasa por acá. */
+async function mezclarVideoYNarracion(videoUrl, narracionBuffer, sfxBuffer){
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'asistente-redes-'));
   const videoPath = path.join(dir, 'video.mp4');
   const audioPath = path.join(dir, 'narracion.mp3');
+  const sfxPath = path.join(dir, 'sfx.wav');
   const salidaPath = path.join(dir, 'final.mp4');
   const posterPath = path.join(dir, 'poster.jpg');
 
@@ -27,10 +29,19 @@ async function mezclarVideoYNarracion(videoUrl, narracionBuffer){
     await descargarArchivo(videoUrl, videoPath);
     fs.writeFileSync(audioPath, narracionBuffer);
 
-    await execFileAsync('ffmpeg', [
-      '-y', '-i', videoPath, '-i', audioPath,
-      '-c:v', 'copy', '-map', '0:v:0', '-map', '1:a:0', '-shortest', salidaPath
-    ]);
+    if(sfxBuffer){
+      fs.writeFileSync(sfxPath, sfxBuffer);
+      await execFileAsync('ffmpeg', [
+        '-y', '-i', videoPath, '-i', audioPath, '-i', sfxPath,
+        '-filter_complex', '[1:a]volume=1.0[voz];[2:a]volume=0.22[sfx];[voz][sfx]amix=inputs=2:duration=first:dropout_transition=0[aout]',
+        '-map', '0:v:0', '-map', '[aout]', '-c:v', 'copy', '-shortest', salidaPath
+      ]);
+    } else {
+      await execFileAsync('ffmpeg', [
+        '-y', '-i', videoPath, '-i', audioPath,
+        '-c:v', 'copy', '-map', '0:v:0', '-map', '1:a:0', '-shortest', salidaPath
+      ]);
+    }
     await execFileAsync('ffmpeg', ['-y', '-i', salidaPath, '-ss', '00:00:01', '-vframes', '1', posterPath]);
 
     return {
