@@ -23,9 +23,9 @@ async function generarNarracion(guion){
     body: JSON.stringify({
       text: guion,
       model_id: 'eleven_multilingual_v2',
-      // stability baja + style alto = lectura más expresiva/modulada, menos "leída
-      // pareja" — pedido explícito del cliente tras escuchar la primera locución plana.
-      voice_settings: { stability: 0.28, similarity_boost: 0.75, style: 0.6, use_speaker_boost: true }
+      // Segunda vuelta de feedback: seguía faltando energía incluso con stability
+      // 0.28/style 0.6 — se lleva al límite alto de expresividad que soporta el modelo.
+      voice_settings: { stability: 0.18, similarity_boost: 0.75, style: 0.9, use_speaker_boost: true }
     })
   });
   if(!res.ok) throw new Error(`ElevenLabs: ${res.status} ${await res.text()}`);

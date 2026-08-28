@@ -20,7 +20,10 @@ async function generarVideo(prompt, promptImagen){
       'X-Runway-Version': RUNWAY_VERSION
     },
     body: JSON.stringify({
-      model: 'gen4_turbo',
+      // gen4.5 en vez de gen4_turbo: ~2.4x el costo por segundo, pero da movimiento
+      // bastante más real/dinámico — el cliente lo pidió tras dos rondas de feedback
+      // de que la animación seguía sintiéndose poco enérgica con el modelo turbo.
+      model: 'gen4.5',
       promptImage: promptImagen,
       promptText: prompt,
       duration: 10,
