@@ -117,7 +117,7 @@ async function procesarCuenta(db, bucket, cuenta){
     const contenidoRef = await db.collection('contenido').add({
       cuentaId: cuenta.id, estado: 'pendiente', tipo: 'video', tema,
       caption: texto.caption, guion: texto.guion, mediaUrl, thumbnailUrl,
-      metadatos: { modeloTexto: 'claude-sonnet-5', modeloVideo: 'runway-gen4.5', modeloTTS: 'elevenlabs', fotoUrl, variante, voz, sfx: sfxNombre },
+      metadatos: { modeloTexto: 'claude-sonnet-5', modeloVideo: 'runway-gen4_turbo', modeloTTS: 'elevenlabs', fotoUrl, variante, voz, sfx: sfxNombre },
       generadoEn: new Date().toISOString()
     });
     await db.collection('cuentas').doc(cuenta.id).update({

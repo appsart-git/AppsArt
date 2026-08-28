@@ -20,10 +20,12 @@ async function generarVideo(prompt, promptImagen){
       'X-Runway-Version': RUNWAY_VERSION
     },
     body: JSON.stringify({
-      // gen4.5 en vez de gen4_turbo: ~2.4x el costo por segundo, pero da movimiento
-      // bastante más real/dinámico — el cliente lo pidió tras dos rondas de feedback
-      // de que la animación seguía sintiéndose poco enérgica con el modelo turbo.
-      model: 'gen4.5',
+      // Se probó gen4.5 (más caro) para más energía visual, pero alucinaba contenido
+      // que no era el producto real (ej. convirtió el dibujo estampado de un pibe
+      // descalzo en un primer plano de pies "reales") — se vuelve a gen4_turbo, que es
+      // fiel a la foto real, y la energía se resuelve con cortes rápidos + x1.25 (ver
+      // video-tecnoart.js y merge.js) en vez de con un modelo más creativo/impredecible.
+      model: 'gen4_turbo',
       promptImage: promptImagen,
       promptText: prompt,
       duration: 10,
