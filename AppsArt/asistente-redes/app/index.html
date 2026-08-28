@@ -555,24 +555,17 @@ function confirmDialog(message, onConfirm){
     </div>`);
 }
 async function downloadUrl(url, filename){
-  // El atributo download del <a> no se respeta en recursos cross-origin (el bucket de
-  // Storage es otro dominio) — Chrome/Firefox lo ignoran y terminan abriendo el archivo
-  // en una pestaña en vez de bajarlo (reportado con videos; con imágenes a veces "cuela"
-  // según el navegador, pero no es confiable). Bajar el archivo como blob y descargar
-  // ESE blob (mismo origen, siempre respeta el nombre/descarga) es la forma que funciona
-  // siempre, sea imagen o video.
-  try{
-    const res = await fetch(url);
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    const blob = await res.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = blobUrl; a.download = filename || '';
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 30000);
-  }catch(err){
-    toast('No se pudo descargar el archivo: ' + (err && err.message ? err.message : err));
-  }
+  // Intento 1 (fetch+blob) falla si el bucket no tiene CORS habilitado para este origen
+  // ("Failed to fetch" — confirmado en pruebas reales). En vez de depender de CORS, se usa
+  // el parámetro nativo de Google Cloud Storage response-content-disposition: el propio
+  // servidor manda Content-Disposition: attachment, así que ni siquiera hace falta leer el
+  // archivo desde JS — funciona con una navegación común, cross-origin o no.
+  const sep = url.includes('?') ? '&' : '?';
+  const dispo = encodeURIComponent(`attachment; filename="${filename || 'archivo'}"`);
+  const finalUrl = `${url}${sep}response-content-disposition=${dispo}`;
+  const a = document.createElement('a');
+  a.href = finalUrl; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
 }
 async function withBusyButton(btn, busyLabel, fn){
   if(!btn) return fn();
