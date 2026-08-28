@@ -132,7 +132,7 @@ Object.assign(actions, {
     const cuenta = findCuenta(c.cuentaId);
     const base = `${slugify(cuenta?cuenta.nombre:'contenido')}-${(c.tema||c.id)}`;
     const ext = c.tipo==='video' ? 'mp4' : 'png';
-    downloadUrl(c.mediaUrl, `${base}.${ext}`);
+    withBusyButton(el, 'Descargando…', () => downloadUrl(c.mediaUrl, `${base}.${ext}`));
   },
   descargarLamina(el){
     const c = findContenido(el.dataset.id); if(!c || !Array.isArray(c.mediaUrls)) return;
@@ -140,7 +140,7 @@ Object.assign(actions, {
     const url = c.mediaUrls[idx]; if(!url) return;
     const cuenta = findCuenta(c.cuentaId);
     const base = `${slugify(cuenta?cuenta.nombre:'contenido')}-${(c.tema||c.id)}`;
-    downloadUrl(url, `${base}-lamina-${idx+1}.png`);
+    withBusyButton(el, 'Descargando…', () => downloadUrl(url, `${base}-lamina-${idx+1}.png`));
   },
   editarCaption(el){
     const c = findContenido(el.dataset.id); if(!c) return;
