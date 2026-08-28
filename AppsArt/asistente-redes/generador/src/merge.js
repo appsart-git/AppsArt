@@ -13,25 +13,33 @@ async function descargarArchivo(url, destino){
 }
 
 /* Reemplaza el audio del clip de Runway (mudo o con música genérica) por la locución de
-   ElevenLabs, con el efecto de interferencia de fondo, y opcionalmente le pega atrás un
-   cierre de marca (logo real, ver logo-outro.js). Corre acá (dentro del runner de GitHub
-   Actions, que tiene ffmpeg) en vez de con ffmpeg.wasm en el navegador: es más simple
-   porque toda la generación ya pasa por acá.
+   ElevenLabs, con el efecto de interferencia de fondo, quema el subtítulo del guion,
+   le pega atrás el cierre de marca (logo real) y acelera el resultado final. Corre acá
+   (dentro del runner de GitHub Actions, que tiene ffmpeg) en vez de con ffmpeg.wasm en
+   el navegador: es más simple porque toda la generación ya pasa por acá.
 
-   Ajuste tras la primera corrida real: el efecto arrancaba junto con la voz y la tapaba,
-   y un guion más corto que el video de 10s terminaba recortando el video entero (porque
-   antes se usaba amix con duration=first, y -shortest contra un audio ya acotado a la voz).
-   Ahora la voz arranca con un pequeño retraso (el efecto "abre" el clip solo), el efecto se
-   apaga con un fade en vez de sonar parejo, y el audio se rellena con silencio (apad) antes
-   de recortar contra el video — así el clip de producto SIEMPRE dura los 10s completos. */
-async function mezclarVideoYNarracion(videoUrl, narracionBuffer, sfxBuffer, outroBuffer){
+   Ajustes tras las corridas reales:
+   1) el efecto arrancaba junto con la voz y la tapaba, y un guion más corto que el video
+      de 10s terminaba recortando el video entero (antes se usaba amix con duration=first,
+      y -shortest contra un audio ya acotado a la voz) — ahora la voz arranca con un
+      pequeño retraso, el efecto se apaga con un fade, y el audio se rellena con silencio
+      (apad) antes de recortar contra el video, así el clip de producto SIEMPRE dura los
+      10s completos.
+   2) seguía sintiéndose lento/sin energía — el cliente probó a mano ponerlo en velocidad
+      x1.25 y mejoró mucho, así que ahora se aplica siempre al resultado final (setpts para
+      el video, atempo para el audio — atempo preserva el tono de la voz, no sube el pitch
+      como un simple resample). */
+async function mezclarVideoYNarracion(videoUrl, narracionBuffer, sfxBuffer, outroBuffer, subtituloBuffer){
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'asistente-redes-'));
   const videoPath = path.join(dir, 'video.mp4');
   const audioPath = path.join(dir, 'narracion.mp3');
   const sfxPath = path.join(dir, 'sfx.wav');
+  const subPath = path.join(dir, 'subtitulo.png');
   const parteAPath = path.join(dir, 'parteA.mp4');
+  const parteASubPath = path.join(dir, 'parteA-sub.mp4');
   const outroPath = path.join(dir, 'outro.mp4');
-  const salidaPath = path.join(dir, 'final.mp4');
+  const concatPath = path.join(dir, 'concat.mp4');
+  const veloz = path.join(dir, 'final.mp4');
   const posterPath = path.join(dir, 'poster.jpg');
 
   try{
@@ -56,21 +64,39 @@ async function mezclarVideoYNarracion(videoUrl, narracionBuffer, sfxBuffer, outr
       ]);
     }
 
-    let finalPath = parteAPath;
+    let cuerpoPath = parteAPath;
+    if(subtituloBuffer){
+      fs.writeFileSync(subPath, subtituloBuffer);
+      await execFileAsync('ffmpeg', [
+        '-y', '-i', parteAPath, '-i', subPath,
+        '-filter_complex', '[0:v][1:v]overlay=0:0[v]',
+        '-map', '[v]', '-map', '0:a', '-c:a', 'copy', parteASubPath
+      ]);
+      cuerpoPath = parteASubPath;
+    }
+
+    let finalSinVelocidad = cuerpoPath;
     if(outroBuffer){
       fs.writeFileSync(outroPath, outroBuffer);
       await execFileAsync('ffmpeg', [
-        '-y', '-i', parteAPath, '-i', outroPath,
+        '-y', '-i', cuerpoPath, '-i', outroPath,
         '-filter_complex', '[0:v][0:a][1:v][1:a]concat=n=2:v=1:a=1[v][a]',
-        '-map', '[v]', '-map', '[a]', salidaPath
+        '-map', '[v]', '-map', '[a]', concatPath
       ]);
-      finalPath = salidaPath;
+      finalSinVelocidad = concatPath;
     }
 
-    await execFileAsync('ffmpeg', ['-y', '-i', finalPath, '-ss', '00:00:01', '-vframes', '1', posterPath]);
+    // x1.25: probado a mano por el cliente, mejora mucho la percepción de energía.
+    await execFileAsync('ffmpeg', [
+      '-y', '-i', finalSinVelocidad,
+      '-filter_complex', '[0:v]setpts=PTS/1.25[v];[0:a]atempo=1.25[a]',
+      '-map', '[v]', '-map', '[a]', veloz
+    ]);
+
+    await execFileAsync('ffmpeg', ['-y', '-i', veloz, '-ss', '00:00:01', '-vframes', '1', posterPath]);
 
     return {
-      videoBuffer: fs.readFileSync(finalPath),
+      videoBuffer: fs.readFileSync(veloz),
       posterBuffer: fs.readFileSync(posterPath)
     };
   } finally {

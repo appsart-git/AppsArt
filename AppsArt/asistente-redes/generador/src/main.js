@@ -11,6 +11,7 @@ const { renderFicha, renderInstitucionalImg } = require('./ficha');
 const { elegirPromptVideo } = require('./video-tecnoart');
 const { elegirSfx } = require('./sfx');
 const { renderLogoOutro } = require('./logo-outro');
+const { renderSubtitulo } = require('./subtitulo-tecnoart');
 const productosEntrePymes = require('./entrepymes-productos.json');
 const productosTecnoArt = require('./tecnoart-productos.json');
 const { subirArchivo } = require('./storage');
@@ -106,7 +107,8 @@ async function procesarCuenta(db, bucket, cuenta){
     const { audioBuffer, voz } = await generarNarracion(texto.guion);
     const { buffer: sfxBuffer, nombre: sfxNombre } = elegirSfx();
     const outroBuffer = await renderLogoOutro();
-    const { videoBuffer, posterBuffer } = await mezclarVideoYNarracion(videoUrl, audioBuffer, sfxBuffer, outroBuffer);
+    const subtituloBuffer = await renderSubtitulo(texto.guion);
+    const { videoBuffer, posterBuffer } = await mezclarVideoYNarracion(videoUrl, audioBuffer, sfxBuffer, outroBuffer, subtituloBuffer);
 
     const base = `cuentas/${cuenta.slug}/${Date.now()}`;
     const mediaUrl = await subirArchivo(bucket, videoBuffer, `${base}/video.mp4`, 'video/mp4');
