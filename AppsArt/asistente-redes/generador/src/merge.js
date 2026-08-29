@@ -26,9 +26,9 @@ async function descargarArchivo(url, destino){
       (apad) antes de recortar contra el video, así el clip de producto SIEMPRE dura los
       10s completos.
    2) seguía sintiéndose lento/sin energía — el cliente probó a mano ponerlo en velocidad
-      x1.25 y mejoró mucho, así que ahora se aplica siempre al resultado final (setpts para
-      el video, atempo para el audio — atempo preserva el tono de la voz, no sube el pitch
-      como un simple resample). */
+      x1.25 y mejoró mucho (después pidió subirlo más, a x1.4), así que ahora se aplica
+      siempre al resultado final (setpts para el video, atempo para el audio — atempo
+      preserva el tono de la voz, no sube el pitch como un simple resample). */
 async function mezclarVideoYNarracion(videoUrl, narracionBuffer, sfxBuffer, outroBuffer, subtituloBuffer){
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'asistente-redes-'));
   const videoPath = path.join(dir, 'video.mp4');
@@ -86,10 +86,10 @@ async function mezclarVideoYNarracion(videoUrl, narracionBuffer, sfxBuffer, outr
       finalSinVelocidad = concatPath;
     }
 
-    // x1.25: probado a mano por el cliente, mejora mucho la percepción de energía.
+    // x1.4: probado a mano por el cliente (empezó en x1.25, pidió subirlo a x1.4).
     await execFileAsync('ffmpeg', [
       '-y', '-i', finalSinVelocidad,
-      '-filter_complex', '[0:v]setpts=PTS/1.25[v];[0:a]atempo=1.25[a]',
+      '-filter_complex', '[0:v]setpts=PTS/1.4[v];[0:a]atempo=1.4[a]',
       '-map', '[v]', '-map', '[a]', veloz
     ]);
 
