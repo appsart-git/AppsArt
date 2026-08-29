@@ -12,8 +12,11 @@ const { elegirPromptVideo } = require('./video-tecnoart');
 const { elegirSfx } = require('./sfx');
 const { renderLogoOutro } = require('./logo-outro');
 const { renderSubtitulo } = require('./subtitulo-tecnoart');
+const { descargarDriveArchivo } = require('./drive');
+const { normalizarVideoReal } = require('./video-real-tecnoart');
 const productosEntrePymes = require('./entrepymes-productos.json');
 const productosTecnoArt = require('./tecnoart-productos.json');
+const videosTecnoArt = require('./tecnoart-videos.json');
 const { subirArchivo } = require('./storage');
 const { notificarNtfy } = require('./notificar');
 const { registrarCorrida } = require('./runLog');
@@ -98,17 +101,35 @@ async function procesarCuenta(db, bucket, cuenta){
     if(!producto){
       throw new Error(`No se encontró el producto real "${tema}" en tecnoart-productos.json — revisar temasContenido de la cuenta.`);
     }
-    const contadorFotos = cuenta.tecnoArtFotoContador || 0;
-    const fotoUrl = producto.fotos[contadorFotos % producto.fotos.length];
-    const { promptVideo, variante } = elegirPromptVideo(producto);
     const texto = await generarTextoVideoProducto(cuenta, producto);
 
-    const videoUrl = await generarVideo(promptVideo, fotoUrl);
+    /* Si hay filmación real del producto (ver tecnoart-videos.json — cliente filmó los
+       productos con el celular), se usa esa en vez de que Runway anime una foto: más
+       fiel al producto real y sin costo de Runway. Se rota entre las tomas reales
+       disponibles con su propio contador, igual que las fotos. */
+    const videosReales = videosTecnoArt[producto.nombre] || [];
+    let videoInput, metadatosVideo, actualizacionCuenta;
+    if(videosReales.length > 0){
+      const contadorVideo = cuenta.tecnoArtVideoRealContador || 0;
+      const elegido = videosReales[contadorVideo % videosReales.length];
+      const crudo = await descargarDriveArchivo(elegido.driveFileId);
+      videoInput = await normalizarVideoReal(crudo);
+      metadatosVideo = { modeloVideo: 'filmacion-real', archivoOrigen: elegido.filename };
+      actualizacionCuenta = { tecnoArtVideoRealContador: contadorVideo + 1 };
+    } else {
+      const contadorFotos = cuenta.tecnoArtFotoContador || 0;
+      const fotoUrl = producto.fotos[contadorFotos % producto.fotos.length];
+      const { promptVideo, variante } = elegirPromptVideo(producto);
+      videoInput = await generarVideo(promptVideo, fotoUrl);
+      metadatosVideo = { modeloVideo: 'runway-gen4_turbo', fotoUrl, variante };
+      actualizacionCuenta = { tecnoArtFotoContador: contadorFotos + 1 };
+    }
+
     const { audioBuffer, voz } = await generarNarracion(texto.guion);
     const { buffer: sfxBuffer, nombre: sfxNombre } = elegirSfx();
     const outroBuffer = await renderLogoOutro();
     const subtituloBuffer = await renderSubtitulo(texto.guion);
-    const { videoBuffer, posterBuffer } = await mezclarVideoYNarracion(videoUrl, audioBuffer, sfxBuffer, outroBuffer, subtituloBuffer);
+    const { videoBuffer, posterBuffer } = await mezclarVideoYNarracion(videoInput, audioBuffer, sfxBuffer, outroBuffer, subtituloBuffer);
 
     const base = `cuentas/${cuenta.slug}/${Date.now()}`;
     const mediaUrl = await subirArchivo(bucket, videoBuffer, `${base}/video.mp4`, 'video/mp4');
@@ -117,12 +138,12 @@ async function procesarCuenta(db, bucket, cuenta){
     const contenidoRef = await db.collection('contenido').add({
       cuentaId: cuenta.id, estado: 'pendiente', tipo: 'video', tema,
       caption: texto.caption, guion: texto.guion, mediaUrl, thumbnailUrl,
-      metadatos: { modeloTexto: 'claude-sonnet-5', modeloVideo: 'runway-gen4_turbo', modeloTTS: 'elevenlabs', fotoUrl, variante, voz, sfx: sfxNombre },
+      metadatos: { modeloTexto: 'claude-sonnet-5', modeloTTS: 'elevenlabs', voz, sfx: sfxNombre, ...metadatosVideo },
       generadoEn: new Date().toISOString()
     });
     await db.collection('cuentas').doc(cuenta.id).update({
       ultimaGeneracion: new Date().toISOString(), ultimoTemaIndex: nuevoIndex, regenerarTema: null,
-      tecnoArtFotoContador: contadorFotos + 1
+      ...actualizacionCuenta
     });
     return { cuentaId: cuenta.id, ok: true, contenidoId: contenidoRef.id };
   }

@@ -29,7 +29,9 @@ async function descargarArchivo(url, destino){
       x1.25 y mejoró mucho (después pidió subirlo más, a x1.4), así que ahora se aplica
       siempre al resultado final (setpts para el video, atempo para el audio — atempo
       preserva el tono de la voz, no sube el pitch como un simple resample). */
-async function mezclarVideoYNarracion(videoUrl, narracionBuffer, sfxBuffer, outroBuffer, subtituloBuffer){
+/* videoUrlOrBuffer: URL del clip de Runway (se descarga acá) o, para productos con
+   video real, un Buffer ya normalizado por video-real-tecnoart.js (se escribe directo). */
+async function mezclarVideoYNarracion(videoUrlOrBuffer, narracionBuffer, sfxBuffer, outroBuffer, subtituloBuffer){
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'asistente-redes-'));
   const videoPath = path.join(dir, 'video.mp4');
   const audioPath = path.join(dir, 'narracion.mp3');
@@ -43,7 +45,11 @@ async function mezclarVideoYNarracion(videoUrl, narracionBuffer, sfxBuffer, outr
   const posterPath = path.join(dir, 'poster.jpg');
 
   try{
-    await descargarArchivo(videoUrl, videoPath);
+    if(Buffer.isBuffer(videoUrlOrBuffer)){
+      fs.writeFileSync(videoPath, videoUrlOrBuffer);
+    } else {
+      await descargarArchivo(videoUrlOrBuffer, videoPath);
+    }
     fs.writeFileSync(audioPath, narracionBuffer);
 
     if(sfxBuffer){
