@@ -555,16 +555,15 @@ function confirmDialog(message, onConfirm){
     </div>`);
 }
 async function downloadUrl(url, filename){
-  // Intento 1 (fetch+blob) falla si el bucket no tiene CORS habilitado para este origen
-  // ("Failed to fetch" — confirmado en pruebas reales). En vez de depender de CORS, se usa
-  // el parámetro nativo de Google Cloud Storage response-content-disposition: el propio
-  // servidor manda Content-Disposition: attachment, así que ni siquiera hace falta leer el
-  // archivo desde JS — funciona con una navegación común, cross-origin o no.
-  const sep = url.includes('?') ? '&' : '?';
-  const dispo = encodeURIComponent(`attachment; filename="${filename || 'archivo'}"`);
-  const finalUrl = `${url}${sep}response-content-disposition=${dispo}`;
+  // Intento 1 (fetch+blob) fallaba por CORS, e intento 2 (?response-content-disposition
+  // en la URL) tampoco funciona: ese parámetro de Google Cloud Storage solo se respeta en
+  // URLs firmadas, no en acceso público simple. El fix real quedó del lado del servidor
+  // (generador/src/storage.js guarda contentDisposition:'attachment' en los metadatos del
+  // archivo al subirlo) — así que acá alcanza con una navegación común. El atributo
+  // download del <a> igual se deja: si el archivo es same-origin en algún momento, o el
+  // navegador respeta el nombre sugerido, mejor.
   const a = document.createElement('a');
-  a.href = finalUrl; a.rel = 'noopener';
+  a.href = url; a.download = filename || ''; a.rel = 'noopener';
   document.body.appendChild(a); a.click(); a.remove();
 }
 async function withBusyButton(btn, busyLabel, fn){
