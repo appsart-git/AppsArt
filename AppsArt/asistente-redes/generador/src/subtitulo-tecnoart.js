@@ -30,7 +30,7 @@ function paginaSubtitulo(texto){
       text-align:center;
     }
     .texto{
-      color:#ffffff; font-weight:700; font-size:19px; line-height:1.3;
+      color:#ffffff; font-weight:700; font-size:29px; line-height:1.3;
       background:rgba(0,0,0,0.5); border-radius:8px; padding:8px 14px;
       text-shadow:0 1px 3px rgba(0,0,0,0.5);
       display:inline-block;
