@@ -12,7 +12,14 @@
    diferencia de rgbashift/blend que solo aceptan valores fijos).
 
    Para que dos posts seguidos no salgan iguales aunque toque la misma variante, cada
-   parámetro numérico se sortea dentro de un rango en vez de ser un valor fijo. */
+   parámetro numérico se sortea dentro de un rango en vez de ser un valor fijo.
+
+   Tercera vuelta de feedback ("solo necesitamos mas efectos sobre la imagen"): se suma
+   una capa extra pareja a las 4 variantes (no una 5ta variante a elegir al azar, sino un
+   refuerzo constante) con viñeta (bordes oscurecidos, foco al centro) + líneas de escaneo
+   tipo CRT (drawgrid usado como textura de líneas horizontales finas, no como grilla real
+   — mismo truco que ya se usaba para el resto: describir el efecto con filtros deterministas
+   de ffmpeg, nunca pidiéndoselo a un modelo generativo). */
 
 function entre(min, max){ return min + Math.random() * (max - min); }
 function elegir(lista){ return lista[Math.floor(Math.random() * lista.length)]; }
@@ -47,9 +54,16 @@ const VARIANTES = [
 
 const NOMBRES = ['glitch-entrada', 'escaneo-wireframe', 'zoom-pulso-neon', 'cortes-vhs'];
 
+function capaExtra(){
+  const anguloVineta = entre(3, 5).toFixed(2);
+  const espaciado = Math.round(entre(3, 6));
+  const opacidad = entre(0.25, 0.4).toFixed(2);
+  return `vignette=PI/${anguloVineta},drawgrid=w=iw:h=${espaciado}:t=1:c=black@${opacidad}`;
+}
+
 function elegirEfectoReal(){
   const idx = Math.floor(Math.random() * VARIANTES.length);
-  return { nombre: NOMBRES[idx], filtro: VARIANTES[idx]() };
+  return { nombre: NOMBRES[idx], filtro: `${VARIANTES[idx]()},${capaExtra()}` };
 }
 
 module.exports = { elegirEfectoReal };
