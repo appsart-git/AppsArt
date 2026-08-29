@@ -30,13 +30,16 @@ async function descargarArchivo(url, destino){
       siempre al resultado final (setpts para el video, atempo para el audio — atempo
       preserva el tono de la voz, no sube el pitch como un simple resample). */
 /* videoUrlOrBuffer: URL del clip de Runway (se descarga acá) o, para productos con
-   video real, un Buffer ya normalizado por video-real-tecnoart.js (se escribe directo). */
-async function mezclarVideoYNarracion(videoUrlOrBuffer, narracionBuffer, sfxBuffer, outroBuffer, subtituloBuffer){
+   video real, un Buffer ya normalizado por video-real-tecnoart.js (se escribe directo).
+   subtitulos: array de {texto,inicio,fin,buffer} (ver narracion.js/subtitulo-tecnoart.js)
+   — cada bloque se superpone SOLO durante su propia ventana de tiempo (+0.5s, el mismo
+   adelay que se le aplica a la voz más abajo), así el texto va corriendo con la locución
+   en vez de ser un cartel fijo todo el video. */
+async function mezclarVideoYNarracion(videoUrlOrBuffer, narracionBuffer, sfxBuffer, outroBuffer, subtitulos){
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'asistente-redes-'));
   const videoPath = path.join(dir, 'video.mp4');
   const audioPath = path.join(dir, 'narracion.mp3');
   const sfxPath = path.join(dir, 'sfx.wav');
-  const subPath = path.join(dir, 'subtitulo.png');
   const parteAPath = path.join(dir, 'parteA.mp4');
   const parteASubPath = path.join(dir, 'parteA-sub.mp4');
   const outroPath = path.join(dir, 'outro.mp4');
@@ -71,11 +74,27 @@ async function mezclarVideoYNarracion(videoUrlOrBuffer, narracionBuffer, sfxBuff
     }
 
     let cuerpoPath = parteAPath;
-    if(subtituloBuffer){
-      fs.writeFileSync(subPath, subtituloBuffer);
+    const DEMORA_VOZ = 0.5; // igual al adelay=500 aplicado arriba
+    if(subtitulos && subtitulos.length > 0){
+      const inputs = ['-i', parteAPath];
+      subtitulos.forEach((s, i) => {
+        const p = path.join(dir, `subtitulo-${i}.png`);
+        fs.writeFileSync(p, s.buffer);
+        inputs.push('-i', p);
+      });
+      let cadena = '';
+      let etiquetaPrevia = '0:v';
+      subtitulos.forEach((s, i) => {
+        const etiquetaSalida = i === subtitulos.length - 1 ? 'v' : `v${i}`;
+        const inicio = (s.inicio || 0) + DEMORA_VOZ;
+        const fin = (s.fin || inicio) + DEMORA_VOZ;
+        cadena += `[${etiquetaPrevia}][${i + 1}:v]overlay=0:0:enable='between(t,${inicio},${fin})'[${etiquetaSalida}];`;
+        etiquetaPrevia = etiquetaSalida;
+      });
+      cadena = cadena.slice(0, -1); // saca el ; final
       await execFileAsync('ffmpeg', [
-        '-y', '-i', parteAPath, '-i', subPath,
-        '-filter_complex', '[0:v][1:v]overlay=0:0[v]',
+        '-y', ...inputs,
+        '-filter_complex', cadena,
         '-map', '[v]', '-map', '0:a', '-c:a', 'copy', parteASubPath
       ]);
       cuerpoPath = parteASubPath;

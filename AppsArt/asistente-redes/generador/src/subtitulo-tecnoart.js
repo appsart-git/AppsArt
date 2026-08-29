@@ -4,13 +4,17 @@ const os = require('os');
 const path = require('path');
 const { chromium } = require('playwright');
 
-/* Subtítulo quemado para los reels de producto de Tecno Art: el guion completo (ya es
-   corto, 6-8s / 15-22 palabras) como una sola placa de texto real renderizada con
-   Playwright (no el filtro drawtext de ffmpeg, que es frágil con acentos/signos ¿?/
-   comillas) — mismo criterio que carrusel.js/ficha.js: tipografía real, no aproximada.
-   Se ubica en el tercio inferior pero por encima de donde Instagram superpone su propia
-   interfaz (like/comentar/caption) al reproducir un reel, para que no quede tapado ni
-   tape demasiado la imagen del producto. */
+/* Subtítulos quemados para los reels de producto de Tecno Art: van corriendo con la
+   locución (un bloque corto de texto por vez, sincronizado con los timestamps reales de
+   ElevenLabs — ver narracion.js), no un cartel fijo con todo el guion. Letra chica, bien
+   abajo de la imagen. Cada bloque se renderiza con Playwright (no el filtro drawtext de
+   ffmpeg, que es frágil con acentos/signos ¿?/comillas) — mismo criterio que
+   carrusel.js/ficha.js: tipografía real, no aproximada.
+
+   Primera versión mostraba el guion completo como una sola placa fija durante los 10s,
+   con letra grande y bastante arriba del piso del cuadro — el cliente pidió que corra
+   con la voz, con letra chica, bien abajo (y que se saque del todo si no se puede hacer
+   bien sincronizado). */
 
 const ANCHO = 720, ALTO = 1280;
 
@@ -21,15 +25,15 @@ function paginaSubtitulo(texto){
     html,body{width:${ANCHO}px;height:${ALTO}px;overflow:hidden;background:transparent;}
     .lienzo{width:${ANCHO}px;height:${ALTO}px;position:relative;font-family:'Manrope',Arial,sans-serif;}
     .caja{
-      position:absolute; left:36px; right:36px; bottom:300px;
-      background:rgba(0,0,0,0.55); border-radius:16px;
-      padding:20px 24px;
+      position:absolute; left:60px; right:60px; bottom:90px;
       display:flex; align-items:center; justify-content:center;
       text-align:center;
     }
     .texto{
-      color:#ffffff; font-weight:800; font-size:33px; line-height:1.35;
-      text-shadow:0 1px 4px rgba(0,0,0,0.4);
+      color:#ffffff; font-weight:700; font-size:19px; line-height:1.3;
+      background:rgba(0,0,0,0.5); border-radius:8px; padding:8px 14px;
+      text-shadow:0 1px 3px rgba(0,0,0,0.5);
+      display:inline-block;
     }
   </style></head><body>
     <div class="lienzo">
@@ -43,25 +47,33 @@ function escHtml(s){
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-/* Devuelve un PNG con canal alfa (fondo transparente salvo la caja del subtítulo),
-   listo para superponerse al video con ffmpeg overlay. */
-async function renderSubtitulo(guion){
+/* Renderiza un bloque de subtítulos por cada elemento de `bloques` ({texto,inicio,fin}),
+   reusando un solo browser. Devuelve el mismo array con un `buffer` (PNG con canal alfa)
+   agregado a cada bloque, listo para superponerse al video con ffmpeg overlay + enable
+   entre inicio/fin. */
+async function renderSubtitulos(bloques){
+  if(!bloques || bloques.length === 0) return [];
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tecnoart-sub-'));
   let browser;
   try{
     browser = await chromium.launch();
     const page = await browser.newPage({ viewport: { width: ANCHO, height: ALTO } });
-    await page.setContent(paginaSubtitulo(escHtml(guion)));
-    await page.evaluate(() => document.fonts.ready);
-    const framePath = path.join(dir, 'subtitulo.png');
-    await page.screenshot({ path: framePath, omitBackground: true });
+    const salida = [];
+    for(let i = 0; i < bloques.length; i++){
+      const bloque = bloques[i];
+      await page.setContent(paginaSubtitulo(escHtml(bloque.texto)));
+      await page.evaluate(() => document.fonts.ready);
+      const framePath = path.join(dir, `subtitulo-${i}.png`);
+      await page.screenshot({ path: framePath, omitBackground: true });
+      salida.push({ ...bloque, buffer: fs.readFileSync(framePath) });
+    }
     await browser.close();
     browser = null;
-    return fs.readFileSync(framePath);
+    return salida;
   } finally {
     if(browser) await browser.close().catch(() => {});
     fs.rmSync(dir, { recursive: true, force: true });
   }
 }
 
-module.exports = { renderSubtitulo };
+module.exports = { renderSubtitulos };

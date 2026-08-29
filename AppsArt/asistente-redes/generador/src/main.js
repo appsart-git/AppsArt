@@ -11,9 +11,10 @@ const { renderFicha, renderInstitucionalImg } = require('./ficha');
 const { elegirPromptVideo } = require('./video-tecnoart');
 const { elegirSfx } = require('./sfx');
 const { renderLogoOutro } = require('./logo-outro');
-const { renderSubtitulo } = require('./subtitulo-tecnoart');
+const { renderSubtitulos } = require('./subtitulo-tecnoart');
 const { descargarDriveArchivo } = require('./drive');
 const { normalizarVideoReal } = require('./video-real-tecnoart');
+const { elegirEfectoReal } = require('./efectos-real-tecnoart');
 const productosEntrePymes = require('./entrepymes-productos.json');
 const productosTecnoArt = require('./tecnoart-productos.json');
 const videosTecnoArt = require('./tecnoart-videos.json');
@@ -113,8 +114,9 @@ async function procesarCuenta(db, bucket, cuenta){
       const contadorVideo = cuenta.tecnoArtVideoRealContador || 0;
       const elegido = videosReales[contadorVideo % videosReales.length];
       const crudo = await descargarDriveArchivo(elegido.driveFileId);
-      videoInput = await normalizarVideoReal(crudo);
-      metadatosVideo = { modeloVideo: 'filmacion-real', archivoOrigen: elegido.filename };
+      const { nombre: efectoNombre, filtro: efectoFiltro } = elegirEfectoReal();
+      videoInput = await normalizarVideoReal(crudo, efectoFiltro);
+      metadatosVideo = { modeloVideo: 'filmacion-real', archivoOrigen: elegido.filename, variante: efectoNombre };
       actualizacionCuenta = { tecnoArtVideoRealContador: contadorVideo + 1 };
     } else {
       const contadorFotos = cuenta.tecnoArtFotoContador || 0;
@@ -125,11 +127,11 @@ async function procesarCuenta(db, bucket, cuenta){
       actualizacionCuenta = { tecnoArtFotoContador: contadorFotos + 1 };
     }
 
-    const { audioBuffer, voz } = await generarNarracion(texto.guion);
+    const { audioBuffer, voz, subtitulos: bloquesSubtitulo } = await generarNarracion(texto.guion);
     const { buffer: sfxBuffer, nombre: sfxNombre } = elegirSfx();
     const outroBuffer = await renderLogoOutro();
-    const subtituloBuffer = await renderSubtitulo(texto.guion);
-    const { videoBuffer, posterBuffer } = await mezclarVideoYNarracion(videoInput, audioBuffer, sfxBuffer, outroBuffer, subtituloBuffer);
+    const subtitulos = await renderSubtitulos(bloquesSubtitulo);
+    const { videoBuffer, posterBuffer } = await mezclarVideoYNarracion(videoInput, audioBuffer, sfxBuffer, outroBuffer, subtitulos);
 
     const base = `cuentas/${cuenta.slug}/${Date.now()}`;
     const mediaUrl = await subirArchivo(bucket, videoBuffer, `${base}/video.mp4`, 'video/mp4');
