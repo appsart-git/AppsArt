@@ -1,7 +1,7 @@
 'use strict';
 const { initFirebase } = require('./firebase');
 const { cuentasActivas, cuentasVencidas, proximoTema } = require('./cuentas');
-const { generarTexto, generarTextoCarrusel, generarTextoFichaProducto, generarTextoInstitucional, generarTextoVideoProducto, generarTextoEspacio } = require('./texto');
+const { generarTexto, generarTextoCarrusel, generarTextoFichaProducto, generarTextoInstitucional, generarTextoVideoProducto, generarTextoEspacio, generarTextoEspacioCarrusel } = require('./texto');
 const { generarImagen } = require('./imagen');
 const { generarVideo } = require('./video');
 const { generarNarracion } = require('./narracion');
@@ -17,6 +17,7 @@ const { normalizarVideoReal } = require('./video-real-tecnoart');
 const { elegirEfectoReal } = require('./efectos-real-tecnoart');
 const { obtenerFotoReal } = require('./foto-real-tresestaciones');
 const { renderEspacio } = require('./espacio');
+const { renderEspacioCarrusel } = require('./espacio-carrusel');
 const productosEntrePymes = require('./entrepymes-productos.json');
 const productosTecnoArt = require('./tecnoart-productos.json');
 const videosTecnoArt = require('./tecnoart-videos.json');
@@ -186,6 +187,45 @@ async function procesarCuenta(db, bucket, cuenta){
     const pool = categoria && fotosTresEstaciones[categoria];
     if(!pool || pool.length === 0){
       throw new Error(`No hay fotos reales cargadas para el tema "${tema}" — revisar tresestaciones-fotos.json/temasContenido de la cuenta.`);
+    }
+
+    // Con 3 fotos o más alcanza para armar un carrusel (portada + contenido + cierre) que
+    // aprovecha varios ángulos reales del mismo lugar en un solo posteo. Con menos, un
+    // carrusel queda pobre — se mantiene el formato de una sola foto, rotando por categoría.
+    if(pool.length >= 3){
+      const fotos = [];
+      for(const item of pool){
+        fotos.push({ item, buffer: await obtenerFotoReal(item) });
+      }
+      const descripciones = pool.map(p => p.descripcion);
+      const texto = await generarTextoEspacioCarrusel(cuenta, tema, descripciones);
+
+      const slides = [{
+        tipo: 'portada', fotoBuffer: fotos[0].buffer, foco: fotos[0].item.foco,
+        eyebrow: texto.portada.eyebrow, titulo: texto.portada.titulo, subtitulo: texto.portada.subtitulo
+      }];
+      for(let i = 1; i < fotos.length; i++){
+        slides.push({ tipo: 'contenido', fotoBuffer: fotos[i].buffer, foco: fotos[i].item.foco, texto: texto.slides[i - 1] });
+      }
+      slides.push({ tipo: 'cierre', titulo: texto.cierre.titulo, cta: texto.cierre.cta });
+
+      const buffers = await renderEspacioCarrusel(slides);
+      const base = `cuentas/${cuenta.slug}/${Date.now()}`;
+      const mediaUrls = [];
+      for(let i = 0; i < buffers.length; i++){
+        mediaUrls.push(await subirArchivo(bucket, buffers[i], `${base}/slide-${i + 1}.png`, 'image/png'));
+      }
+
+      const contenidoRef = await db.collection('contenido').add({
+        cuentaId: cuenta.id, estado: 'pendiente', tipo: 'carrusel', tema,
+        caption: texto.caption, mediaUrl: mediaUrls[0], mediaUrls,
+        metadatos: { modeloTexto: 'claude-sonnet-5', render: 'html-espacio-carrusel', categoria },
+        generadoEn: new Date().toISOString()
+      });
+      await db.collection('cuentas').doc(cuenta.id).update({
+        ultimaGeneracion: new Date().toISOString(), ultimoTemaIndex: nuevoIndex, regenerarTema: null
+      });
+      return { cuentaId: cuenta.id, ok: true, contenidoId: contenidoRef.id };
     }
 
     // Un contador por categoría (no uno global) para que cada tema rote sus propias fotos

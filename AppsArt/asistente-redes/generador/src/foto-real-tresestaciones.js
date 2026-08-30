@@ -25,7 +25,15 @@ const { descargarDriveArchivo } = require('./drive');
    exacto pedido (se notó en un posteo real: el frame de "el quincho" salió borroso e
    irreconocible pese a que el timestamp era el correcto). Es más lento por decodificar
    desde el inicio, pero acá se extrae un solo frame por generación, así que el costo es
-   insignificante. */
+   insignificante.
+
+   EMBELLECER: son fotos crudas de celular, muchas grises/apagadas (día nublado, poca luz).
+   El cliente pidió "embellecer" las fotos — se aplica una corrección de color pareja y
+   sutil (contraste/saturación/gamma + un enfoque leve), nunca generativa: sigue siendo la
+   foto real, solo mejor expuesta. Valores conservadores a propósito (ver test-embellecer-*
+   comparados a mano): un poco más y empieza a verse artificial/oversaturado. */
+const FILTRO_EMBELLECER = 'eq=contrast=1.10:brightness=0.02:saturation=1.18:gamma=1.05,unsharp=5:5:0.6';
+
 async function obtenerFotoReal({ driveFileId, tipo, timestampSeg }){
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tresestaciones-foto-'));
   const entrada = path.join(dir, 'entrada');
@@ -35,8 +43,8 @@ async function obtenerFotoReal({ driveFileId, tipo, timestampSeg }){
     fs.writeFileSync(entrada, buffer);
 
     const args = tipo === 'video'
-      ? ['-y', '-i', entrada, '-ss', String(timestampSeg || 1), '-map', '0:v:0', '-update', '1', '-vframes', '1', '-q:v', '2', salida]
-      : ['-y', '-i', entrada, '-map', '0:v:0', '-update', '1', '-q:v', '2', salida];
+      ? ['-y', '-i', entrada, '-ss', String(timestampSeg || 1), '-map', '0:v:0', '-update', '1', '-vframes', '1', '-vf', FILTRO_EMBELLECER, '-q:v', '2', salida]
+      : ['-y', '-i', entrada, '-map', '0:v:0', '-update', '1', '-vf', FILTRO_EMBELLECER, '-q:v', '2', salida];
 
     await execFileAsync('ffmpeg', args);
     return fs.readFileSync(salida);

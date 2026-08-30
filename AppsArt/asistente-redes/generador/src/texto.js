@@ -3,6 +3,16 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+/* Red de seguridad: todas las funciones piden a Claude "2-4 hashtags al final", pero un
+   llamado puntual puede devolver el caption sin ninguno (pasó de verdad en un posteo real
+   de Casa Quinta Tres Estaciones) — más confiable garantizarlo acá que confiar en que el
+   modelo lo cumpla siempre. */
+function asegurarHashtags(caption, hashtagsBase){
+  if(/#\w/.test(caption || '')) return caption;
+  const tags = (hashtagsBase || []).slice(0, 4).join(' ');
+  return tags ? `${caption}\n\n${tags}` : caption;
+}
+
 async function pedirJSON(prompt, maxTokens){
   const msg = await anthropic.messages.create({
     model: 'claude-sonnet-5',
@@ -46,6 +56,7 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) c
   const data = await pedirJSON(prompt);
   if(!data.caption || !data.promptImagen) throw new Error('La respuesta de Claude no tiene caption/promptImagen.');
   if(necesitaVideo && (!data.guion || !data.promptVideo)) throw new Error('La respuesta de Claude no tiene guion/promptVideo para una cuenta con video.');
+  data.caption = asegurarHashtags(data.caption, cuenta.hashtagsBase);
   return data;
 }
 
@@ -117,6 +128,7 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) c
   if(!Array.isArray(contenido.items) || contenido.items.length !== 6){
     throw new Error('La lámina "contenido" del carrusel no tiene los 6 items de la variante grilla.');
   }
+  data.caption = asegurarHashtags(data.caption, cuenta.hashtagsBase);
   return data;
 }
 
@@ -160,6 +172,7 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) c
   if(!data.caption || !Array.isArray(data.specs) || data.specs.length === 0){
     throw new Error('La respuesta de Claude no tiene caption/specs válidos para la ficha de producto.');
   }
+  data.caption = asegurarHashtags(data.caption, cuenta.hashtagsBase);
   return data;
 }
 
@@ -190,6 +203,7 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) c
   if(!data.caption || !data.titulo){
     throw new Error('La respuesta de Claude no tiene caption/titulo válidos para el institucional.');
   }
+  data.caption = asegurarHashtags(data.caption, cuenta.hashtagsBase);
   return data;
 }
 
@@ -233,6 +247,7 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown):
   if(!data.guion || !data.caption){
     throw new Error('La respuesta de Claude no tiene guion/caption válidos para el reel de producto.');
   }
+  data.caption = asegurarHashtags(data.caption, cuenta.hashtagsBase);
   return data;
 }
 
@@ -265,7 +280,58 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) c
   if(!data.caption || !data.titulo){
     throw new Error('La respuesta de Claude no tiene caption/titulo válidos para el post de espacio.');
   }
+  data.caption = asegurarHashtags(data.caption, cuenta.hashtagsBase);
   return data;
 }
 
-module.exports = { generarTexto, generarTextoCarrusel, generarTextoFichaProducto, generarTextoInstitucional, generarTextoVideoProducto, generarTextoEspacio };
+/* Carrusel editorial de Casa Quinta Tres Estaciones: varias fotos reales del mismo tema
+   en un solo posteo (ver espacio-carrusel.js). Igual criterio que generarTextoEspacio —
+   cada lámina de contenido tiene que anclarse en lo que ESA foto puntual muestra, nunca
+   en la propuesta general del predio, así que se le pasa a Claude la descripción real de
+   cada foto en orden y se le pide una línea corta por cada una (nunca texto genérico que
+   podría aplicar a cualquier foto del predio). */
+async function generarTextoEspacioCarrusel(cuenta, tema, descripciones){
+  const listaFotos = descripciones.map((d, i) => `${i + 1}. ${d}`).join('\n');
+  const prompt = `
+Sos el/la community manager de "${cuenta.nombre}" (${cuenta.rubro || ''}).
+Descripción del negocio: ${cuenta.descripcionNegocio || '-'}
+Voz de marca / tono: ${cuenta.vozMarca || '-'}
+Público objetivo: ${cuenta.publicoObjetivo || '-'}
+Identidad visual: ${cuenta.identidadVisual || '-'}
+Instrucciones extra: ${cuenta.promptExtra || '-'}
+
+Vas a armar un carrusel de Instagram de ${descripciones.length + 1} láminas sobre: "${tema}".
+Hay ${descripciones.length} fotos reales, en este orden (la lámina 1/portada usa la foto 1, y cada
+lámina de contenido siguiente usa la foto correspondiente — no inventes ni asumas que una foto
+muestra algo distinto a esto):
+${listaFotos}
+
+La última lámina no lleva foto (es un cierre de marca con el logo).
+
+Tarea:
+1. Portada (usa la foto 1): eyebrow corto en mayúsculas + titular evocador (hasta 6 palabras) +
+   subtítulo de una línea, todo anclado en lo que la foto 1 muestra.
+2. Una línea corta (hasta 12 palabras) por cada foto RESTANTE (${descripciones.length - 1} en total,
+   en el mismo orden), que sume algo nuevo a la portada, no la repita.
+3. Cierre: titular corto (la invitación a contactar) + texto para el botón CTA.
+4. Caption de Instagram que complementa el carrusel (no lo repite), cálido y aspiracional, con 2 a 4
+   hashtags relevantes al final (todo en minúsculas y sin espacios ni separadores dentro de cada
+   hashtag, ej. #paradarobles).
+
+Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) con esta forma exacta:
+{
+  "caption": "...",
+  "portada": {"eyebrow": "...", "titulo": "...", "subtitulo": "..."},
+  "slides": ["línea corta para la foto 2", "línea corta para la foto 3", "..."],
+  "cierre": {"titulo": "...", "cta": "..."}
+}`.trim();
+
+  const data = await pedirJSON(prompt, 1536);
+  if(!data.caption || !data.portada || !data.portada.titulo || !Array.isArray(data.slides) || data.slides.length !== descripciones.length - 1 || !data.cierre || !data.cierre.titulo){
+    throw new Error('La respuesta de Claude no tiene la forma esperada para el carrusel de espacio.');
+  }
+  data.caption = asegurarHashtags(data.caption, cuenta.hashtagsBase);
+  return data;
+}
+
+module.exports = { generarTexto, generarTextoCarrusel, generarTextoFichaProducto, generarTextoInstitucional, generarTextoVideoProducto, generarTextoEspacio, generarTextoEspacioCarrusel };
