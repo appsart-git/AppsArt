@@ -17,7 +17,15 @@ const { descargarDriveArchivo } = require('./drive');
 
    Se normaliza siempre a JPEG vía ffmpeg (no solo para los HEIC): así el resto del
    pipeline (renderEspacio.js) recibe siempre el mismo formato sin importar si la fuente
-   real era una foto o un frame de video. */
+   real era una foto o un frame de video.
+
+   El -ss va DESPUÉS de -i (seek preciso, decodifica desde el arranque) y no antes (seek
+   rápido, salta al keyframe más cercano) — con -ss antes de -i, varios de estos videos de
+   celular devolvían un frame corrupto/con artefactos de compresión en vez del instante
+   exacto pedido (se notó en un posteo real: el frame de "el quincho" salió borroso e
+   irreconocible pese a que el timestamp era el correcto). Es más lento por decodificar
+   desde el inicio, pero acá se extrae un solo frame por generación, así que el costo es
+   insignificante. */
 async function obtenerFotoReal({ driveFileId, tipo, timestampSeg }){
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tresestaciones-foto-'));
   const entrada = path.join(dir, 'entrada');
@@ -27,7 +35,7 @@ async function obtenerFotoReal({ driveFileId, tipo, timestampSeg }){
     fs.writeFileSync(entrada, buffer);
 
     const args = tipo === 'video'
-      ? ['-y', '-ss', String(timestampSeg || 1), '-i', entrada, '-map', '0:v:0', '-update', '1', '-vframes', '1', '-q:v', '2', salida]
+      ? ['-y', '-i', entrada, '-ss', String(timestampSeg || 1), '-map', '0:v:0', '-update', '1', '-vframes', '1', '-q:v', '2', salida]
       : ['-y', '-i', entrada, '-map', '0:v:0', '-update', '1', '-q:v', '2', salida];
 
     await execFileAsync('ffmpeg', args);

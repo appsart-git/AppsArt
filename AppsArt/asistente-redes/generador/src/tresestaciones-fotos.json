@@ -8,7 +8,7 @@
     { "driveFileId": "1jqFxeqldH0VmSTG7ZQhhbAQgnZJM1V4R", "tipo": "video", "timestampSeg": 0.5, "foco": "bottom", "descripcion": "Pileta en día soleado con toallas y reposeras tendidas junto al deck, entre pinos y palmeras." }
   ],
   "quincho-parrilla": [
-    { "driveFileId": "1TRb8_2uuaZ7vtMdaFkVb023Wk2V-E6fH", "tipo": "video", "timestampSeg": 2, "descripcion": "Galería/quincho de ladrillo cubierta, con faroles colgantes, columnas y vista hacia el jardín." },
+    { "driveFileId": "1TRb8_2uuaZ7vtMdaFkVb023Wk2V-E6fH", "tipo": "video", "timestampSeg": 4, "descripcion": "Columna de ladrillo de la galería/quincho cubierta, con vista directa al jardín, el auto y el deck exterior." },
     { "driveFileId": "15iYiDBapYRgrJNkd1ALjku6CaniLkoAt", "tipo": "foto", "descripcion": "Frente de la casa en día soleado, con la galería/quincho cubierta a un lado y auto en el acceso." }
   ],
   "horno-barro": [
@@ -17,18 +17,17 @@
   "vegetacion-jardin": [
     { "driveFileId": "1hulKI-iVlqDsBxttkkEltXVilQ5LAwiY", "tipo": "foto", "descripcion": "Árbol de flor rosa (cerezo) en flor en el jardín, con leña apilada y un tanque viejo al fondo." },
     { "driveFileId": "1Lat6vu3iftPd9zt1qoBLhTFp-5Rkmdz9", "tipo": "foto", "descripcion": "Jardín de noche iluminado por un farol, con piso de baldosas en primer plano." },
-    { "driveFileId": "1jqFxeqldH0VmSTG7ZQhhbAQgnZJM1V4R", "tipo": "video", "timestampSeg": 6, "descripcion": "Sendero del jardín entre árboles en día soleado." },
-    { "driveFileId": "1jqFxeqldH0VmSTG7ZQhhbAQgnZJM1V4R", "tipo": "video", "timestampSeg": 8.5, "descripcion": "Jardín de noche iluminado por un farol de pie entre los árboles, ambiente cálido." },
-    { "driveFileId": "1q-PmDCk_quci_OsTGYi1WXL19mCPD0GP", "tipo": "video", "timestampSeg": 40, "descripcion": "Jardín en día soleado de otoño, camino de hojas caídas hacia el portón de acceso entre árboles." },
-    { "driveFileId": "1q-PmDCk_quci_OsTGYi1WXL19mCPD0GP", "tipo": "video", "timestampSeg": 80, "descripcion": "Jardín en día soleado de otoño con farol de pie, árboles altos y portón de acceso de fondo." }
+    { "driveFileId": "1jqFxeqldH0VmSTG7ZQhhbAQgnZJM1V4R", "tipo": "video", "timestampSeg": 7, "descripcion": "Jardín con arbustos verdes y camino de baldosas en día soleado." },
+    { "driveFileId": "1jqFxeqldH0VmSTG7ZQhhbAQgnZJM1V4R", "tipo": "video", "timestampSeg": 9.5, "descripcion": "Jardín de noche iluminado por un farol de pie entre los árboles, ambiente cálido." },
+    { "driveFileId": "1q-PmDCk_quci_OsTGYi1WXL19mCPD0GP", "tipo": "video", "timestampSeg": 40, "descripcion": "Jardín en día soleado con luz dorada de la tarde, farol de pie a lo lejos y borde de la pileta asomando a un costado." },
+    { "driveFileId": "1q-PmDCk_quci_OsTGYi1WXL19mCPD0GP", "tipo": "video", "timestampSeg": 80, "descripcion": "Jardín con arbustos y seto denso, hojas secas en el piso, luz natural filtrándose entre los árboles." }
   ],
   "interior-casa": [
     { "driveFileId": "1g2knW3XrQI4Cgo3KKLNL-57t5tuvRoTz", "tipo": "foto", "descripcion": "Cocina interior con muebles amarillos, techo de vigas de madera, bien iluminada y ordenada." }
   ],
   "exterior-fachada-entrada": [
     { "driveFileId": "1_YGZgibIjjemKRFFbLNXhu8EDYFcoDqg", "tipo": "video", "timestampSeg": 2, "descripcion": "Camino de entrada con farol amarillo hacia el portón de rejas de acceso." },
-    { "driveFileId": "1gFiKrtsb3frlLq3aPGzyleQ8f02nJi2I", "tipo": "video", "timestampSeg": 2, "descripcion": "Sendero de entrada con troncos cortados al costado, hacia el portón amarillo de acceso." },
-    { "driveFileId": "16iPfFFylZBQCbm7huE5_yq7SFk3Cup21", "tipo": "video", "timestampSeg": 2, "descripcion": "Sendero hacia el portón de entrada, entre árboles y arbustos." },
-    { "driveFileId": "1jqFxeqldH0VmSTG7ZQhhbAQgnZJM1V4R", "tipo": "video", "timestampSeg": 2, "descripcion": "Frente de la casa en día soleado, fachada de ladrillo con galería, jardín parquizado y auto en el acceso." }
+    { "driveFileId": "1gFiKrtsb3frlLq3aPGzyleQ8f02nJi2I", "tipo": "video", "timestampSeg": 0.3, "descripcion": "Sendero de entrada con troncos cortados al costado, hacia el portón amarillo de acceso." },
+    { "driveFileId": "16iPfFFylZBQCbm7huE5_yq7SFk3Cup21", "tipo": "video", "timestampSeg": 2, "descripcion": "Sendero hacia el portón de entrada, entre árboles y arbustos." }
   ]
 }
