@@ -173,7 +173,7 @@ async function procesarCuenta(db, bucket, cuenta){
     return { cuentaId: cuenta.id, ok: true, contenidoId: contenidoRef.id };
   }
 
-  if(cuenta.slug === 'tres-estaciones'){
+  if(cuenta.slug === 'casa-quinta-tres-estaciones'){
     const categoriaPorTema = {
       'La pileta': 'pileta',
       'El quincho y la galería': 'quincho-parrilla',
