@@ -1,7 +1,7 @@
 'use strict';
 const { initFirebase } = require('./firebase');
 const { cuentasActivas, cuentasVencidas, proximoTema } = require('./cuentas');
-const { generarTexto, generarTextoCarrusel, generarTextoFichaProducto, generarTextoInstitucional, generarTextoVideoProducto } = require('./texto');
+const { generarTexto, generarTextoCarrusel, generarTextoFichaProducto, generarTextoInstitucional, generarTextoVideoProducto, generarTextoEspacio } = require('./texto');
 const { generarImagen } = require('./imagen');
 const { generarVideo } = require('./video');
 const { generarNarracion } = require('./narracion');
@@ -15,9 +15,12 @@ const { renderSubtitulos } = require('./subtitulo-tecnoart');
 const { descargarDriveArchivo } = require('./drive');
 const { normalizarVideoReal } = require('./video-real-tecnoart');
 const { elegirEfectoReal } = require('./efectos-real-tecnoart');
+const { obtenerFotoReal } = require('./foto-real-tresestaciones');
+const { renderEspacio } = require('./espacio');
 const productosEntrePymes = require('./entrepymes-productos.json');
 const productosTecnoArt = require('./tecnoart-productos.json');
 const videosTecnoArt = require('./tecnoart-videos.json');
+const fotosTresEstaciones = require('./tresestaciones-fotos.json');
 const { subirArchivo } = require('./storage');
 const { notificarNtfy } = require('./notificar');
 const { registrarCorrida } = require('./runLog');
@@ -170,9 +173,52 @@ async function procesarCuenta(db, bucket, cuenta){
     return { cuentaId: cuenta.id, ok: true, contenidoId: contenidoRef.id };
   }
 
-  /* A partir de acá solo llegan cuentas con mediaType 'imagen' simple (hoy, Casa Quinta
-     Tres Estaciones) — AppsArt/Entre PyMES/Tecno Art ya volvieron antes con su propia
-     rama, cada una con su propio pipeline de datos reales. */
+  if(cuenta.slug === 'tres-estaciones'){
+    const categoriaPorTema = {
+      'La pileta': 'pileta',
+      'El quincho y la galería': 'quincho-parrilla',
+      'El horno de barro': 'horno-barro',
+      'El jardín y la naturaleza': 'vegetacion-jardin',
+      'La entrada y la fachada': 'exterior-fachada-entrada',
+      'La cocina': 'interior-casa'
+    };
+    const categoria = categoriaPorTema[tema];
+    const pool = categoria && fotosTresEstaciones[categoria];
+    if(!pool || pool.length === 0){
+      throw new Error(`No hay fotos reales cargadas para el tema "${tema}" — revisar tresestaciones-fotos.json/temasContenido de la cuenta.`);
+    }
+
+    // Un contador por categoría (no uno global) para que cada tema rote sus propias fotos
+    // sin saltarse ninguna, igual que el contador de fotos por máquina de Entre PyMES.
+    const campoContador = `tresEstacionesContador_${categoria.replace(/-/g, '_')}`;
+    const contador = cuenta[campoContador] || 0;
+    const elegida = pool[contador % pool.length];
+
+    const fotoBuffer = await obtenerFotoReal(elegida);
+    const texto = await generarTextoEspacio(cuenta, tema, elegida.descripcion);
+    const buffer = await renderEspacio({ fotoBuffer, foco: elegida.foco, eyebrow: texto.eyebrow, titulo: texto.titulo, texto: texto.texto, cta: texto.cta });
+
+    const base = `cuentas/${cuenta.slug}/${Date.now()}`;
+    const mediaUrl = await subirArchivo(bucket, buffer, `${base}/imagen.png`, 'image/png');
+
+    const contenidoRef = await db.collection('contenido').add({
+      cuentaId: cuenta.id, estado: 'pendiente', tipo: 'imagen', tema,
+      caption: texto.caption, mediaUrl,
+      metadatos: { modeloTexto: 'claude-sonnet-5', render: 'html-espacio-real', categoria, archivoOrigen: elegida.driveFileId },
+      generadoEn: new Date().toISOString()
+    });
+    await db.collection('cuentas').doc(cuenta.id).update({
+      ultimaGeneracion: new Date().toISOString(), ultimoTemaIndex: nuevoIndex, regenerarTema: null,
+      [campoContador]: contador + 1
+    });
+    return { cuentaId: cuenta.id, ok: true, contenidoId: contenidoRef.id };
+  }
+
+  /* A partir de acá solo llegan cuentas con mediaType 'imagen' simple sin datos reales
+     propios (hoy, ninguna activa) — AppsArt/Entre PyMES/Tecno Art/Casa Quinta Tres
+     Estaciones ya volvieron antes con su propia rama, cada una con su propio pipeline
+     de datos reales. Se deja este fallback genérico (imagen inventada por gpt-image-1)
+     por si se suma una cuenta nueva sin fotos/productos propios todavía cargados. */
   const texto = await generarTexto(cuenta, tema);
   const imagenBuffer = await generarImagen(texto.promptImagen);
   const base = `cuentas/${cuenta.slug}/${Date.now()}`;

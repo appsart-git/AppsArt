@@ -117,20 +117,22 @@
     "descripcionNegocio": "Casa quinta de 3000 m² en Parada Robles, con mucha vegetación, pileta 4x9, parrilla/galería tipo quincho y horno de barro. Equipada para 24 personas (ampliable). Para alquiler temporario, eventos personales/corporativos, cursos y encuentros de capacitación/reflexión.",
     "vozMarca": "Cálida, aspiracional, conectada con la naturaleza y el descanso.",
     "publicoObjetivo": "Personas/empresas buscando alquilar un espacio para eventos, retiros o capacitaciones.",
-    "identidadVisual": "Sin definir todavía — hay logo pero pendiente de revisión.",
-    "paleta": [],
+    "identidadVisual": "Paleta cálida natural (branding real del cliente): Crema Fondo #EDEAD9, Crema Papel #FAF7EE, Verde Bosque #2C4A2E, Verde Hoja #4A6741, Dorado #C9943A. Tipografía Georgia (serif) para títulos/wordmark, Jost (sans) para textos/UI. Logo real: emblema de tres hojas ovaladas sobre un tallo con base dorada, dentro de un sello circular doble ('Casa Quinta · Tres Estaciones · Parada Robles'). Formato de post: foto REAL del predio a página completa (nunca imagen inventada/stock) con texto superpuesto, tono cálido y aspiracional — no formato ficha/catálogo.",
+    "paleta": ["#EDEAD9", "#FAF7EE", "#2C4A2E", "#4A6741", "#C9943A"],
     "temasContenido": [
-      "El espacio y la naturaleza (pileta, vegetación, quincho, horno de barro)",
-      "Eventos personales",
-      "Eventos corporativos",
-      "Cursos y capacitaciones"
+      "La pileta",
+      "El quincho y la galería",
+      "El horno de barro",
+      "El jardín y la naturaleza",
+      "La entrada y la fachada",
+      "La cocina"
     ],
     "hashtagsBase": ["#casaquintatresestaciones", "#paradarobles", "#eventosalairelibre"],
     "webUrl": "",
-    "linkBio": "",
+    "linkBio": "https://wa.me/5491168151506",
     "mediaType": "imagen",
     "cadenciaDias": 5,
-    "promptExtra": "Cuenta nueva en IG — priorizar contenido que muestre el entorno natural y la capacidad para eventos.",
+    "promptExtra": "Cuenta nueva en IG. Usar SIEMPRE fotos reales del predio (nunca una imagen genérica/inventada) — el cliente proveyó un banco de fotos reales categorizado. CTA de contacto: WhatsApp +54 9 11 6815-1506 o contacto@tresestaciones.com.ar (la web tresestaciones.com.ar todavía no está armada, no ofrecerla como link). Priorizar mostrar pileta, quincho/parrilla y horno de barro como features distintivas.",
     "activo": true
   }
 ]

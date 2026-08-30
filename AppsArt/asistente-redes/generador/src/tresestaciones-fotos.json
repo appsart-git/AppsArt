@@ -1,0 +1,34 @@
+{
+  "pileta": [
+    { "driveFileId": "1Mfc-6GBezK_BPw8M5sZw1mztyGfu050c", "tipo": "foto", "foco": "bottom", "descripcion": "Vista general de la casa entre pinos altos con la pileta de fondo, entre el jardín." },
+    { "driveFileId": "1vujs1PfgDTTEMOC0mJGjy3_pyyzjhpv-", "tipo": "foto", "foco": "bottom", "descripcion": "Pileta en día soleado, deck de madera y ladrillo, banco naranja y palmeras alrededor." },
+    { "driveFileId": "1UVlcrUdgKbXNQVbOV6H6clxh19SCOI9N", "tipo": "foto", "foco": "bottom", "descripcion": "Pileta en día soleado con el sol filtrándose entre los pinos, banco de madera al costado." },
+    { "driveFileId": "1h9T9Z-A5XyIlSFQK8ljhDdSw-qcoULgP", "tipo": "video", "timestampSeg": 2, "descripcion": "Pileta de agua celeste turquesa, deck de baldosas rojas, reposera naranja, farol y palmeras." },
+    { "driveFileId": "1Vpmq7_hf__X2xm9m7iyssQ3ljL-d6Nas", "tipo": "video", "timestampSeg": 1, "foco": "bottom", "descripcion": "Pileta con toallas y reposeras tendidas en el borde, auto estacionado y palmeras de fondo." },
+    { "driveFileId": "1jqFxeqldH0VmSTG7ZQhhbAQgnZJM1V4R", "tipo": "video", "timestampSeg": 0.5, "foco": "bottom", "descripcion": "Pileta en día soleado con toallas y reposeras tendidas junto al deck, entre pinos y palmeras." }
+  ],
+  "quincho-parrilla": [
+    { "driveFileId": "1TRb8_2uuaZ7vtMdaFkVb023Wk2V-E6fH", "tipo": "video", "timestampSeg": 2, "descripcion": "Galería/quincho de ladrillo cubierta, con faroles colgantes, columnas y vista hacia el jardín." },
+    { "driveFileId": "15iYiDBapYRgrJNkd1ALjku6CaniLkoAt", "tipo": "foto", "descripcion": "Frente de la casa en día soleado, con la galería/quincho cubierta a un lado y auto en el acceso." }
+  ],
+  "horno-barro": [
+    { "driveFileId": "1_zWSBhbyDxlyRPRWPSqqICpmEm_f-jKS", "tipo": "video", "timestampSeg": 20, "descripcion": "Horno de barro de campo encendido, cúpula de barro/cemento, puerta metálica abierta, leña apilada debajo, humo saliendo." }
+  ],
+  "vegetacion-jardin": [
+    { "driveFileId": "1hulKI-iVlqDsBxttkkEltXVilQ5LAwiY", "tipo": "foto", "descripcion": "Árbol de flor rosa (cerezo) en flor en el jardín, con leña apilada y un tanque viejo al fondo." },
+    { "driveFileId": "1Lat6vu3iftPd9zt1qoBLhTFp-5Rkmdz9", "tipo": "foto", "descripcion": "Jardín de noche iluminado por un farol, con piso de baldosas en primer plano." },
+    { "driveFileId": "1jqFxeqldH0VmSTG7ZQhhbAQgnZJM1V4R", "tipo": "video", "timestampSeg": 6, "descripcion": "Sendero del jardín entre árboles en día soleado." },
+    { "driveFileId": "1jqFxeqldH0VmSTG7ZQhhbAQgnZJM1V4R", "tipo": "video", "timestampSeg": 8.5, "descripcion": "Jardín de noche iluminado por un farol de pie entre los árboles, ambiente cálido." },
+    { "driveFileId": "1q-PmDCk_quci_OsTGYi1WXL19mCPD0GP", "tipo": "video", "timestampSeg": 40, "descripcion": "Jardín en día soleado de otoño, camino de hojas caídas hacia el portón de acceso entre árboles." },
+    { "driveFileId": "1q-PmDCk_quci_OsTGYi1WXL19mCPD0GP", "tipo": "video", "timestampSeg": 80, "descripcion": "Jardín en día soleado de otoño con farol de pie, árboles altos y portón de acceso de fondo." }
+  ],
+  "interior-casa": [
+    { "driveFileId": "1g2knW3XrQI4Cgo3KKLNL-57t5tuvRoTz", "tipo": "foto", "descripcion": "Cocina interior con muebles amarillos, techo de vigas de madera, bien iluminada y ordenada." }
+  ],
+  "exterior-fachada-entrada": [
+    { "driveFileId": "1_YGZgibIjjemKRFFbLNXhu8EDYFcoDqg", "tipo": "video", "timestampSeg": 2, "descripcion": "Camino de entrada con farol amarillo hacia el portón de rejas de acceso." },
+    { "driveFileId": "1gFiKrtsb3frlLq3aPGzyleQ8f02nJi2I", "tipo": "video", "timestampSeg": 2, "descripcion": "Sendero de entrada con troncos cortados al costado, hacia el portón amarillo de acceso." },
+    { "driveFileId": "16iPfFFylZBQCbm7huE5_yq7SFk3Cup21", "tipo": "video", "timestampSeg": 2, "descripcion": "Sendero hacia el portón de entrada, entre árboles y arbustos." },
+    { "driveFileId": "1jqFxeqldH0VmSTG7ZQhhbAQgnZJM1V4R", "tipo": "video", "timestampSeg": 2, "descripcion": "Frente de la casa en día soleado, fachada de ladrillo con galería, jardín parquizado y auto en el acceso." }
+  ]
+}

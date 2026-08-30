@@ -236,4 +236,36 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown):
   return data;
 }
 
-module.exports = { generarTexto, generarTextoCarrusel, generarTextoFichaProducto, generarTextoInstitucional, generarTextoVideoProducto };
+/* Post editorial de Casa Quinta Tres Estaciones: foto REAL del predio (nunca inventada),
+   así que el copy tiene que anclarse en lo que esa foto puntual efectivamente muestra
+   (pileta, quincho, horno de barro, jardín, cocina, entrada) — no en la propuesta general
+   del predio, para que título/texto no prometan algo que la imagen no respalda. */
+async function generarTextoEspacio(cuenta, tema, descripcionFoto){
+  const prompt = `
+Sos el/la community manager de "${cuenta.nombre}" (${cuenta.rubro || ''}).
+Descripción del negocio: ${cuenta.descripcionNegocio || '-'}
+Voz de marca / tono: ${cuenta.vozMarca || '-'}
+Público objetivo: ${cuenta.publicoObjetivo || '-'}
+Identidad visual: ${cuenta.identidadVisual || '-'}
+Instrucciones extra: ${cuenta.promptExtra || '-'}
+
+Vas a armar un posteo de Instagram sobre: "${tema}". La foto real que acompaña el posteo muestra
+específicamente esto (no inventes ni asumas que se ve algo distinto): ${descripcionFoto}
+
+Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) con esta forma exacta:
+{
+  "caption": "el texto del posteo en español, cálido y aspiracional, con 2 a 4 hashtags relevantes al final (todo en minúsculas y sin espacios ni separadores dentro de cada hashtag, ej. #paradarobles)",
+  "eyebrow": "texto corto en mayúsculas para la placa, ej: EL ESPACIO",
+  "titulo": "titular corto y evocador (hasta 6 palabras), anclado en lo que la foto muestra",
+  "texto": "1-2 líneas de apoyo que inviten a imaginarse ahí, sin prometer nada que la foto no respalde",
+  "cta": "texto corto para un botón, ej: Consultá por WhatsApp"
+}`.trim();
+
+  const data = await pedirJSON(prompt, 1024);
+  if(!data.caption || !data.titulo){
+    throw new Error('La respuesta de Claude no tiene caption/titulo válidos para el post de espacio.');
+  }
+  return data;
+}
+
+module.exports = { generarTexto, generarTextoCarrusel, generarTextoFichaProducto, generarTextoInstitucional, generarTextoVideoProducto, generarTextoEspacio };
