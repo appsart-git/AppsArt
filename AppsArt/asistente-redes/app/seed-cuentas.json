@@ -112,7 +112,7 @@
     "activo": true
   },
   {
-    "nombre": "Casa Quinta Tres Estaciones",
+    "nombre": "Quinta Tres Estaciones",
     "rubro": "Alquiler de espacio para eventos, cursos y capacitaciones",
     "descripcionNegocio": "Casa quinta de 3000 m² en Parada Robles, con mucha vegetación, pileta 4x9, parrilla/galería tipo quincho y horno de barro. Equipada para 24 personas (ampliable). Para alquiler temporario, eventos personales/corporativos, cursos y encuentros de capacitación/reflexión.",
     "vozMarca": "Cálida, aspiracional, conectada con la naturaleza y el descanso.",
@@ -127,7 +127,7 @@
       "La entrada y la fachada",
       "La cocina"
     ],
-    "hashtagsBase": ["#casaquintatresestaciones", "#paradarobles", "#eventosalairelibre"],
+    "hashtagsBase": ["#quintatresestaciones", "#paradarobles", "#eventosalairelibre"],
     "webUrl": "",
     "linkBio": "https://wa.me/5491168151506",
     "mediaType": "imagen",

@@ -14,7 +14,7 @@ function renderCuentas(){
         <button class="btn btn-primary" data-action="nuevaCuenta">+ Nueva cuenta</button>
       </div>
     </div>
-    ${cuentas.length===0 ? `<div class="empty">Todavía no cargaste ninguna cuenta. Creá la primera con "+ Nueva cuenta", o importá las 4 de ejemplo (Tecno Art, AppsArt, Entre PyMES, Casa Quinta Tres Estaciones) con el botón de arriba.</div>` : `
+    ${cuentas.length===0 ? `<div class="empty">Todavía no cargaste ninguna cuenta. Creá la primera con "+ Nueva cuenta", o importá las 4 de ejemplo (Tecno Art, AppsArt, Entre PyMES, Quinta Tres Estaciones) con el botón de arriba.</div>` : `
     <div class="grid-cards" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));">
       ${cuentas.map(c => `
         <div class="card">

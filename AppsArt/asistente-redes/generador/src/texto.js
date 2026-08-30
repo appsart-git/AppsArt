@@ -5,7 +5,7 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 /* Red de seguridad: todas las funciones piden a Claude "2-4 hashtags al final", pero un
    llamado puntual puede devolver el caption sin ninguno (pasó de verdad en un posteo real
-   de Casa Quinta Tres Estaciones) — más confiable garantizarlo acá que confiar en que el
+   de Quinta Tres Estaciones) — más confiable garantizarlo acá que confiar en que el
    modelo lo cumpla siempre. */
 function asegurarHashtags(caption, hashtagsBase){
   if(/#\w/.test(caption || '')) return caption;
@@ -251,7 +251,7 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown):
   return data;
 }
 
-/* Post editorial de Casa Quinta Tres Estaciones: foto REAL del predio (nunca inventada),
+/* Post editorial de Quinta Tres Estaciones: foto REAL del predio (nunca inventada),
    así que el copy tiene que anclarse en lo que esa foto puntual efectivamente muestra
    (pileta, quincho, horno de barro, jardín, cocina, entrada) — no en la propuesta general
    del predio, para que título/texto no prometan algo que la imagen no respalda. */
@@ -284,7 +284,7 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) c
   return data;
 }
 
-/* Carrusel editorial de Casa Quinta Tres Estaciones: varias fotos reales del mismo tema
+/* Carrusel editorial de Quinta Tres Estaciones: varias fotos reales del mismo tema
    en un solo posteo (ver espacio-carrusel.js). Igual criterio que generarTextoEspacio —
    cada lámina de contenido tiene que anclarse en lo que ESA foto puntual muestra, nunca
    en la propuesta general del predio, así que se le pasa a Claude la descripción real de

@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
 
-/* Formato "editorial" de Casa Quinta Tres Estaciones: foto REAL del predio a página
+/* Formato "editorial" de Quinta Tres Estaciones: foto REAL del predio a página
    completa (nunca una imagen inventada/stock — es la única de las 4 cuentas sin producto
    físico para fotografiar en estudio, así que la fidelidad depende 100% de las fotos que
    mandó el cliente) + degradé verde bosque hacia abajo para legibilidad + texto superpuesto

@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
 
-/* Versión carrusel del post editorial de Casa Quinta Tres Estaciones (ver espacio.js):
+/* Versión carrusel del post editorial de Quinta Tres Estaciones (ver espacio.js):
    en vez de una sola foto real, muestra varias del mismo tema en un solo posteo — más
    fiel a un lugar físico que se recorre con la vista, y aprovecha mejor el banco de fotos
    reales (rota menos rápido que publicar de a una). Misma identidad de marca real que
