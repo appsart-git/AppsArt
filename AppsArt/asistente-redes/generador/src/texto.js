@@ -13,6 +13,14 @@ function asegurarHashtags(caption, hashtagsBase){
   return tags ? `${caption}\n\n${tags}` : caption;
 }
 
+/* Regla de gancho: en redes la decisión de quedarse o seguir de largo se toma en los
+   primeros segundos/la primera línea, no describiendo — inspirado en cómo enseña a
+   armar contenido Mati Box (@mati.boxx, "experto en contenido que vende"): mostrar el
+   beneficio/la experiencia y enganchar rápido, no presentar. Se repite en cada prompt
+   (caption y, donde aplica, título/guion) en vez de confiar en un único recordatorio
+   general, porque cada formato tiene su propio "primer momento" que hay que cuidar. */
+const REGLA_GANCHO = 'La primera línea tiene que ser un gancho, no una descripción ni una presentación: una pregunta directa, una afirmación fuerte o algo inesperado que frene el scroll en los primeros segundos. Nunca arranques con un dato genérico, el nombre de la marca o una frase de introducción tranquila.';
+
 async function pedirJSON(prompt, maxTokens){
   const msg = await anthropic.messages.create({
     model: 'claude-sonnet-5',
@@ -45,9 +53,11 @@ Instrucciones extra: ${cuenta.promptExtra || '-'}
 
 Generá contenido para un posteo de Instagram sobre este tema/colección: "${tema}".
 
+${REGLA_GANCHO}
+
 Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) con esta forma exacta:
 {
-  "caption": "el texto del posteo en español, con 2 a 4 hashtags relevantes al final (todo en minúsculas y sin espacios ni separadores dentro de cada hashtag, ej. #economiacircular)",
+  "caption": "el texto del posteo en español (primera línea = gancho), con 2 a 4 hashtags relevantes al final (todo en minúsculas y sin espacios ni separadores dentro de cada hashtag, ej. #economiacircular)",
   "promptImagen": "prompt en inglés, detallado, para un generador de imágenes, coherente con la identidad visual de la marca"${necesitaVideo ? `,
   "guion": "guion narrado en español, pensado para 10 a 20 segundos hablados, para un reel corto",
   "promptVideo": "prompt en inglés, detallado, describiendo la escena/movimiento de cámara para un generador de video"` : ''}
@@ -96,6 +106,7 @@ un redactor genérico:
 - Lámina 3 (cierre): la solución que refuerza el gancho de la portada (no un genérico "contactanos"),
   + CTA claro y de baja fricción.
 El caption complementa el carrusel, no lo repite: agregá contexto o un dato/pregunta que invite a comentar.
+${REGLA_GANCHO} (aplica tanto al titular de portada como a la primera línea del caption).
 
 Nada de frases corporativas gastadas ("soluciones innovadoras", "revolucioná tu negocio"). Y ojo con
 emparejar palabras que no combinan en sentido: releé cada titular y preguntate si las palabras que
@@ -158,7 +169,7 @@ Tarea:
 2. Escribí un caption de Instagram (2-4 líneas + 2-4 hashtags relevantes al final, todo en minúsculas y
    sin espacios ni separadores dentro de cada hashtag, ej. #maquinariaindustrial) que genere interés
    real en compradores industriales, sin exagerar ni prometer nada que no esté respaldado por la
-   descripción o las características de arriba.
+   descripción o las características de arriba. ${REGLA_GANCHO}
 3. Un texto corto para el botón CTA (ej: "Consultá disponibilidad", "Escribinos por esta máquina").
 
 Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) con esta forma exacta:
@@ -190,6 +201,8 @@ Instrucciones extra: ${cuenta.promptExtra || '-'}
 Armá un posteo institucional de Instagram sobre: "${tema}". Basate únicamente en la descripción del
 negocio de arriba — no inventes casos de clientes, cifras, alianzas ni afirmaciones que no se puedan
 sostener con esa descripción.
+
+${REGLA_GANCHO} (aplica tanto al "titulo" como a la primera línea del caption).
 
 Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) con esta forma exacta:
 {
@@ -233,9 +246,11 @@ Tarea:
    pero tampoco plano). El video dura 10 segundos y necesita silencio al final para el
    cierre de marca, así que priorizá que sea corto y contundente por sobre completo. Variá
    la frase de apertura — no empieces siempre con la misma estructura ("Esta remera es...",
-   etc.) entre un reel y otro.
+   etc.) entre un reel y otro. La primera frase hablada decide si alguien se queda mirando
+   o sigue de largo — tiene que ser la más fuerte del guion, nunca una presentación tranquila
+   del producto ("te presentamos...", "esta es..."): arrancá con la emoción/actitud del diseño.
 2. Caption de Instagram (2-4 líneas + 2-4 hashtags relevantes al final, todo en minúsculas
-   y sin espacios ni separadores dentro de cada hashtag, ej. #ritmosdelalma).
+   y sin espacios ni separadores dentro de cada hashtag, ej. #ritmosdelalma). ${REGLA_GANCHO}
 
 Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown):
 {
@@ -266,6 +281,9 @@ Instrucciones extra: ${cuenta.promptExtra || '-'}
 
 Vas a armar un posteo de Instagram sobre: "${tema}". La foto real que acompaña el posteo muestra
 específicamente esto (no inventes ni asumas que se ve algo distinto): ${descripcionFoto}
+
+${REGLA_GANCHO} (aplica tanto al "titulo" sobre la foto como a la primera línea del caption — hacé
+que quien vea la foto se imagine ahí, no que lea una descripción del lugar).
 
 Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) con esta forma exacta:
 {
@@ -317,6 +335,8 @@ Tarea:
 4. Caption de Instagram que complementa el carrusel (no lo repite), cálido y aspiracional, con 2 a 4
    hashtags relevantes al final (todo en minúsculas y sin espacios ni separadores dentro de cada
    hashtag, ej. #paradarobles).
+
+${REGLA_GANCHO} (aplica al titular de portada y a la primera línea del caption).
 
 Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) con esta forma exacta:
 {
