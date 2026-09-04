@@ -21,18 +21,35 @@ function asegurarHashtags(caption, hashtagsBase){
    general, porque cada formato tiene su propio "primer momento" que hay que cuidar. */
 const REGLA_GANCHO = 'La primera línea tiene que ser un gancho, no una descripción ni una presentación: una pregunta directa, una afirmación fuerte o algo inesperado que frene el scroll en los primeros segundos. Nunca arranques con un dato genérico, el nombre de la marca o una frase de introducción tranquila.';
 
+/* Varias corridas reales (AppsArt sobre todo, pero también Entre PyMES y Quinta Tres
+   Estaciones) venían fallando con "Unterminated string"/"Expected ',' or '}'" al parsear
+   el JSON — Claude cortaba la respuesta justo antes de cerrarla porque el max_tokens
+   quedaba corto (más notorio en el carrusel de AppsArt, que ya de por sí pide bastante
+   contenido: 3 láminas + grilla de 6 items). En vez de solo subir los números a mano
+   (que vuelve a quedar corto apenas el copy crece un poco), se detecta el corte real
+   (stop_reason === 'max_tokens') y se reintenta UNA vez con el doble de presupuesto —
+   así el sistema se auto-corrige en vez de depender de una estimación fija para siempre. */
 async function pedirJSON(prompt, maxTokens){
-  const msg = await anthropic.messages.create({
-    model: 'claude-sonnet-5',
-    max_tokens: maxTokens || 1024,
-    messages: [{ role: 'user', content: prompt }]
-  });
-  const raw = msg.content.map(b => (b.type === 'text' ? b.text : '')).join('').trim();
-  const jsonStr = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
-  try{
-    return JSON.parse(jsonStr);
-  }catch(e){
-    throw new Error(`No se pudo parsear la respuesta de Claude como JSON: ${e.message}. Respuesta cruda: ${raw.slice(0,300)}`);
+  let presupuesto = maxTokens || 1536;
+  for(let intento = 0; intento < 2; intento++){
+    const msg = await anthropic.messages.create({
+      model: 'claude-sonnet-5',
+      max_tokens: presupuesto,
+      messages: [{ role: 'user', content: prompt }]
+    });
+    const raw = msg.content.map(b => (b.type === 'text' ? b.text : '')).join('').trim();
+    const jsonStr = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+
+    if(msg.stop_reason === 'max_tokens' && intento === 0){
+      presupuesto *= 2;
+      continue;
+    }
+    try{
+      return JSON.parse(jsonStr);
+    }catch(e){
+      if(intento === 0){ presupuesto *= 2; continue; }
+      throw new Error(`No se pudo parsear la respuesta de Claude como JSON: ${e.message}. Respuesta cruda: ${raw.slice(0,300)}`);
+    }
   }
 }
 
@@ -128,7 +145,7 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) c
   ]
 }`.trim();
 
-  const data = await pedirJSON(prompt, 2048);
+  const data = await pedirJSON(prompt, 2560);
   if(!data.caption || !Array.isArray(data.slides) || data.slides.length !== 3){
     throw new Error('La respuesta de Claude no tiene caption/slides válidos para el carrusel.');
   }
@@ -179,7 +196,7 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) c
   "cta": "..."
 }`.trim();
 
-  const data = await pedirJSON(prompt, 1024);
+  const data = await pedirJSON(prompt, 1280);
   if(!data.caption || !Array.isArray(data.specs) || data.specs.length === 0){
     throw new Error('La respuesta de Claude no tiene caption/specs válidos para la ficha de producto.');
   }
@@ -212,7 +229,7 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) c
   "texto": "1-2 líneas de apoyo que desarrollan el titular"
 }`.trim();
 
-  const data = await pedirJSON(prompt, 1024);
+  const data = await pedirJSON(prompt, 1280);
   if(!data.caption || !data.titulo){
     throw new Error('La respuesta de Claude no tiene caption/titulo válidos para el institucional.');
   }
@@ -258,7 +275,7 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown):
   "caption": "..."
 }`.trim();
 
-  const data = await pedirJSON(prompt, 1024);
+  const data = await pedirJSON(prompt, 1280);
   if(!data.guion || !data.caption){
     throw new Error('La respuesta de Claude no tiene guion/caption válidos para el reel de producto.');
   }
@@ -294,7 +311,7 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) c
   "cta": "texto corto para un botón, ej: Consultá por WhatsApp"
 }`.trim();
 
-  const data = await pedirJSON(prompt, 1024);
+  const data = await pedirJSON(prompt, 1280);
   if(!data.caption || !data.titulo){
     throw new Error('La respuesta de Claude no tiene caption/titulo válidos para el post de espacio.');
   }
@@ -346,7 +363,9 @@ Devolvé SOLO un objeto JSON válido (sin texto extra, sin bloque de markdown) c
   "cierre": {"titulo": "...", "cta": "..."}
 }`.trim();
 
-  const data = await pedirJSON(prompt, 1536);
+  // El presupuesto escala con la cantidad de fotos (hasta 6 en el pool más grande):
+  // una lámina de contenido más significa más JSON que generar antes de cerrarlo.
+  const data = await pedirJSON(prompt, 1400 + descripciones.length * 200);
   if(!data.caption || !data.portada || !data.portada.titulo || !Array.isArray(data.slides) || data.slides.length !== descripciones.length - 1 || !data.cierre || !data.cierre.titulo){
     throw new Error('La respuesta de Claude no tiene la forma esperada para el carrusel de espacio.');
   }
