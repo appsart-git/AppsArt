@@ -3,11 +3,11 @@
 
 function ventasHoy(){ const t = todayISO(); return state.ventas.filter(v=>!v.anulada && v.fecha===t); }
 function ventasDelMes(){
-  const now = new Date(); const ym = now.toISOString().slice(0,7);
+  const ym = todayISO().slice(0,7); // hora local (ver comentario en todayISO)
   return state.ventas.filter(v => !v.anulada && (v.fecha||'').slice(0,7) === ym);
 }
 function comprasDelMes(){
-  const now = new Date(); const ym = now.toISOString().slice(0,7);
+  const ym = todayISO().slice(0,7);
   return state.compras.filter(c => !c.anulada && (c.fecha||'').slice(0,7) === ym);
 }
 function totalCobrar(){ return state.clientes.reduce((s,c)=>s+Math.max(0,Number(c.saldo)||0),0); }

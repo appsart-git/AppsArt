@@ -402,7 +402,13 @@ function money(n){
   n = Number(n)||0;
   return '$' + n.toLocaleString('es-AR', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
-function todayISO(){ return new Date().toISOString().slice(0,10); }
+// OJO: nunca usar toISOString() para esto — convierte a UTC, y con Argentina en UTC-3 cualquier
+// venta cargada después de las 21:00 hora local ya cae del lado del día siguiente. Hay que armar
+// la fecha a mano con los componentes en hora LOCAL.
+function todayISO(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
 function fmtDate(iso){
   if(!iso) return '';
   const d = new Date(iso);
