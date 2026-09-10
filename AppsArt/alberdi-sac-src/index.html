@@ -5,12 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SAC · Reclamos - Alberdi</title>
 <meta name="theme-color" content="#14171A">
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<script src="https://alcdn.msauth.net/browser/3.18.0/js/msal-browser.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 <style>
   :root{
     --bg:#14171A; --surface:#1D2126; --surface-2:#262B32; --border:#2E343C;
@@ -268,8 +265,9 @@
 <main id="main">
   <div id="emptyState" class="empty-state hidden">
     <div class="big">📥</div>
-    <p><b>Todavía no hay reclamos cargados.</b><br>Subí la planilla de reclamos para ver las estadísticas.</p>
-    <button class="btn-primary" data-action="open-admin">Cargar planilla</button>
+    <p id="emptyStateText"><b>Conectate con tu cuenta de Microsoft de Alberdi</b><br>para ver los reclamos y estadísticas desde SharePoint.</p>
+    <button class="btn-primary" data-action="connect-now">Conectar con Microsoft</button>
+    <p class="admin-note" style="margin-top:14px;">¿Preferís subir el archivo a mano? <button data-action="open-admin" style="background:none;border:none;color:var(--accent);text-decoration:underline;cursor:pointer;font-size:inherit;padding:0;">Abrí el panel acá</button>.</p>
   </div>
 
   <div id="dashboardView">
@@ -333,26 +331,6 @@
 
 <script>
 'use strict';
-
-/* ===================== Config ===================== */
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBbyTSnTekMkXOZOAZEV0SQzk46NqkyaSA",
-  authDomain: "de-r-13.firebaseapp.com",
-  projectId: "de-r-13",
-  storageBucket: "de-r-13.firebasestorage.app",
-  messagingSenderId: "79165446593",
-  appId: "1:79165446593:web:19719e556144c227833740"
-};
-const COLLECTION = 'reclamos_sac';
-const ADMIN_EMAIL = 'admin@catalogo-alberdi.app';
-
-let db = null, auth = null;
-try {
-  firebase.initializeApp(firebaseConfig);
-  db = firebase.firestore();
-  auth = firebase.auth();
-} catch (e) { console.warn('Firebase no disponible.', e); }
 
 /* ===================== Datos: mapeo de columnas ===================== */
 
@@ -468,23 +446,65 @@ FILTERABLE.forEach(f => { state.filters[f.key] = new Set(); state.pendingFilters
 
 const charts = {};
 
-/* ===================== Carga de datos ===================== */
+/* ===================== Conexión con SharePoint/OneDrive ===================== */
 
-async function loadData(){
-  if (!db) return [];
-  const snap = await db.collection(COLLECTION).get();
-  return snap.docs.map(d => {
-    const data = d.data();
-    DATE_FIELDS.forEach(f => { if (data[f] && data[f].toDate) data[f] = data[f].toDate(); });
-    return data;
+let msalInstance = null;
+let lastAccount = null;
+let lastSyncAt = null;
+let connectError = null;
+
+function initMsal(){
+  const cfg = loadOneDriveCfg();
+  if (!window.msal || !cfg.clientId || !cfg.tenantId) return null;
+  if (!msalInstance) {
+    msalInstance = new window.msal.PublicClientApplication({
+      auth: { clientId: cfg.clientId, authority: `https://login.microsoftonline.com/${cfg.tenantId}`, redirectUri: window.location.href },
+      cache: { cacheLocation: 'localStorage' }
+    });
+  }
+  return msalInstance;
+}
+
+async function syncFromSharePoint(silent){
+  const cfg = loadOneDriveCfg();
+  const pca = initMsal();
+  if (!pca) throw new Error('Falta configurar la conexión con Microsoft (Tenant ID / Client ID).');
+  if (!cfg.shareUrl) throw new Error('Falta el link para compartir del archivo.');
+  let account = pca.getAllAccounts()[0] || null;
+  let tokenResp;
+  if (account) {
+    try { tokenResp = await pca.acquireTokenSilent({ scopes:['Files.Read'], account }); }
+    catch (e) { account = null; }
+  }
+  if (!account) {
+    if (silent) throw new Error('sin-sesion');
+    const loginResp = await pca.loginPopup({ scopes:['Files.Read', 'User.Read'] });
+    account = loginResp.account;
+    tokenResp = await pca.acquireTokenSilent({ scopes:['Files.Read'], account })
+      .catch(() => pca.acquireTokenPopup({ scopes:['Files.Read'], account }));
+  }
+  lastAccount = account;
+  const shareId = encodeSharingUrl(cfg.shareUrl);
+  const res = await fetch(`https://graph.microsoft.com/v1.0/shares/${shareId}/driveItem/content`, {
+    headers: { Authorization: `Bearer ${tokenResp.accessToken}` }
   });
+  if (!res.ok) throw new Error('No pude descargar el archivo (código ' + res.status + '). Revisá el link y los permisos.');
+  const buf = await res.arrayBuffer();
+  ALL = parseWorkbook(buf);
+  lastSyncAt = Date.now();
+  connectError = null;
+  renderFilterSheetOptions();
+  renderAll();
 }
 
 async function init(){
-  try { ALL = await loadData(); }
-  catch (e) { console.error(e); ALL = []; }
-  renderFilterSheetOptions();
-  renderAll();
+  initMsal();
+  try {
+    await syncFromSharePoint(true);
+  } catch (e) {
+    connectError = e.message === 'sin-sesion' ? null : e.message;
+    renderAll();
+  }
 }
 
 /* ===================== Filtros ===================== */
@@ -648,8 +668,17 @@ function renderAll(){
   document.getElementById('dashboardView').classList.toggle('hidden', ALL.length === 0 || state.view !== 'dashboard');
   document.getElementById('tableView').classList.toggle('hidden', ALL.length === 0 || state.view !== 'table');
   document.getElementById('resultCount').textContent = ALL.length ? `${rows.length} reclamo(s)` : '';
+  if (ALL.length === 0 && connectError) {
+    document.getElementById('emptyStateText').innerHTML = `<b style="color:var(--red);">No pude conectar con SharePoint.</b><br>${esc(connectError)}`;
+  }
   if (!ALL.length) return;
   if (state.view === 'dashboard') renderDashboard(rows); else renderTableView(rows);
+}
+
+async function connectNow(){
+  connectError = null;
+  try { await syncFromSharePoint(false); }
+  catch (e) { console.error(e); connectError = e.message; renderAll(); }
 }
 
 function kpiCard(value, label, cls){
@@ -867,10 +896,9 @@ function closeFilters(){
   document.getElementById('filterSheet').classList.remove('show');
 }
 
-/* ===================== Admin: carga de planilla ===================== */
+/* ===================== Fuente de datos ===================== */
 
-const admin = { logged:false, tab:'upload', rows:null, diff:null, onedrive:{ connected:false, account:null } };
-const msal = { app:null };
+const admin = { tab:'connect' };
 
 const DEFAULT_ONEDRIVE_CFG = {
   tenantId: 'c01e9ad6-85da-47a6-81f4-042a8be1bec3',
@@ -903,52 +931,20 @@ function closeAdmin(){
 }
 
 function renderAdmin(){
-  if (!auth) return renderAdminError('Firebase no está disponible ahora mismo.');
-  if (!admin.logged) return renderAdminLogin();
-  if (admin.diff) return renderAdminPreview();
-  return renderAdminSource();
-}
-function renderAdminError(msg){ document.getElementById('adminBody').innerHTML = `<p class="admin-error">${esc(msg)}</p>`; }
-
-function renderAdminLogin(){
-  document.getElementById('adminBody').innerHTML = `
-    <p class="admin-p">Ingresá la clave para poder actualizar los datos.</p>
-    <input type="password" id="adminPin" class="admin-input" placeholder="Clave" autocomplete="off">
-    <div id="adminLoginError"></div>
-    <button class="btn-primary" data-action="do-login">Ingresar</button>
-  `;
-  document.getElementById('adminPin').focus();
-}
-async function doLogin(){
-  const pin = document.getElementById('adminPin').value;
-  if (!pin) return;
-  const btn = document.querySelector('[data-action="do-login"]');
-  btn.disabled = true; btn.textContent = 'Verificando…';
-  try {
-    await auth.signInWithEmailAndPassword(ADMIN_EMAIL, pin);
-    admin.logged = true;
-    renderAdmin();
-  } catch (e) {
-    document.getElementById('adminLoginError').innerHTML = `<p class="admin-error">Clave incorrecta.</p>`;
-    btn.disabled = false; btn.textContent = 'Ingresar';
-  }
-}
-
-function renderAdminSource(){
   document.getElementById('adminBody').innerHTML = `
     <div class="admin-tabs">
+      <div class="admin-tab ${admin.tab==='connect'?'active':''}" data-tab="connect">Conectar Microsoft</div>
       <div class="admin-tab ${admin.tab==='upload'?'active':''}" data-tab="upload">Subir archivo</div>
-      <div class="admin-tab ${admin.tab==='onedrive'?'active':''}" data-tab="onedrive">Conectar OneDrive</div>
     </div>
     <div id="adminSourceBody"></div>
   `;
-  document.querySelectorAll('.admin-tab').forEach(t => t.addEventListener('click', () => { admin.tab = t.dataset.tab; renderAdminSource(); }));
-  if (admin.tab === 'upload') renderAdminUpload(); else renderAdminOneDrive();
+  document.querySelectorAll('.admin-tab').forEach(t => t.addEventListener('click', () => { admin.tab = t.dataset.tab; renderAdmin(); }));
+  if (admin.tab === 'upload') renderAdminUpload(); else renderAdminConnect();
 }
 
 function renderAdminUpload(){
   document.getElementById('adminSourceBody').innerHTML = `
-    <p class="admin-p">Subí el Excel de reclamos exportado desde OneDrive. Voy a comparar cada fila (por N° de reclamo) con lo que ya está cargado y te muestro los cambios antes de aplicar nada.</p>
+    <p class="admin-p">Subí el Excel de reclamos manualmente. Reemplaza lo que se esté viendo ahora (solo en tu navegador, no se comparte con nadie más).</p>
     <div class="admin-file" id="adminDrop">
       <span>📄</span>
       <b>Elegir archivo .xlsx</b>
@@ -964,48 +960,34 @@ function renderAdminUpload(){
   dropEl.addEventListener('drop', e => { e.preventDefault(); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
 }
 
-function renderAdminOneDrive(){
+function renderAdminConnect(){
   const cfg = loadOneDriveCfg();
   document.getElementById('adminSourceBody').innerHTML = `
-    <p class="admin-p">Conexión automática a la planilla en SharePoint/OneDrive vía Microsoft Graph. Necesitás el <b>Tenant ID</b> y el <b>Client ID</b> de la app registrada en Entra ID de Alberdi (permiso <code>Files.Read</code>), y el <b>link para compartir</b> del archivo (en SharePoint/OneDrive: clic derecho → Compartir → Copiar vínculo).</p>
+    <p class="admin-p">Cualquiera con acceso a este link de SharePoint en Alberdi puede ver los reclamos y estadísticas: al abrir la app se pide iniciar sesión con la cuenta de Microsoft una sola vez (después queda recordada en ese navegador).</p>
     <input class="admin-input" id="odTenant" placeholder="Tenant ID" value="${esc(cfg.tenantId||'')}">
     <input class="admin-input" id="odClient" placeholder="Client ID" value="${esc(cfg.clientId||'')}">
     <input class="admin-input" id="odShareUrl" placeholder="Link para compartir del archivo" value="${esc(cfg.shareUrl||'')}">
     <div id="odStatus"></div>
     <button class="btn-primary" data-action="od-connect">Conectar con Microsoft y sincronizar</button>
-    <p class="admin-note">${cfg.lastSync ? 'Última sincronización: ' + new Date(cfg.lastSync).toLocaleString('es-AR') : 'Todavía no se sincronizó desde SharePoint/OneDrive.'}</p>
+    <p class="admin-note">${lastAccount ? 'Conectado como ' + esc(lastAccount.username) + '.' : 'Todavía no iniciaste sesión con Microsoft en este navegador.'}
+    ${lastSyncAt ? ' Última sincronización: ' + new Date(lastSyncAt).toLocaleString('es-AR') : ''}</p>
   `;
 }
 
-async function connectOneDrive(){
+async function connectOneDriveFromPanel(){
   const tenantId = document.getElementById('odTenant').value.trim();
   const clientId = document.getElementById('odClient').value.trim();
   const shareUrl = document.getElementById('odShareUrl').value.trim();
   const statusEl = document.getElementById('odStatus');
   if (!tenantId || !clientId || !shareUrl) { statusEl.innerHTML = '<p class="admin-error">Completá Tenant ID, Client ID y el link para compartir.</p>'; return; }
-  saveOneDriveCfg({ tenantId, clientId, shareUrl, lastSync: loadOneDriveCfg().lastSync });
-  if (typeof msal === 'undefined' || !window.msal) { statusEl.innerHTML = '<p class="admin-error">La librería de Microsoft (MSAL) no cargó. Revisá la conexión a internet.</p>'; return; }
+  saveOneDriveCfg({ tenantId, clientId, shareUrl });
+  msalInstance = null;
+  if (!window.msal) { statusEl.innerHTML = '<p class="admin-error">La librería de Microsoft (MSAL) no cargó. Revisá la conexión a internet.</p>'; return; }
   statusEl.innerHTML = '<div class="admin-spinner">Abriendo login de Microsoft…</div>';
   try {
-    const pca = new window.msal.PublicClientApplication({
-      auth: { clientId, authority: `https://login.microsoftonline.com/${tenantId}`, redirectUri: window.location.href }
-    });
-    await pca.initialize();
-    const loginResp = await pca.loginPopup({ scopes: ['Files.Read', 'User.Read'] });
-    const tokenResp = await pca.acquireTokenSilent({ scopes: ['Files.Read'], account: loginResp.account })
-      .catch(() => pca.acquireTokenPopup({ scopes: ['Files.Read'], account: loginResp.account }));
-    statusEl.innerHTML = '<div class="admin-spinner">Descargando planilla desde SharePoint…</div>';
-    const shareId = encodeSharingUrl(shareUrl);
-    const url = `https://graph.microsoft.com/v1.0/shares/${shareId}/driveItem/content`;
-    const res = await fetch(url, { headers: { Authorization: `Bearer ${tokenResp.accessToken}` } });
-    if (!res.ok) throw new Error('No pude descargar el archivo (código ' + res.status + '). Revisá el link y los permisos.');
-    const buf = await res.arrayBuffer();
-    const rows = parseWorkbook(buf);
-    statusEl.innerHTML = '<div class="admin-spinner">Comparando con la base actual…</div>';
-    admin.rows = rows;
-    admin.diff = buildDiff(rows, ALL);
-    saveOneDriveCfg({ tenantId, clientId, shareUrl, lastSync: Date.now() });
-    renderAdmin();
+    await syncFromSharePoint(false);
+    statusEl.innerHTML = '<p class="admin-ok">¡Listo! Datos actualizados desde SharePoint.</p>';
+    renderAdminConnect();
   } catch (e) {
     console.error(e);
     statusEl.innerHTML = `<p class="admin-error">${esc(e.message || 'No pude conectar con SharePoint/OneDrive.')}</p>`;
@@ -1017,11 +999,10 @@ async function handleFile(file){
   statusEl.innerHTML = `<div class="admin-spinner">Leyendo planilla…</div>`;
   try {
     const buf = await file.arrayBuffer();
-    const rows = parseWorkbook(buf);
-    statusEl.innerHTML = `<div class="admin-spinner">Comparando con la base actual…</div>`;
-    admin.rows = rows;
-    admin.diff = buildDiff(rows, ALL);
-    renderAdmin();
+    ALL = parseWorkbook(buf);
+    renderFilterSheetOptions();
+    statusEl.innerHTML = `<p class="admin-ok">¡Listo! Se cargaron ${ALL.length} reclamos.</p>`;
+    renderAll();
   } catch (e) {
     console.error(e);
     statusEl.innerHTML = `<p class="admin-error">${esc(e.message || 'No pude leer el archivo.')}</p>`;
@@ -1056,74 +1037,6 @@ function parseWorkbook(buf){
   return records;
 }
 
-function buildDiff(rows, existing){
-  const byId = new Map(existing.map(r => [String(r.nroReclamo), r]));
-  const FIELDS = Object.values(XLSX_KEY_MAP);
-  const nuevos = [], actualizados = [], sinCambios = [];
-  for (const row of rows) {
-    const match = byId.get(String(row.nroReclamo));
-    if (!match) { nuevos.push(row); continue; }
-    const changed = FIELDS.some(f => {
-      const a = row[f], b = match[f];
-      if (a instanceof Date || b instanceof Date) return +(a||0) !== +(b||0);
-      return String(a ?? '') !== String(b ?? '');
-    });
-    (changed ? actualizados : sinCambios).push(row);
-  }
-  return { nuevos, actualizados, sinCambios };
-}
-
-function renderAdminPreview(){
-  const d = admin.diff;
-  const listHtml = items => items.length
-    ? items.slice(0, 60).map(r => `<p>N° ${esc(r.nroReclamo)}${r.causa ? ' · ' + esc(r.causa) : ''}</p>`).join('') + (items.length > 60 ? `<p class="admin-note">+${items.length-60} más</p>` : '')
-    : `<p class="admin-note">Ninguno.</p>`;
-  document.getElementById('adminBody').innerHTML = `
-    <div class="diff-summary">
-      <div class="diff-stat"><div class="n">${d.nuevos.length}</div><div class="l">Nuevos</div></div>
-      <div class="diff-stat"><div class="n">${d.actualizados.length}</div><div class="l">Modificados</div></div>
-      <div class="diff-stat"><div class="n">${d.sinCambios.length}</div><div class="l">Sin cambios</div></div>
-    </div>
-    <h4 style="font-size:12.5px; text-transform:uppercase; color:var(--text-muted); margin:16px 0 8px;">Nuevos (${d.nuevos.length})</h4>
-    <div class="diff-list">${listHtml(d.nuevos)}</div>
-    <h4 style="font-size:12.5px; text-transform:uppercase; color:var(--text-muted); margin:16px 0 8px;">Modificados (${d.actualizados.length})</h4>
-    <div class="diff-list">${listHtml(d.actualizados)}</div>
-    <div id="adminConfirmStatus"></div>
-    <button class="btn-primary" data-action="cancel-diff" style="background:var(--surface-2); color:var(--text); margin-bottom:10px;">Cancelar</button>
-    <button class="btn-primary" data-action="confirm-update" ${(d.nuevos.length + d.actualizados.length)===0 ? 'disabled' : ''}>Confirmar actualización</button>
-  `;
-}
-
-async function confirmUpdate(){
-  const d = admin.diff;
-  const statusEl = document.getElementById('adminConfirmStatus');
-  const btn = document.querySelector('[data-action="confirm-update"]');
-  btn.disabled = true;
-  const toWrite = [...d.nuevos, ...d.actualizados];
-  const CHUNK = 400;
-  try {
-    for (let i = 0; i < toWrite.length; i += CHUNK) {
-      const batch = db.batch();
-      toWrite.slice(i, i + CHUNK).forEach(r => {
-        const docId = String(r.nroReclamo).replace(/[\/\s]+/g, '-');
-        batch.set(db.collection(COLLECTION).doc(docId), r);
-      });
-      await batch.commit();
-      statusEl.innerHTML = `<p class="admin-note">Subidos ${Math.min(i+CHUNK, toWrite.length)} / ${toWrite.length}…</p>`;
-    }
-    ALL = await loadData();
-    renderFilterSheetOptions();
-    document.getElementById('adminBody').innerHTML = `
-      <p class="admin-p"><b>¡Listo!</b> Se actualizaron ${toWrite.length} reclamos (${d.nuevos.length} nuevos, ${d.actualizados.length} modificados). El panel ya se actualizó solo.</p>
-      <button class="btn-primary" data-action="close-admin">Cerrar</button>
-    `;
-    renderAll();
-  } catch (e) {
-    console.error(e);
-    statusEl.innerHTML = `<p class="admin-error">Hubo un error subiendo los cambios: ${esc(e.message)}</p>`;
-    btn.disabled = false;
-  }
-}
 
 /* ===================== Eventos ===================== */
 
@@ -1164,7 +1077,8 @@ function bindEvents(){
     }
     const rm = e.target.closest('[data-rm-key]');
     if (rm) { state.filters[rm.dataset.rmKey].delete(rm.dataset.rmVal); state.page = 1; renderAll(); }
-    if (e.target.closest('[data-action="refresh"]')) init();
+    if (e.target.closest('[data-action="refresh"]')) connectNow();
+    if (e.target.closest('[data-action="connect-now"]')) connectNow();
     if (e.target.closest('[data-action="export-csv"]')) exportCsv(getFiltered());
   });
 
@@ -1197,20 +1111,14 @@ function bindEvents(){
 
   document.querySelector('[data-action="close-detail"]').addEventListener('click', closeDetail);
 
-  document.querySelectorAll('[data-action="open-admin"]').forEach(b => b.addEventListener('click', () => { admin.diff = null; openAdmin(); }));
+  document.querySelectorAll('[data-action="open-admin"]').forEach(b => b.addEventListener('click', openAdmin));
   document.getElementById('adminOverlay').addEventListener('click', closeAdmin);
   document.getElementById('adminBody').addEventListener('click', e => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     const action = btn.dataset.action;
-    if (action === 'do-login') doLogin();
-    else if (action === 'close-admin') closeAdmin();
-    else if (action === 'cancel-diff') { admin.diff = null; renderAdmin(); }
-    else if (action === 'confirm-update') confirmUpdate();
-    else if (action === 'od-connect') connectOneDrive();
-  });
-  document.getElementById('adminBody').addEventListener('keydown', e => {
-    if (e.key === 'Enter' && e.target.id === 'adminPin') doLogin();
+    if (action === 'close-admin') closeAdmin();
+    else if (action === 'od-connect') connectOneDriveFromPanel();
   });
 }
 
