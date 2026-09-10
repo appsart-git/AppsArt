@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SAC · Reclamos - Alberdi</title>
+<meta name="theme-color" content="#14171A">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/3.18.0/js/msal-browser.min.js"></script>
+<style>
+  :root{
+    --bg:#14171A; --surface:#1D2126; --surface-2:#262B32; --border:#2E343C;
+    --text:#ECEDEF; --text-muted:#8B92A0; --text-faint:#5C6470;
+    --brand:#898A8D; --accent:#E8A33D; --accent-ink:#1A1305; --accent-soft:rgba(232,163,61,.16);
+    --green:#4C8B5A; --red:#E15252;
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--text); font-family:var(--font);
+    -webkit-font-smoothing:antialiased; min-height:100vh; padding-bottom:24px;
+  }
+  img{max-width:100%; display:block;}
+  button{font-family:inherit;}
+  input{font-family:inherit;}
+  ::placeholder{color:var(--text-faint);}
+
+  /* ---------- Topbar ---------- */
+  .topbar{
+    position:sticky; top:0; z-index:20; background:var(--surface);
+    border-bottom:1px solid var(--border); padding:12px 14px 10px;
+  }
+  .topbar-inner{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;}
+  .brand{display:flex; align-items:center; gap:8px;}
+  .brand-logo{line-height:1;}
+  .brand-logo .marca-sub{display:block; font-size:10.5px; font-weight:500; color:var(--brand); letter-spacing:.02em; margin:0 0 1px 2px;}
+  .brand-logo .marca-main{font-size:21px; font-weight:800; color:var(--brand); letter-spacing:-0.01em;}
+  .brand-logo .marca-main .dot{display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--brand); margin-left:3px; vertical-align:top; margin-top:3px;}
+  .brand-logo small{display:block; font-size:11px; font-weight:500; color:var(--text-muted); margin-top:2px;}
+  .topbar-actions{display:flex; gap:8px;}
+  .icon-btn{
+    display:flex; align-items:center; gap:6px; background:var(--surface-2); border:1px solid var(--border);
+    color:var(--text); padding:9px 13px; border-radius:10px; font-size:13.5px; font-weight:600; cursor:pointer;
+    white-space:nowrap;
+  }
+  .icon-btn .count{
+    background:var(--accent); color:var(--accent-ink); border-radius:20px; font-size:11px; padding:1px 7px; font-weight:700;
+  }
+  .search-row{position:relative; margin-bottom:10px;}
+  .search-row input{
+    width:100%; padding:11px 14px 11px 36px; border-radius:11px; border:1px solid var(--border);
+    background:var(--surface-2); font-size:14.5px; color:var(--text);
+  }
+  .search-row input:focus{outline:2px solid var(--accent); outline-offset:0; background:var(--surface);}
+  .search-icon{position:absolute; left:12px; top:50%; transform:translateY(-50%); opacity:.55; font-size:15px; pointer-events:none;}
+
+  .view-tabs, .coleccion-tabs{display:flex; gap:8px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none;}
+  .view-tabs::-webkit-scrollbar, .coleccion-tabs::-webkit-scrollbar{display:none;}
+  .tab-chip{
+    flex:none; padding:8px 14px; border-radius:20px; border:1px solid var(--border); background:var(--surface);
+    color:var(--text-muted); font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;
+  }
+  .tab-chip.active{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
+
+  .active-filters{display:flex; gap:6px; flex-wrap:wrap; padding:10px 14px 0;}
+  .active-filters:empty{display:none;}
+  .af-chip{
+    display:flex; align-items:center; gap:6px; background:var(--accent-soft); color:var(--accent);
+    border-radius:20px; padding:5px 10px 5px 12px; font-size:12.5px; font-weight:600;
+  }
+  .af-chip button{background:none; border:none; color:var(--accent); cursor:pointer; font-size:14px; line-height:1; padding:0;}
+  .clear-all{background:none; border:none; color:var(--text-muted); font-size:12.5px; text-decoration:underline; cursor:pointer; padding:5px 4px;}
+
+  .result-count{padding:12px 14px 6px; font-size:12.5px; color:var(--text-muted); font-weight:600;}
+
+  /* ---------- KPIs ---------- */
+  .kpi-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; padding:6px 14px 4px; max-width:1200px; margin:0 auto;}
+  @media (min-width:640px){ .kpi-grid{grid-template-columns:repeat(3,1fr);} }
+  @media (min-width:900px){ .kpi-grid{grid-template-columns:repeat(5,1fr); gap:14px; padding:6px 24px 4px;} }
+  .kpi-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 15px 12px;}
+  .kpi-card .v{font-size:21px; font-weight:800; color:var(--text); line-height:1.15;}
+  .kpi-card .l{font-size:11.5px; color:var(--text-muted); margin-top:5px; font-weight:600;}
+  .kpi-card.warn .v{color:var(--red);}
+  .kpi-card.good .v{color:var(--green);}
+  .kpi-card.accent .v{color:var(--accent);}
+
+  /* ---------- Charts ---------- */
+  .chart-grid{display:grid; grid-template-columns:1fr; gap:14px; padding:14px 14px 20px; max-width:1200px; margin:0 auto;}
+  @media (min-width:900px){ .chart-grid{grid-template-columns:repeat(2,1fr); padding:14px 24px 24px;} }
+  .chart-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 16px 12px; min-width:0;}
+  .chart-card.wide{grid-column:1/-1;}
+  .chart-card-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; gap:8px; flex-wrap:wrap;}
+  .chart-card h4{margin:0; font-size:13px; font-weight:700; color:var(--text);}
+  .chart-toggle{display:flex; gap:4px;}
+  .chart-toggle button{
+    padding:4px 10px; border-radius:14px; border:1px solid var(--border); background:var(--surface-2);
+    color:var(--text-muted); font-size:11px; font-weight:700; cursor:pointer;
+  }
+  .chart-toggle button.active{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
+  .chart-wrap{position:relative; height:230px;}
+  .chart-empty{padding:60px 0; text-align:center; color:var(--text-faint); font-size:12.5px;}
+
+  .empty-state{padding:60px 20px; text-align:center; color:var(--text-muted);}
+  .empty-state .big{font-size:34px; margin-bottom:8px;}
+  .empty-state .btn-primary{max-width:260px; margin:16px auto 0;}
+
+  /* ---------- Table ---------- */
+  .table-toolbar{display:flex; align-items:center; justify-content:space-between; padding:10px 14px 0; max-width:1200px; margin:0 auto; gap:10px; flex-wrap:wrap;}
+  @media (min-width:900px){ .table-toolbar{padding:10px 24px 0;} }
+  .table-toolbar .btn-ghost{
+    background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 13px;
+    border-radius:10px; font-size:12.5px; font-weight:700; cursor:pointer;
+  }
+  .table-wrap{padding:10px 14px 20px; max-width:1200px; margin:0 auto; overflow-x:auto;}
+  @media (min-width:900px){ .table-wrap{padding:10px 24px 24px;} }
+  table.data-table{width:100%; border-collapse:collapse; font-size:12.5px; min-width:820px;}
+  .data-table th{
+    position:sticky; top:0; background:var(--surface); text-align:left; padding:9px 10px; color:var(--text-muted);
+    font-weight:700; border-bottom:1px solid var(--border); cursor:pointer; white-space:nowrap; user-select:none;
+  }
+  .data-table th .arrow{opacity:.6; margin-left:3px;}
+  .data-table td{padding:9px 10px; border-bottom:1px solid var(--border); white-space:nowrap; color:var(--text);}
+  .data-table td.desc{white-space:normal; max-width:260px; overflow:hidden; text-overflow:ellipsis;}
+  .data-table tbody tr{cursor:pointer;}
+  .data-table tbody tr:hover td{background:var(--surface-2);}
+  .table-pager{display:flex; align-items:center; justify-content:center; gap:12px; padding:14px 0 4px;}
+  .table-pager button{background:var(--surface-2); border:1px solid var(--border); color:var(--text); padding:8px 12px; border-radius:8px; cursor:pointer; font-weight:700; font-size:12.5px;}
+  .table-pager button:disabled{opacity:.4; cursor:default;}
+  .table-pager span{font-size:12.5px; color:var(--text-muted);}
+
+  .pill{font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px; display:inline-block; white-space:nowrap;}
+  .pill.open{background:rgba(225,82,82,.15); color:var(--red);}
+  .pill.closed{background:rgba(76,139,90,.15); color:var(--green);}
+  .pill.neutral{background:var(--surface-2); color:var(--text-muted);}
+
+  /* ---------- Sheet (filtros / admin) ---------- */
+  .overlay{position:fixed; inset:0; background:rgba(20,23,26,.5); z-index:40; opacity:0; pointer-events:none; transition:opacity .2s;}
+  .overlay.show{opacity:1; pointer-events:auto;}
+  .sheet{
+    position:fixed; left:0; right:0; bottom:0; z-index:41; background:var(--surface);
+    border-radius:20px 20px 0 0; max-height:86vh; display:flex; flex-direction:column;
+    transform:translateY(100%); transition:transform .25s ease; box-shadow:0 -8px 30px rgba(0,0,0,.3);
+  }
+  .sheet.show{transform:translateY(0);}
+  @media (min-width:720px){
+    .sheet{ left:50%; right:auto; bottom:auto; top:50%; width:560px; max-width:92vw;
+      transform:translate(-50%,-46%) scale(.96); opacity:0; border-radius:18px; max-height:82vh;}
+    .sheet.show{transform:translate(-50%,-50%) scale(1); opacity:1;}
+  }
+  .sheet-handle{width:38px; height:4px; background:var(--border); border-radius:3px; margin:10px auto 4px; flex:none;}
+  .sheet-head{display:flex; align-items:center; justify-content:space-between; padding:8px 18px 12px; border-bottom:1px solid var(--border); flex:none;}
+  .sheet-head h3{margin:0; font-size:16px;}
+  .sheet-head button{background:none; border:none; font-size:13px; font-weight:700; color:var(--accent); cursor:pointer;}
+  .sheet-body{overflow-y:auto; padding:6px 18px 10px; flex:1;}
+  .filter-group{margin:14px 0;}
+  .filter-group h4{margin:0 0 8px; font-size:12.5px; text-transform:uppercase; letter-spacing:.03em; color:var(--text-muted);}
+  .filter-group .opts{display:flex; flex-wrap:wrap; gap:7px;}
+  .opt-chip{padding:7px 12px; border-radius:18px; border:1px solid var(--border); background:var(--surface);
+    color:var(--text); font-size:12.5px; font-weight:600; cursor:pointer;}
+  .opt-chip.active{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
+  .date-range{display:flex; gap:8px;}
+  .date-range input[type=date]{flex:1; padding:10px 12px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:13px;}
+  .sheet-foot{padding:12px 18px calc(14px + env(safe-area-inset-bottom)); border-top:1px solid var(--border); flex:none;}
+  .btn-primary{width:100%; padding:13px; border-radius:12px; border:none; background:var(--accent); color:var(--accent-ink); font-size:14.5px; font-weight:700; cursor:pointer;}
+  .btn-primary:disabled{opacity:.5; cursor:default;}
+
+  .admin-p{font-size:13px; color:var(--text-muted); line-height:1.5; margin:0 0 14px;}
+  .admin-input{
+    width:100%; padding:12px 14px; border-radius:11px; border:1px solid var(--border);
+    background:var(--surface-2); color:var(--text); font-size:15px; margin-bottom:12px;
+  }
+  .admin-error{background:rgba(225,82,82,.12); color:var(--red); border-radius:10px; padding:10px 12px; font-size:13px; margin-bottom:12px;}
+  .admin-ok{background:rgba(76,139,90,.12); color:var(--green); border-radius:10px; padding:10px 12px; font-size:13px; margin-bottom:12px;}
+  .admin-file{
+    position:relative; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:8px;
+    border:1.5px dashed var(--border); border-radius:12px; padding:28px 16px; text-align:center;
+    color:var(--text-muted); font-size:13px; cursor:pointer; margin-bottom:14px;
+  }
+  .admin-file input[type="file"]{
+    position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer;
+  }
+  .admin-file b{color:var(--text); font-size:14px;}
+  .diff-summary{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px;}
+  .diff-stat{background:var(--surface-2); border-radius:11px; padding:12px 8px; text-align:center;}
+  .diff-stat .n{font-size:20px; font-weight:800; color:var(--text);}
+  .diff-stat .l{font-size:11px; color:var(--text-muted); margin-top:2px;}
+  .diff-list{max-height:180px; overflow-y:auto; border:1px solid var(--border); border-radius:11px; padding:4px 12px; margin-bottom:14px;}
+  .diff-list p{font-size:12.5px; padding:6px 0; border-bottom:1px solid var(--border); margin:0;}
+  .diff-list p:last-child{border-bottom:none;}
+  .admin-note{font-size:12px; color:var(--text-faint); line-height:1.5; margin:10px 0 4px;}
+  .admin-spinner{text-align:center; padding:30px 0; color:var(--text-muted); font-size:13px;}
+  .admin-tabs{display:flex; gap:8px; margin-bottom:16px;}
+  .admin-tab{flex:1; padding:9px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); color:var(--text-muted); font-weight:700; font-size:12.5px; cursor:pointer; text-align:center;}
+  .admin-tab.active{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
+
+  /* ---------- Detail drawer ---------- */
+  .detail{
+    position:fixed; inset:0; z-index:50; background:var(--surface); display:flex; flex-direction:column;
+    transform:translateX(100%); transition:transform .22s ease;
+  }
+  .detail.show{transform:translateX(0);}
+  @media (min-width:720px){
+    .detail{ inset:auto; left:50%; top:50%; width:640px; max-width:92vw; max-height:86vh;
+      transform:translate(-50%,-46%) scale(.97); opacity:0; border-radius:18px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.4);}
+    .detail.show{transform:translate(-50%,-50%) scale(1); opacity:1;}
+  }
+  .detail-head{position:relative; flex:none; padding:18px 18px 14px; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
+  .detail-close{
+    width:34px; height:34px; border-radius:50%; flex:none;
+    background:var(--surface-2); color:var(--text); border:1px solid var(--border); font-size:16px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .detail-body{overflow-y:auto; padding:6px 18px calc(20px + env(safe-area-inset-bottom));}
+  .detail-title{font-size:18px; font-weight:800; margin:0 0 4px;}
+  .detail-sub{color:var(--text-muted); font-size:13px; margin:0;}
+  .spec-group-title{padding:16px 0 8px; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--text-muted); font-weight:700;}
+  .spec-table{width:100%; border-collapse:collapse;}
+  .spec-table tr{border-bottom:1px solid var(--border);}
+  .spec-table tr:last-child{border-bottom:none;}
+  .spec-table td{padding:9px 0; font-size:13px; vertical-align:top;}
+  .spec-table td:first-child{color:var(--text-muted); width:46%; font-weight:600;}
+  .spec-table td:last-child{color:var(--text); text-align:right; font-weight:600;}
+
+  .app-footer{
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    padding:22px 14px calc(26px + env(safe-area-inset-bottom)); opacity:.85;
+  }
+  .app-footer span{font-size:12px; color:var(--text-muted);}
+  .app-footer .appsart-logo{height:34px; width:auto; display:block;}
+
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><div class="brand-logo">
+      <span class="marca-sub">cerámica</span>
+      <span class="marca-main">Alberdi<i class="dot"></i></span>
+      <small>SAC · Reclamos</small>
+    </div></div>
+    <div class="topbar-actions">
+      <button class="icon-btn" data-action="refresh" title="Recargar datos">⟳</button>
+      <button class="icon-btn" data-action="open-admin" title="Actualizar datos">⇪</button>
+      <button class="icon-btn" data-action="open-filters">⚙ Filtros <span class="count hidden" id="filterCount">0</span></button>
+    </div>
+  </div>
+  <div class="search-row">
+    <span class="search-icon">🔎</span>
+    <input id="search" placeholder="Buscar por N° de reclamo, cliente, artículo o causa…" autocomplete="off">
+  </div>
+  <div class="view-tabs" id="viewTabs">
+    <button class="tab-chip active" data-view="dashboard">📊 Panel</button>
+    <button class="tab-chip" data-view="table">📋 Listado</button>
+  </div>
+</header>
+
+<div class="active-filters" id="activeFilters"></div>
+<div class="result-count" id="resultCount"></div>
+
+<main id="main">
+  <div id="emptyState" class="empty-state hidden">
+    <div class="big">📥</div>
+    <p><b>Todavía no hay reclamos cargados.</b><br>Subí la planilla de reclamos para ver las estadísticas.</p>
+    <button class="btn-primary" data-action="open-admin">Cargar planilla</button>
+  </div>
+
+  <div id="dashboardView">
+    <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="chart-grid" id="chartGrid"></div>
+  </div>
+
+  <div id="tableView" class="hidden">
+    <div class="table-toolbar">
+      <span></span>
+      <button class="btn-ghost" data-action="export-csv">⬇ Exportar CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr id="tableHead"></tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="table-pager" id="tablePager"></div>
+  </div>
+</main>
+
+<footer class="app-footer">
+  <span>App desarrollada por</span>
+  <img src="./appsart-brand.png" alt="AppsArt" class="appsart-logo">
+</footer>
+
+<div class="overlay" id="overlay"></div>
+<div class="sheet" id="filterSheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <h3>Filtros</h3>
+    <button data-action="reset-filters">Limpiar todo</button>
+  </div>
+  <div class="sheet-body" id="filterBody"></div>
+  <div class="sheet-foot">
+    <button class="btn-primary" data-action="apply-filters">Ver resultados</button>
+  </div>
+</div>
+
+<div class="detail" id="detail">
+  <div class="detail-head">
+    <div>
+      <h2 class="detail-title" id="detailTitle"></h2>
+      <p class="detail-sub" id="detailSub"></p>
+    </div>
+    <button class="detail-close" data-action="close-detail">✕</button>
+  </div>
+  <div class="detail-body" id="detailBody"></div>
+</div>
+
+<div class="overlay" id="adminOverlay"></div>
+<div class="sheet" id="adminPanel">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <h3>Actualizar datos</h3>
+    <button data-action="close-admin">Cerrar</button>
+  </div>
+  <div class="sheet-body" id="adminBody"></div>
+</div>
+
+<script>
+'use strict';
+
+/* ===================== Config ===================== */
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBbyTSnTekMkXOZOAZEV0SQzk46NqkyaSA",
+  authDomain: "de-r-13.firebaseapp.com",
+  projectId: "de-r-13",
+  storageBucket: "de-r-13.firebasestorage.app",
+  messagingSenderId: "79165446593",
+  appId: "1:79165446593:web:19719e556144c227833740"
+};
+const COLLECTION = 'reclamos_sac';
+const ADMIN_EMAIL = 'admin@catalogo-alberdi.app';
+
+let db = null, auth = null;
+try {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  auth = firebase.auth();
+} catch (e) { console.warn('Firebase no disponible.', e); }
+
+/* ===================== Datos: mapeo de columnas ===================== */
+
+const XLSX_KEY_MAP = {
+  NRORECLAMO:'nroReclamo', ARTICULO:'articulo', NOMBRE:'nombre', MARCA:'marca', HORNO:'horno',
+  TONO:'tono', CALIBRE:'calibre', METROS:'metros', CAUSA:'causa', FECHADEPROD:'fechaProd',
+  HORA:'hora', TURNO:'turno', LINEADEPROD:'lineaProd', FECHARECLAMO:'fechaReclamo',
+  ESDEUNUSUARIO:'esDeUnUsuario', NOMBREUSUARIO:'nombreUsuario', TIPODOCUMENTO:'tipoDocumento',
+  NUMERODOCUMENTO:'numeroDocumento', DIRECCION:'direccion', LOCALIDAD:'localidad',
+  CODIGOPOSTAL:'codigoPostal', PROVINCIA:'provincia', TELEFONO:'telefono', FAX:'fax', EMAIL:'email',
+  CUENTACLIENTE:'cuentaCliente', NOMBRECLIENTE:'nombreCliente', DESCRIPCIONRECLAMO:'descripcionReclamo',
+  FECHACOLOCACION:'fechaColocacion', INSPECTOR:'inspector', ADHESIVO:'adhesivo', RESOLUCION:'resolucion',
+  ESTIMADO:'estimado', FINALIZADO:'finalizado', MANODEOBRA:'manoDeObra',
+  MATERIALESPROPIOS:'materialesPropios', MATERIALESDETERCEROS:'materialesDeTerceros',
+  VIATICOS:'viaticos', FLETES:'fletes', TOTALGASTOS:'totalGastos',
+  IDINSPECTOR:'idInspector', IDADHESIVO:'idAdhesivo', IDESTIMADO:'idEstimado',
+  IDFINALIZADO:'idFinalizado', IDCAUSA:'idCausa'
+};
+const NUMERIC_FIELDS = ['metros','manoDeObra','materialesPropios','materialesDeTerceros','viaticos','fletes','totalGastos'];
+const DATE_FIELDS = ['fechaProd','fechaReclamo','fechaColocacion'];
+
+const FIELD_LABELS = {
+  nroReclamo:'N° de reclamo', articulo:'Artículo', nombre:'Nombre', marca:'Marca', horno:'Horno',
+  tono:'Tono', calibre:'Calibre', metros:'Metros (m²)', causa:'Causa', fechaProd:'Fecha de producción',
+  hora:'Hora', turno:'Turno', lineaProd:'Línea de producción', fechaReclamo:'Fecha de reclamo',
+  esDeUnUsuario:'Origen', nombreUsuario:'Nombre de usuario', tipoDocumento:'Tipo de documento',
+  numeroDocumento:'N° de documento', direccion:'Dirección', localidad:'Localidad', codigoPostal:'Código postal',
+  provincia:'Provincia', telefono:'Teléfono', fax:'Fax', email:'Email', cuentaCliente:'Cuenta cliente',
+  nombreCliente:'Nombre de cliente', descripcionReclamo:'Descripción', fechaColocacion:'Fecha de colocación',
+  inspector:'Inspector', adhesivo:'Adhesivo', resolucion:'Resolución', estimado:'Estimado', finalizado:'Estado',
+  manoDeObra:'Mano de obra', materialesPropios:'Materiales propios', materialesDeTerceros:'Materiales de terceros',
+  viaticos:'Viáticos', fletes:'Fletes', totalGastos:'Total de gastos'
+};
+const DETAIL_GROUPS = [
+  { title:'Reclamo', fields:['nroReclamo','fechaReclamo','causa','estimado','finalizado','resolucion','descripcionReclamo'] },
+  { title:'Producto', fields:['articulo','nombre','marca','tono','calibre','metros','horno','lineaProd','turno','fechaProd','hora'] },
+  { title:'Cliente / usuario', fields:['esDeUnUsuario','nombreCliente','cuentaCliente','nombreUsuario','tipoDocumento','numeroDocumento','telefono','fax','email','direccion','localidad','provincia','codigoPostal','fechaColocacion','inspector','adhesivo'] },
+  { title:'Costos', fields:['manoDeObra','materialesPropios','materialesDeTerceros','viaticos','fletes','totalGastos'] }
+];
+const FILTERABLE = [
+  { key:'finalizado', label:'Estado' },
+  { key:'causa', label:'Causa' },
+  { key:'lineaProd', label:'Línea de producción' },
+  { key:'horno', label:'Horno' },
+  { key:'turno', label:'Turno' },
+  { key:'marca', label:'Marca' },
+  { key:'provincia', label:'Provincia' },
+  { key:'esDeUnUsuario', label:'Origen' }
+];
+const COLORS = ['#E8A33D','#4C8B5A','#E15252','#5B8DEF','#9B6BDE','#4FB6C7','#D98BD9','#C9A227','#7FA1C3','#6FCF97'];
+
+/* ===================== Helpers de parseo ===================== */
+
+function stripAccents(s){ return String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+function normHeaderKey(h){ return stripAccents(h).toUpperCase().replace(/[^A-Z0-9]/g,''); }
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+function parseNumber(v){
+  if (typeof v === 'number') return v;
+  if (v == null) return 0;
+  let s = String(v).trim();
+  if (!s) return 0;
+  s = s.replace(/[^0-9,.\-]/g, '');
+  if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.');
+  else if (s.includes(',')) s = s.replace(',', '.');
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+function parseDateVal(v){
+  if (v instanceof Date) return isNaN(v) ? null : v;
+  if (typeof v === 'number' && v > 0) {
+    const epoch = Date.UTC(1899, 11, 30);
+    return new Date(epoch + v * 86400000);
+  }
+  if (typeof v === 'string') {
+    const s = v.trim();
+    if (!s) return null;
+    let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+    if (m) {
+      let [, d, mo, y] = m;
+      if (y.length === 2) y = '20' + y;
+      const dt = new Date(+y, +mo - 1, +d);
+      if (!isNaN(dt)) return dt;
+    }
+    const dt2 = new Date(s);
+    if (!isNaN(dt2)) return dt2;
+  }
+  return null;
+}
+function fmtMoney(n){ return (n||0).toLocaleString('es-AR', { style:'currency', currency:'ARS', maximumFractionDigits:0 }); }
+function fmtNum(n, dec){ return (n||0).toLocaleString('es-AR', { maximumFractionDigits: dec ?? 1 }); }
+function fmtDate(d){ return d ? d.toLocaleDateString('es-AR') : '—'; }
+function monthKey(d){ return d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` : null; }
+function monthLabel(k){
+  const [y,m] = k.split('-');
+  return new Date(+y, +m-1, 1).toLocaleDateString('es-AR', { month:'short', year:'2-digit' });
+}
+function isClosed(finalizado){ return /FINAL/i.test(stripAccents(String(finalizado||''))); }
+
+/* ===================== Estado ===================== */
+
+let ALL = [];
+const state = {
+  view: 'dashboard',
+  search: '',
+  monthlyMetric: 'count',
+  dateFrom: '', dateTo: '',
+  filters: {}, pendingFilters: {},
+  sortKey: 'fechaReclamo', sortDir: 'desc',
+  page: 1, pageSize: 25
+};
+FILTERABLE.forEach(f => { state.filters[f.key] = new Set(); state.pendingFilters[f.key] = new Set(); });
+
+const charts = {};
+
+/* ===================== Carga de datos ===================== */
+
+async function loadData(){
+  if (!db) return [];
+  const snap = await db.collection(COLLECTION).get();
+  return snap.docs.map(d => {
+    const data = d.data();
+    DATE_FIELDS.forEach(f => { if (data[f] && data[f].toDate) data[f] = data[f].toDate(); });
+    return data;
+  });
+}
+
+async function init(){
+  try { ALL = await loadData(); }
+  catch (e) { console.error(e); ALL = []; }
+  renderFilterSheetOptions();
+  renderAll();
+}
+
+/* ===================== Filtros ===================== */
+
+function applyFilters(rows){
+  let out = rows;
+  const q = state.search.trim().toLowerCase();
+  if (q) {
+    out = out.filter(r => [r.nroReclamo, r.nombreCliente, r.nombreUsuario, r.articulo, r.nombre, r.causa]
+      .some(v => String(v||'').toLowerCase().includes(q)));
+  }
+  FILTERABLE.forEach(f => {
+    const set = state.filters[f.key];
+    if (set.size) out = out.filter(r => set.has(String(r[f.key]||'—').trim() || '—'));
+  });
+  if (state.dateFrom) { const from = new Date(state.dateFrom); out = out.filter(r => r.fechaReclamo && r.fechaReclamo >= from); }
+  if (state.dateTo) { const to = new Date(state.dateTo); to.setHours(23,59,59,999); out = out.filter(r => r.fechaReclamo && r.fechaReclamo <= to); }
+  return out;
+}
+
+function getFiltered(){ return applyFilters(ALL); }
+
+function distinctValues(key){
+  const set = new Set();
+  ALL.forEach(r => set.add(String(r[key]||'—').trim() || '—'));
+  return [...set].sort((a,b) => a.localeCompare(b, 'es'));
+}
+
+function renderFilterSheetOptions(){
+  const body = document.getElementById('filterBody');
+  const dateHtml = `
+    <div class="filter-group">
+      <h4>Fecha de reclamo</h4>
+      <div class="date-range">
+        <input type="date" id="dateFrom" value="${state.dateFrom}">
+        <input type="date" id="dateTo" value="${state.dateTo}">
+      </div>
+    </div>`;
+  const groupsHtml = FILTERABLE.map(f => {
+    const opts = distinctValues(f.key);
+    if (!opts.length) return '';
+    return `
+    <div class="filter-group">
+      <h4>${esc(f.label)}</h4>
+      <div class="opts">
+        ${opts.map(o => `<button class="opt-chip ${state.pendingFilters[f.key].has(o)?'active':''}" data-fkey="${f.key}" data-fval="${esc(o)}">${esc(o)}</button>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+  body.innerHTML = dateHtml + groupsHtml;
+}
+
+function updateFilterCount(){
+  let n = 0;
+  FILTERABLE.forEach(f => n += state.filters[f.key].size);
+  if (state.dateFrom) n++;
+  if (state.dateTo) n++;
+  const el = document.getElementById('filterCount');
+  el.textContent = n;
+  el.classList.toggle('hidden', n === 0);
+}
+
+function renderActiveFilters(){
+  const el = document.getElementById('activeFilters');
+  const chips = [];
+  FILTERABLE.forEach(f => {
+    state.filters[f.key].forEach(v => chips.push({ key:f.key, val:v, label:`${f.label}: ${v}` }));
+  });
+  if (!chips.length) { el.innerHTML = ''; return; }
+  el.innerHTML = chips.map(c => `<span class="af-chip">${esc(c.label)}<button data-rm-key="${c.key}" data-rm-val="${esc(c.val)}">✕</button></span>`).join('')
+    + `<button class="clear-all" data-action="reset-filters">Limpiar</button>`;
+}
+
+/* ===================== Agregaciones ===================== */
+
+function groupCount(rows, key){
+  const m = {};
+  rows.forEach(r => { const k = String(r[key]||'—').trim() || '—'; m[k] = (m[k]||0) + 1; });
+  return m;
+}
+function groupSum(rows, key, valKey){
+  const m = {};
+  rows.forEach(r => { const k = String(r[key]||'—').trim() || '—'; m[k] = (m[k]||0) + (r[valKey]||0); });
+  return m;
+}
+function topN(map, n){ return Object.entries(map).sort((a,b) => b[1]-a[1]).slice(0, n); }
+function avgDays(rows, fromKey, toKey){
+  const diffs = [];
+  rows.forEach(r => {
+    if (r[fromKey] instanceof Date && r[toKey] instanceof Date) {
+      const d = (r[toKey] - r[fromKey]) / 86400000;
+      if (d >= 0 && d < 3650) diffs.push(d);
+    }
+  });
+  if (!diffs.length) return null;
+  return diffs.reduce((a,b) => a+b, 0) / diffs.length;
+}
+
+function computeStats(rows){
+  const s = {};
+  s.total = rows.length;
+  s.totalMetros = rows.reduce((a,r) => a + (r.metros||0), 0);
+  const costFields = ['manoDeObra','materialesPropios','materialesDeTerceros','viaticos','fletes'];
+  s.costBreakdown = {};
+  costFields.forEach(f => s.costBreakdown[f] = rows.reduce((a,r) => a + (r[f]||0), 0));
+  const sumComponents = Object.values(s.costBreakdown).reduce((a,b) => a+b, 0);
+  const sumTotalGastos = rows.reduce((a,r) => a + (r.totalGastos||0), 0);
+  s.totalCosto = Math.max(sumComponents, sumTotalGastos);
+  s.costoPromedio = s.total ? s.totalCosto / s.total : 0;
+
+  s.estadoCounts = groupCount(rows, 'finalizado');
+  s.abiertos = rows.filter(r => !isClosed(r.finalizado)).length;
+  s.cerrados = s.total - s.abiertos;
+
+  s.porCausaCount = topN(groupCount(rows, 'causa'), 8);
+  s.porCausaCosto = topN(groupSum(rows, 'causa', 'totalGastos'), 8);
+  s.porLinea = topN(groupCount(rows, 'lineaProd'), 10);
+  s.porHorno = topN(groupCount(rows, 'horno'), 10);
+  s.porTurno = topN(groupCount(rows, 'turno'), 8);
+  s.porMarca = topN(groupCount(rows, 'marca'), 8);
+  s.porProvincia = topN(groupCount(rows, 'provincia'), 8);
+  s.porInspector = topN(groupCount(rows, 'inspector'), 8);
+  s.origenCounts = groupCount(rows, 'esDeUnUsuario');
+
+  const porMesCount = {}, porMesCosto = {};
+  rows.forEach(r => {
+    const k = monthKey(r.fechaReclamo);
+    if (!k) return;
+    porMesCount[k] = (porMesCount[k]||0) + 1;
+    porMesCosto[k] = (porMesCosto[k]||0) + (r.totalGastos||0);
+  });
+  s.meses = Object.keys({ ...porMesCount }).sort();
+  s.porMesCount = porMesCount;
+  s.porMesCosto = porMesCosto;
+
+  s.lagProdReclamo = avgDays(rows, 'fechaProd', 'fechaReclamo');
+  s.lagColocReclamo = avgDays(rows, 'fechaColocacion', 'fechaReclamo');
+
+  const now = new Date();
+  const buckets = { '< 7 días':0, '7-30 días':0, '30-90 días':0, '> 90 días':0 };
+  rows.forEach(r => {
+    if (isClosed(r.finalizado) || !(r.fechaReclamo instanceof Date)) return;
+    const d = (now - r.fechaReclamo) / 86400000;
+    if (d < 7) buckets['< 7 días']++;
+    else if (d < 30) buckets['7-30 días']++;
+    else if (d < 90) buckets['30-90 días']++;
+    else buckets['> 90 días']++;
+  });
+  s.aging = buckets;
+
+  return s;
+}
+
+/* ===================== Render: vistas ===================== */
+
+function renderAll(){
+  updateFilterCount();
+  renderActiveFilters();
+  const rows = getFiltered();
+  document.getElementById('emptyState').classList.toggle('hidden', ALL.length > 0);
+  document.getElementById('dashboardView').classList.toggle('hidden', ALL.length === 0 || state.view !== 'dashboard');
+  document.getElementById('tableView').classList.toggle('hidden', ALL.length === 0 || state.view !== 'table');
+  document.getElementById('resultCount').textContent = ALL.length ? `${rows.length} reclamo(s)` : '';
+  if (!ALL.length) return;
+  if (state.view === 'dashboard') renderDashboard(rows); else renderTableView(rows);
+}
+
+function kpiCard(value, label, cls){
+  return `<div class="kpi-card ${cls||''}"><div class="v">${value}</div><div class="l">${esc(label)}</div></div>`;
+}
+
+function renderDashboard(rows){
+  const s = computeStats(rows);
+  document.getElementById('kpiGrid').innerHTML = [
+    kpiCard(fmtNum(s.total,0), 'Reclamos'),
+    kpiCard(s.abiertos, 'Abiertos', 'warn'),
+    kpiCard(fmtNum(s.totalMetros,0)+' m²', 'Metros reclamados'),
+    kpiCard(fmtMoney(s.totalCosto), 'Costo total', 'accent'),
+    kpiCard(fmtMoney(s.costoPromedio), 'Costo promedio / reclamo'),
+    kpiCard(s.lagProdReclamo!=null ? fmtNum(s.lagProdReclamo,0)+' días' : '—', 'Prod. → reclamo (prom.)'),
+    kpiCard(s.lagColocReclamo!=null ? fmtNum(s.lagColocReclamo,0)+' días' : '—', 'Colocación → reclamo (prom.)'),
+    kpiCard(s.cerrados, 'Finalizados', 'good')
+  ].join('');
+
+  Chart.defaults.color = '#8B92A0';
+  Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+  const grid = 'rgba(46,52,60,.7)';
+
+  document.getElementById('chartGrid').innerHTML = `
+    <div class="chart-card wide">
+      <div class="chart-card-head">
+        <h4>Evolución mensual</h4>
+        <div class="chart-toggle">
+          <button data-metric="count" class="${state.monthlyMetric==='count'?'active':''}">Reclamos</button>
+          <button data-metric="cost" class="${state.monthlyMetric==='cost'?'active':''}">Costo</button>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="chMensual"></canvas></div>
+    </div>
+    <div class="chart-card"><div class="chart-card-head"><h4>Estado de los reclamos</h4></div><div class="chart-wrap"><canvas id="chEstado"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-head"><h4>Origen del reclamo</h4></div><div class="chart-wrap"><canvas id="chOrigen"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-head"><h4>Reclamos abiertos por antigüedad</h4></div><div class="chart-wrap"><canvas id="chAging"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-head"><h4>Distribución de costos</h4></div><div class="chart-wrap"><canvas id="chCostos"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-head"><h4>Top causas por cantidad</h4></div><div class="chart-wrap"><canvas id="chCausaCant"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-head"><h4>Top causas por costo</h4></div><div class="chart-wrap"><canvas id="chCausaCosto"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-head"><h4>Reclamos por línea de producción</h4></div><div class="chart-wrap"><canvas id="chLinea"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-head"><h4>Reclamos por horno</h4></div><div class="chart-wrap"><canvas id="chHorno"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-head"><h4>Reclamos por turno</h4></div><div class="chart-wrap"><canvas id="chTurno"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-head"><h4>Top marcas con más reclamos</h4></div><div class="chart-wrap"><canvas id="chMarca"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-head"><h4>Reclamos por provincia</h4></div><div class="chart-wrap"><canvas id="chProvincia"></canvas></div></div>
+    <div class="chart-card"><div class="chart-card-head"><h4>Carga por inspector</h4></div><div class="chart-wrap"><canvas id="chInspector"></canvas></div></div>
+  `;
+
+  function makeChart(id, config){
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (charts[id]) charts[id].destroy();
+    charts[id] = new Chart(el, config);
+  }
+  function hbar(id, entries, color){
+    if (!entries.length) { document.getElementById(id).closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
+    makeChart(id, {
+      type:'bar',
+      data:{ labels: entries.map(e=>e[0]), datasets:[{ data: entries.map(e=>e[1]), backgroundColor: color||'#E8A33D', borderRadius:4 }] },
+      options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false} },
+        scales:{ x:{ grid:{color:grid}, beginAtZero:true }, y:{ grid:{display:false} } } }
+    });
+  }
+  function donut(id, map){
+    const entries = Object.entries(map);
+    if (!entries.length) { document.getElementById(id).closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
+    makeChart(id, {
+      type:'doughnut',
+      data:{ labels: entries.map(e=>e[0]), datasets:[{ data: entries.map(e=>e[1]), backgroundColor: COLORS, borderColor: '#1D2126', borderWidth:2 }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{size:11} } } } }
+    });
+  }
+
+  makeChart('chMensual', {
+    type:'bar',
+    data:{ labels: s.meses.map(monthLabel),
+      datasets:[{ label: state.monthlyMetric==='count'?'Reclamos':'Costo',
+        data: s.meses.map(m => state.monthlyMetric==='count' ? s.porMesCount[m] : s.porMesCosto[m]),
+        backgroundColor:'#E8A33D', borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false},
+      tooltip:{ callbacks:{ label: ctx => state.monthlyMetric==='count' ? ctx.parsed.y+' reclamos' : fmtMoney(ctx.parsed.y) } } },
+      scales:{ x:{ grid:{display:false} }, y:{ grid:{color:grid}, beginAtZero:true } } }
+  });
+
+  donut('chEstado', s.estadoCounts);
+  donut('chOrigen', s.origenCounts);
+  hbar('chAging', Object.entries(s.aging), '#E15252');
+  donut('chCostos', Object.fromEntries(Object.entries(s.costBreakdown).map(([k,v]) => [FIELD_LABELS[k]||k, v])));
+  hbar('chCausaCant', s.porCausaCount, '#5B8DEF');
+  hbar('chCausaCosto', s.porCausaCosto, '#E8A33D');
+  hbar('chLinea', s.porLinea, '#4FB6C7');
+  hbar('chHorno', s.porHorno, '#9B6BDE');
+  hbar('chTurno', s.porTurno, '#6FCF97');
+  hbar('chMarca', s.porMarca, '#D98BD9');
+  hbar('chProvincia', s.porProvincia, '#C9A227');
+  hbar('chInspector', s.porInspector, '#7FA1C3');
+}
+
+/* ===================== Render: tabla ===================== */
+
+const TABLE_COLS = [
+  { key:'nroReclamo', label:'N°' },
+  { key:'fechaReclamo', label:'Fecha' },
+  { key:'clienteDisplay', label:'Cliente / usuario', sortKey:'nombreCliente' },
+  { key:'productoDisplay', label:'Artículo', sortKey:'articulo' },
+  { key:'causa', label:'Causa' },
+  { key:'metros', label:'m²' },
+  { key:'totalGastos', label:'Costo' },
+  { key:'finalizado', label:'Estado' }
+];
+
+function rowValue(r, key){
+  if (key === 'clienteDisplay') return r.nombreCliente || r.nombreUsuario || '—';
+  if (key === 'productoDisplay') return [r.articulo, r.nombre].filter(Boolean).join(' · ') || '—';
+  return r[key];
+}
+
+function renderTableView(rows){
+  const sorted = [...rows].sort((a,b) => {
+    const ka = state.sortKey, kb = state.sortKey;
+    let va = rowValue(a, ka), vb = rowValue(b, kb);
+    if (va instanceof Date || vb instanceof Date) { va = va ? +va : 0; vb = vb ? +vb : 0; }
+    else if (typeof va === 'number' || typeof vb === 'number') { va = va||0; vb = vb||0; }
+    else { va = String(va||'').toLowerCase(); vb = String(vb||'').toLowerCase(); }
+    const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+    return state.sortDir === 'asc' ? cmp : -cmp;
+  });
+  const totalPages = Math.max(1, Math.ceil(sorted.length / state.pageSize));
+  state.page = Math.min(state.page, totalPages);
+  const pageRows = sorted.slice((state.page-1)*state.pageSize, state.page*state.pageSize);
+
+  document.getElementById('tableHead').innerHTML = TABLE_COLS.map(c => {
+    const active = state.sortKey === (c.sortKey||c.key);
+    const arrow = active ? (state.sortDir==='asc'?'▲':'▼') : '';
+    return `<th data-sort="${c.sortKey||c.key}">${esc(c.label)} <span class="arrow">${arrow}</span></th>`;
+  }).join('');
+
+  document.getElementById('tableBody').innerHTML = pageRows.map(r => {
+    const cells = TABLE_COLS.map(c => {
+      let v = rowValue(r, c.key);
+      if (c.key === 'fechaReclamo') v = fmtDate(v);
+      else if (c.key === 'metros') v = fmtNum(v,1);
+      else if (c.key === 'totalGastos') v = fmtMoney(v || Math.max(v||0, (r.manoDeObra||0)+(r.materialesPropios||0)+(r.materialesDeTerceros||0)+(r.viaticos||0)+(r.fletes||0)));
+      else if (c.key === 'finalizado') v = `<span class="pill ${isClosed(r.finalizado) ? 'closed' : 'open'}">${esc(r.finalizado||'—')}</span>`;
+      else v = esc(v ?? '—');
+      const cls = c.key === 'productoDisplay' ? 'desc' : '';
+      return `<td class="${cls}">${v}</td>`;
+    }).join('');
+    return `<tr data-id="${esc(r.nroReclamo)}">${cells}</tr>`;
+  }).join('') || `<tr><td colspan="${TABLE_COLS.length}" style="text-align:center;color:var(--text-faint);padding:30px;">Sin resultados.</td></tr>`;
+
+  document.getElementById('tablePager').innerHTML = `
+    <button data-page="prev" ${state.page<=1?'disabled':''}>‹ Anterior</button>
+    <span>Página ${state.page} de ${totalPages} (${sorted.length} reclamos)</span>
+    <button data-page="next" ${state.page>=totalPages?'disabled':''}>Siguiente ›</button>
+  `;
+}
+
+function exportCsv(rows){
+  const cols = Object.keys(FIELD_LABELS);
+  const lines = [cols.map(c => FIELD_LABELS[c]).join(';')];
+  rows.forEach(r => {
+    lines.push(cols.map(c => {
+      let v = r[c];
+      if (v instanceof Date) v = fmtDate(v);
+      return `"${String(v ?? '').replace(/"/g,'""')}"`;
+    }).join(';'));
+  });
+  const blob = new Blob(['﻿' + lines.join('\n')], { type:'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'reclamos_alberdi.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+/* ===================== Detalle ===================== */
+
+function openDetail(nroReclamo){
+  const r = ALL.find(x => String(x.nroReclamo) === String(nroReclamo));
+  if (!r) return;
+  document.getElementById('detailTitle').textContent = 'Reclamo N° ' + r.nroReclamo;
+  document.getElementById('detailSub').textContent = [r.nombreCliente || r.nombreUsuario, r.causa].filter(Boolean).join(' · ');
+  const html = DETAIL_GROUPS.map(g => {
+    const rows = g.fields.filter(f => {
+      const v = r[f];
+      return v !== undefined && v !== null && v !== '' && !(typeof v === 'number' && f !== 'metros' && !NUMERIC_FIELDS.includes(f));
+    }).map(f => {
+      let v = r[f];
+      if (v instanceof Date) v = fmtDate(v);
+      else if (f === 'metros') v = fmtNum(v,1) + ' m²';
+      else if (NUMERIC_FIELDS.includes(f)) v = fmtMoney(v);
+      else v = esc(v);
+      return `<tr><td>${esc(FIELD_LABELS[f]||f)}</td><td>${v}</td></tr>`;
+    }).join('');
+    if (!rows) return '';
+    return `<div class="spec-group-title">${esc(g.title)}</div><table class="spec-table">${rows}</table>`;
+  }).join('');
+  document.getElementById('detailBody').innerHTML = html || '<p class="admin-p">Sin datos adicionales.</p>';
+  document.getElementById('detail').classList.add('show');
+}
+function closeDetail(){ document.getElementById('detail').classList.remove('show'); }
+
+/* ===================== Filtros: sheet ===================== */
+
+function openFilters(){
+  state.pendingFilters = {};
+  FILTERABLE.forEach(f => state.pendingFilters[f.key] = new Set(state.filters[f.key]));
+  renderFilterSheetOptions();
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('filterSheet').classList.add('show');
+}
+function closeFilters(){
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('filterSheet').classList.remove('show');
+}
+
+/* ===================== Admin: carga de planilla ===================== */
+
+const admin = { logged:false, tab:'upload', rows:null, diff:null, onedrive:{ connected:false, account:null } };
+const msal = { app:null };
+
+function loadOneDriveCfg(){
+  try { return JSON.parse(localStorage.getItem('sac_onedrive_cfg') || '{}'); } catch(e){ return {}; }
+}
+function saveOneDriveCfg(cfg){ localStorage.setItem('sac_onedrive_cfg', JSON.stringify(cfg)); }
+
+function openAdmin(){
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('filterSheet').classList.remove('show');
+  document.getElementById('adminOverlay').classList.add('show');
+  document.getElementById('adminPanel').classList.add('show');
+  renderAdmin();
+}
+function closeAdmin(){
+  document.getElementById('adminOverlay').classList.remove('show');
+  document.getElementById('adminPanel').classList.remove('show');
+}
+
+function renderAdmin(){
+  if (!auth) return renderAdminError('Firebase no está disponible ahora mismo.');
+  if (!admin.logged) return renderAdminLogin();
+  if (admin.diff) return renderAdminPreview();
+  return renderAdminSource();
+}
+function renderAdminError(msg){ document.getElementById('adminBody').innerHTML = `<p class="admin-error">${esc(msg)}</p>`; }
+
+function renderAdminLogin(){
+  document.getElementById('adminBody').innerHTML = `
+    <p class="admin-p">Ingresá la clave para poder actualizar los datos.</p>
+    <input type="password" id="adminPin" class="admin-input" placeholder="Clave" autocomplete="off">
+    <div id="adminLoginError"></div>
+    <button class="btn-primary" data-action="do-login">Ingresar</button>
+  `;
+  document.getElementById('adminPin').focus();
+}
+async function doLogin(){
+  const pin = document.getElementById('adminPin').value;
+  if (!pin) return;
+  const btn = document.querySelector('[data-action="do-login"]');
+  btn.disabled = true; btn.textContent = 'Verificando…';
+  try {
+    await auth.signInWithEmailAndPassword(ADMIN_EMAIL, pin);
+    admin.logged = true;
+    renderAdmin();
+  } catch (e) {
+    document.getElementById('adminLoginError').innerHTML = `<p class="admin-error">Clave incorrecta.</p>`;
+    btn.disabled = false; btn.textContent = 'Ingresar';
+  }
+}
+
+function renderAdminSource(){
+  document.getElementById('adminBody').innerHTML = `
+    <div class="admin-tabs">
+      <div class="admin-tab ${admin.tab==='upload'?'active':''}" data-tab="upload">Subir archivo</div>
+      <div class="admin-tab ${admin.tab==='onedrive'?'active':''}" data-tab="onedrive">Conectar OneDrive</div>
+    </div>
+    <div id="adminSourceBody"></div>
+  `;
+  document.querySelectorAll('.admin-tab').forEach(t => t.addEventListener('click', () => { admin.tab = t.dataset.tab; renderAdminSource(); }));
+  if (admin.tab === 'upload') renderAdminUpload(); else renderAdminOneDrive();
+}
+
+function renderAdminUpload(){
+  document.getElementById('adminSourceBody').innerHTML = `
+    <p class="admin-p">Subí el Excel de reclamos exportado desde OneDrive. Voy a comparar cada fila (por N° de reclamo) con lo que ya está cargado y te muestro los cambios antes de aplicar nada.</p>
+    <div class="admin-file" id="adminDrop">
+      <span>📄</span>
+      <b>Elegir archivo .xlsx</b>
+      <span>o arrastralo acá</span>
+      <input type="file" id="adminFile" accept=".xlsx,.xls">
+    </div>
+    <div id="adminUploadStatus"></div>
+  `;
+  const dropEl = document.getElementById('adminDrop');
+  const fileInput = document.getElementById('adminFile');
+  fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
+  dropEl.addEventListener('dragover', e => e.preventDefault());
+  dropEl.addEventListener('drop', e => { e.preventDefault(); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+}
+
+function renderAdminOneDrive(){
+  const cfg = loadOneDriveCfg();
+  document.getElementById('adminSourceBody').innerHTML = `
+    <p class="admin-p">Conexión automática a la planilla en OneDrive vía Microsoft Graph. Necesitás el <b>Tenant ID</b> y el <b>Client ID</b> de una app registrada en Azure AD / Entra ID de Alberdi (permiso <code>Files.Read</code>), y la ruta del archivo dentro del OneDrive.</p>
+    <input class="admin-input" id="odTenant" placeholder="Tenant ID" value="${esc(cfg.tenantId||'')}">
+    <input class="admin-input" id="odClient" placeholder="Client ID" value="${esc(cfg.clientId||'')}">
+    <input class="admin-input" id="odPath" placeholder="Ruta del archivo (ej: Reclamos/Reclamos SAC.xlsx)" value="${esc(cfg.path||'')}">
+    <div id="odStatus"></div>
+    <button class="btn-primary" data-action="od-connect">Conectar con Microsoft y sincronizar</button>
+    <p class="admin-note">${cfg.lastSync ? 'Última sincronización: ' + new Date(cfg.lastSync).toLocaleString('es-AR') : 'Todavía no se sincronizó desde OneDrive.'}</p>
+  `;
+}
+
+async function connectOneDrive(){
+  const tenantId = document.getElementById('odTenant').value.trim();
+  const clientId = document.getElementById('odClient').value.trim();
+  const path = document.getElementById('odPath').value.trim();
+  const statusEl = document.getElementById('odStatus');
+  if (!tenantId || !clientId || !path) { statusEl.innerHTML = '<p class="admin-error">Completá Tenant ID, Client ID y la ruta del archivo.</p>'; return; }
+  saveOneDriveCfg({ tenantId, clientId, path, lastSync: loadOneDriveCfg().lastSync });
+  if (typeof msal === 'undefined' || !window.msal) { statusEl.innerHTML = '<p class="admin-error">La librería de Microsoft (MSAL) no cargó. Revisá la conexión a internet.</p>'; return; }
+  statusEl.innerHTML = '<div class="admin-spinner">Abriendo login de Microsoft…</div>';
+  try {
+    const pca = new window.msal.PublicClientApplication({
+      auth: { clientId, authority: `https://login.microsoftonline.com/${tenantId}`, redirectUri: window.location.href }
+    });
+    await pca.initialize();
+    const loginResp = await pca.loginPopup({ scopes: ['Files.Read', 'User.Read'] });
+    const tokenResp = await pca.acquireTokenSilent({ scopes: ['Files.Read'], account: loginResp.account })
+      .catch(() => pca.acquireTokenPopup({ scopes: ['Files.Read'], account: loginResp.account }));
+    statusEl.innerHTML = '<div class="admin-spinner">Descargando planilla desde OneDrive…</div>';
+    const url = `https://graph.microsoft.com/v1.0/me/drive/root:/${path.split('/').map(encodeURIComponent).join('/')}:/content`;
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${tokenResp.accessToken}` } });
+    if (!res.ok) throw new Error('No pude descargar el archivo (código ' + res.status + '). Revisá la ruta y los permisos.');
+    const buf = await res.arrayBuffer();
+    const rows = parseWorkbook(buf);
+    statusEl.innerHTML = '<div class="admin-spinner">Comparando con la base actual…</div>';
+    admin.rows = rows;
+    admin.diff = buildDiff(rows, ALL);
+    saveOneDriveCfg({ tenantId, clientId, path, lastSync: Date.now() });
+    renderAdmin();
+  } catch (e) {
+    console.error(e);
+    statusEl.innerHTML = `<p class="admin-error">${esc(e.message || 'No pude conectar con OneDrive.')}</p>`;
+  }
+}
+
+async function handleFile(file){
+  const statusEl = document.getElementById('adminUploadStatus');
+  statusEl.innerHTML = `<div class="admin-spinner">Leyendo planilla…</div>`;
+  try {
+    const buf = await file.arrayBuffer();
+    const rows = parseWorkbook(buf);
+    statusEl.innerHTML = `<div class="admin-spinner">Comparando con la base actual…</div>`;
+    admin.rows = rows;
+    admin.diff = buildDiff(rows, ALL);
+    renderAdmin();
+  } catch (e) {
+    console.error(e);
+    statusEl.innerHTML = `<p class="admin-error">${esc(e.message || 'No pude leer el archivo.')}</p>`;
+  }
+}
+
+function parseWorkbook(buf){
+  const wb = XLSX.read(buf, { type:'array', cellDates:true });
+  const sheetName = wb.SheetNames[0];
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header:1, defval:'', blankrows:false, raw:true });
+  const headerRowIdx = rows.findIndex(r => r.some(c => normHeaderKey(c) === 'NRORECLAMO'));
+  if (headerRowIdx === -1) throw new Error('No encontré la columna "NroReclamo" en la primera hoja ("' + sheetName + '"). Revisá que sea la hoja correcta.');
+  const headers = rows[headerRowIdx].map(normHeaderKey);
+  const dataRows = rows.slice(headerRowIdx + 1);
+  const records = [];
+  for (const r of dataRows) {
+    const obj = {};
+    let hasData = false;
+    headers.forEach((hk, i) => {
+      const key = XLSX_KEY_MAP[hk];
+      if (!key) return;
+      let raw = r[i];
+      if (raw === undefined) raw = '';
+      if (raw !== '') hasData = true;
+      if (NUMERIC_FIELDS.includes(key)) obj[key] = parseNumber(raw);
+      else if (DATE_FIELDS.includes(key)) obj[key] = parseDateVal(raw);
+      else obj[key] = String(raw).trim();
+    });
+    if (hasData && obj.nroReclamo) records.push(obj);
+  }
+  if (!records.length) throw new Error('No encontré filas de reclamos con datos debajo del encabezado.');
+  return records;
+}
+
+function buildDiff(rows, existing){
+  const byId = new Map(existing.map(r => [String(r.nroReclamo), r]));
+  const FIELDS = Object.values(XLSX_KEY_MAP);
+  const nuevos = [], actualizados = [], sinCambios = [];
+  for (const row of rows) {
+    const match = byId.get(String(row.nroReclamo));
+    if (!match) { nuevos.push(row); continue; }
+    const changed = FIELDS.some(f => {
+      const a = row[f], b = match[f];
+      if (a instanceof Date || b instanceof Date) return +(a||0) !== +(b||0);
+      return String(a ?? '') !== String(b ?? '');
+    });
+    (changed ? actualizados : sinCambios).push(row);
+  }
+  return { nuevos, actualizados, sinCambios };
+}
+
+function renderAdminPreview(){
+  const d = admin.diff;
+  const listHtml = items => items.length
+    ? items.slice(0, 60).map(r => `<p>N° ${esc(r.nroReclamo)}${r.causa ? ' · ' + esc(r.causa) : ''}</p>`).join('') + (items.length > 60 ? `<p class="admin-note">+${items.length-60} más</p>` : '')
+    : `<p class="admin-note">Ninguno.</p>`;
+  document.getElementById('adminBody').innerHTML = `
+    <div class="diff-summary">
+      <div class="diff-stat"><div class="n">${d.nuevos.length}</div><div class="l">Nuevos</div></div>
+      <div class="diff-stat"><div class="n">${d.actualizados.length}</div><div class="l">Modificados</div></div>
+      <div class="diff-stat"><div class="n">${d.sinCambios.length}</div><div class="l">Sin cambios</div></div>
+    </div>
+    <h4 style="font-size:12.5px; text-transform:uppercase; color:var(--text-muted); margin:16px 0 8px;">Nuevos (${d.nuevos.length})</h4>
+    <div class="diff-list">${listHtml(d.nuevos)}</div>
+    <h4 style="font-size:12.5px; text-transform:uppercase; color:var(--text-muted); margin:16px 0 8px;">Modificados (${d.actualizados.length})</h4>
+    <div class="diff-list">${listHtml(d.actualizados)}</div>
+    <div id="adminConfirmStatus"></div>
+    <button class="btn-primary" data-action="cancel-diff" style="background:var(--surface-2); color:var(--text); margin-bottom:10px;">Cancelar</button>
+    <button class="btn-primary" data-action="confirm-update" ${(d.nuevos.length + d.actualizados.length)===0 ? 'disabled' : ''}>Confirmar actualización</button>
+  `;
+}
+
+async function confirmUpdate(){
+  const d = admin.diff;
+  const statusEl = document.getElementById('adminConfirmStatus');
+  const btn = document.querySelector('[data-action="confirm-update"]');
+  btn.disabled = true;
+  const toWrite = [...d.nuevos, ...d.actualizados];
+  const CHUNK = 400;
+  try {
+    for (let i = 0; i < toWrite.length; i += CHUNK) {
+      const batch = db.batch();
+      toWrite.slice(i, i + CHUNK).forEach(r => {
+        const docId = String(r.nroReclamo).replace(/[\/\s]+/g, '-');
+        batch.set(db.collection(COLLECTION).doc(docId), r);
+      });
+      await batch.commit();
+      statusEl.innerHTML = `<p class="admin-note">Subidos ${Math.min(i+CHUNK, toWrite.length)} / ${toWrite.length}…</p>`;
+    }
+    ALL = await loadData();
+    renderFilterSheetOptions();
+    document.getElementById('adminBody').innerHTML = `
+      <p class="admin-p"><b>¡Listo!</b> Se actualizaron ${toWrite.length} reclamos (${d.nuevos.length} nuevos, ${d.actualizados.length} modificados). El panel ya se actualizó solo.</p>
+      <button class="btn-primary" data-action="close-admin">Cerrar</button>
+    `;
+    renderAll();
+  } catch (e) {
+    console.error(e);
+    statusEl.innerHTML = `<p class="admin-error">Hubo un error subiendo los cambios: ${esc(e.message)}</p>`;
+    btn.disabled = false;
+  }
+}
+
+/* ===================== Eventos ===================== */
+
+function bindEvents(){
+  document.getElementById('search').addEventListener('input', e => { state.search = e.target.value; state.page = 1; renderAll(); });
+
+  document.getElementById('viewTabs').addEventListener('click', e => {
+    const btn = e.target.closest('[data-view]');
+    if (!btn) return;
+    state.view = btn.dataset.view;
+    document.querySelectorAll('#viewTabs .tab-chip').forEach(b => b.classList.toggle('active', b===btn));
+    renderAll();
+  });
+
+  document.querySelector('[data-action="open-filters"]').addEventListener('click', openFilters);
+  document.getElementById('overlay').addEventListener('click', closeFilters);
+  document.querySelector('[data-action="apply-filters"]').addEventListener('click', () => {
+    FILTERABLE.forEach(f => state.filters[f.key] = new Set(state.pendingFilters[f.key]));
+    state.dateFrom = document.getElementById('dateFrom').value;
+    state.dateTo = document.getElementById('dateTo').value;
+    state.page = 1;
+    closeFilters();
+    renderAll();
+  });
+  document.getElementById('filterBody').addEventListener('click', e => {
+    const chip = e.target.closest('[data-fkey]');
+    if (!chip) return;
+    const set = state.pendingFilters[chip.dataset.fkey];
+    if (set.has(chip.dataset.fval)) set.delete(chip.dataset.fval); else set.add(chip.dataset.fval);
+    chip.classList.toggle('active');
+  });
+  document.body.addEventListener('click', e => {
+    if (e.target.closest('[data-action="reset-filters"]')) {
+      FILTERABLE.forEach(f => { state.filters[f.key] = new Set(); state.pendingFilters[f.key] = new Set(); });
+      state.dateFrom = ''; state.dateTo = ''; state.page = 1;
+      renderFilterSheetOptions();
+      renderAll();
+    }
+    const rm = e.target.closest('[data-rm-key]');
+    if (rm) { state.filters[rm.dataset.rmKey].delete(rm.dataset.rmVal); state.page = 1; renderAll(); }
+    if (e.target.closest('[data-action="refresh"]')) init();
+    if (e.target.closest('[data-action="export-csv"]')) exportCsv(getFiltered());
+  });
+
+  document.getElementById('main').addEventListener('click', e => {
+    const row = e.target.closest('#tableBody tr[data-id]');
+    if (row) openDetail(row.dataset.id);
+    const pageBtn = e.target.closest('[data-page]');
+    if (pageBtn && !pageBtn.disabled) {
+      state.page += pageBtn.dataset.page === 'next' ? 1 : -1;
+      renderTableView(getFiltered());
+    }
+  });
+  document.getElementById('tableHead')?.addEventListener?.('click', () => {});
+  document.getElementById('main').addEventListener('click', e => {
+    const th = e.target.closest('#tableHead th');
+    if (!th) return;
+    const key = th.dataset.sort;
+    if (state.sortKey === key) state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+    else { state.sortKey = key; state.sortDir = 'asc'; }
+    renderTableView(getFiltered());
+  });
+
+  document.getElementById('chartGrid')?.addEventListener?.('click', () => {});
+  document.getElementById('main').addEventListener('click', e => {
+    const m = e.target.closest('.chart-toggle button');
+    if (!m) return;
+    state.monthlyMetric = m.dataset.metric;
+    renderDashboard(getFiltered());
+  });
+
+  document.querySelector('[data-action="close-detail"]').addEventListener('click', closeDetail);
+
+  document.querySelectorAll('[data-action="open-admin"]').forEach(b => b.addEventListener('click', () => { admin.diff = null; openAdmin(); }));
+  document.getElementById('adminOverlay').addEventListener('click', closeAdmin);
+  document.getElementById('adminBody').addEventListener('click', e => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    if (action === 'do-login') doLogin();
+    else if (action === 'close-admin') closeAdmin();
+    else if (action === 'cancel-diff') { admin.diff = null; renderAdmin(); }
+    else if (action === 'confirm-update') confirmUpdate();
+    else if (action === 'od-connect') connectOneDrive();
+  });
+  document.getElementById('adminBody').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.id === 'adminPin') doLogin();
+  });
+}
+
+bindEvents();
+init();
+</script>
+</body>
+</html>
