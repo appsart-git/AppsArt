@@ -6,7 +6,7 @@
 <title>SAC · Reclamos - Alberdi</title>
 <meta name="theme-color" content="#14171A">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>
 <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
 <style>
   :root{
@@ -458,32 +458,15 @@ function initMsal(){
   if (!window.msal || !cfg.clientId || !cfg.tenantId) return null;
   if (!msalInstance) {
     msalInstance = new window.msal.PublicClientApplication({
-      auth: { clientId: cfg.clientId, authority: `https://login.microsoftonline.com/${cfg.tenantId}`, redirectUri: window.location.href },
+      auth: { clientId: cfg.clientId, authority: `https://login.microsoftonline.com/${cfg.tenantId}`, redirectUri: window.location.origin + window.location.pathname },
       cache: { cacheLocation: 'localStorage' }
     });
   }
   return msalInstance;
 }
 
-async function syncFromSharePoint(silent){
-  const cfg = loadOneDriveCfg();
-  const pca = initMsal();
-  if (!pca) throw new Error('Falta configurar la conexión con Microsoft (Tenant ID / Client ID).');
-  if (!cfg.shareUrl) throw new Error('Falta el link para compartir del archivo.');
-  let account = pca.getAllAccounts()[0] || null;
-  let tokenResp;
-  if (account) {
-    try { tokenResp = await pca.acquireTokenSilent({ scopes:['Files.Read'], account }); }
-    catch (e) { account = null; }
-  }
-  if (!account) {
-    if (silent) throw new Error('sin-sesion');
-    const loginResp = await pca.loginPopup({ scopes:['Files.Read', 'User.Read'] });
-    account = loginResp.account;
-    tokenResp = await pca.acquireTokenSilent({ scopes:['Files.Read'], account })
-      .catch(() => pca.acquireTokenPopup({ scopes:['Files.Read'], account }));
-  }
-  lastAccount = account;
+async function fetchAndParse(pca, account, cfg){
+  const tokenResp = await pca.acquireTokenSilent({ scopes:['Files.Read'], account });
   const shareId = encodeSharingUrl(cfg.shareUrl);
   const res = await fetch(`https://graph.microsoft.com/v1.0/shares/${shareId}/driveItem/content`, {
     headers: { Authorization: `Bearer ${tokenResp.accessToken}` }
@@ -491,14 +474,44 @@ async function syncFromSharePoint(silent){
   if (!res.ok) throw new Error('No pude descargar el archivo (código ' + res.status + '). Revisá el link y los permisos.');
   const buf = await res.arrayBuffer();
   ALL = parseWorkbook(buf);
+  lastAccount = account;
   lastSyncAt = Date.now();
   connectError = null;
   renderFilterSheetOptions();
   renderAll();
 }
 
+// autoRedirect=true: si no hay sesión guardada, redirige solo a Microsoft (sin botón).
+// autoRedirect=false: si no hay sesión, tira error en vez de redirigir (para reintentos silenciosos).
+async function syncFromSharePoint(autoRedirect){
+  const cfg = loadOneDriveCfg();
+  const pca = initMsal();
+  if (!pca) throw new Error('Falta configurar la conexión con Microsoft (Tenant ID / Client ID).');
+  if (!cfg.shareUrl) throw new Error('Falta el link para compartir del archivo.');
+  const account = pca.getAllAccounts()[0] || null;
+  if (!account) {
+    if (!autoRedirect) throw new Error('sin-sesion');
+    await pca.loginRedirect({ scopes: ['Files.Read', 'User.Read'] });
+    return; // la página navega a Microsoft; se retoma en init() al volver
+  }
+  await fetchAndParse(pca, account, cfg);
+}
+
 async function init(){
-  initMsal();
+  const pca = initMsal();
+  if (pca) {
+    try {
+      const redirectResp = await pca.handleRedirectPromise();
+      if (redirectResp && redirectResp.account) {
+        await fetchAndParse(pca, redirectResp.account, loadOneDriveCfg());
+        return;
+      }
+    } catch (e) {
+      connectError = e.message;
+      renderAll();
+      return;
+    }
+  }
   try {
     await syncFromSharePoint(true);
   } catch (e) {
@@ -677,7 +690,7 @@ function renderAll(){
 
 async function connectNow(){
   connectError = null;
-  try { await syncFromSharePoint(false); }
+  try { await syncFromSharePoint(true); }
   catch (e) { console.error(e); connectError = e.message; renderAll(); }
 }
 
@@ -983,9 +996,9 @@ async function connectOneDriveFromPanel(){
   saveOneDriveCfg({ tenantId, clientId, shareUrl });
   msalInstance = null;
   if (!window.msal) { statusEl.innerHTML = '<p class="admin-error">La librería de Microsoft (MSAL) no cargó. Revisá la conexión a internet.</p>'; return; }
-  statusEl.innerHTML = '<div class="admin-spinner">Abriendo login de Microsoft…</div>';
+  statusEl.innerHTML = '<div class="admin-spinner">Conectando…</div>';
   try {
-    await syncFromSharePoint(false);
+    await syncFromSharePoint(true);
     statusEl.innerHTML = '<p class="admin-ok">¡Listo! Datos actualizados desde SharePoint.</p>';
     renderAdminConnect();
   } catch (e) {
