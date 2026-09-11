@@ -465,52 +465,49 @@ function initMsal(){
   return msalInstance;
 }
 
-async function fetchAndParse(pca, account, cfg){
-  const tokenResp = await pca.acquireTokenSilent({ scopes:['Files.Read'], account });
+const GRAPH_SCOPES = ['Files.Read', 'Sites.Read.All'];
+
+async function downloadAndParse(accessToken, cfg){
   const shareId = encodeSharingUrl(cfg.shareUrl);
   const res = await fetch(`https://graph.microsoft.com/v1.0/shares/${shareId}/driveItem/content`, {
-    headers: { Authorization: `Bearer ${tokenResp.accessToken}` }
+    headers: { Authorization: `Bearer ${accessToken}` }
   });
   if (!res.ok) throw new Error('No pude descargar el archivo (código ' + res.status + '). Revisá el link y los permisos.');
   const buf = await res.arrayBuffer();
   ALL = parseWorkbook(buf);
-  lastAccount = account;
   lastSyncAt = Date.now();
   connectError = null;
   renderFilterSheetOptions();
   renderAll();
 }
 
-// autoRedirect=true: si no hay sesión guardada, redirige solo a Microsoft (sin botón).
-// autoRedirect=false: si no hay sesión, tira error en vez de redirigir (para reintentos silenciosos).
+// autoRedirect=true: si no hay sesión (o le falta algún permiso), redirige solo a Microsoft (sin botón).
+// autoRedirect=false: en ese caso tira error en vez de redirigir (para reintentos silenciosos).
 async function syncFromSharePoint(autoRedirect){
   const cfg = loadOneDriveCfg();
   const pca = initMsal();
   if (!pca) throw new Error('Falta configurar la conexión con Microsoft (Tenant ID / Client ID).');
   if (!cfg.shareUrl) throw new Error('Falta el link para compartir del archivo.');
   const account = pca.getAllAccounts()[0] || null;
-  if (!account) {
+  let tokenResp = null;
+  if (account) {
+    try { tokenResp = await pca.acquireTokenSilent({ scopes: GRAPH_SCOPES, account }); }
+    catch (e) { tokenResp = null; }
+  }
+  if (!tokenResp) {
     if (!autoRedirect) throw new Error('sin-sesion');
-    await pca.loginRedirect({ scopes: ['Files.Read', 'User.Read'] });
+    await pca.loginRedirect({ scopes: [...GRAPH_SCOPES, 'User.Read'] });
     return; // la página navega a Microsoft; se retoma en init() al volver
   }
-  await fetchAndParse(pca, account, cfg);
+  lastAccount = account;
+  await downloadAndParse(tokenResp.accessToken, cfg);
 }
 
 async function init(){
   const pca = initMsal();
   if (pca) {
-    try {
-      const redirectResp = await pca.handleRedirectPromise();
-      if (redirectResp && redirectResp.account) {
-        await fetchAndParse(pca, redirectResp.account, loadOneDriveCfg());
-        return;
-      }
-    } catch (e) {
-      connectError = e.message;
-      renderAll();
-      return;
-    }
+    try { await pca.handleRedirectPromise(); }
+    catch (e) { connectError = e.message; renderAll(); return; }
   }
   try {
     await syncFromSharePoint(true);
