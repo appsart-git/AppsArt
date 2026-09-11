@@ -491,6 +491,7 @@ const state = {
   dateBasis: 'fechaReclamo',
   granularity: 'month',
   dateFrom: '', dateTo: '',
+  dateFromProd: '', dateToProd: '',
   filters: {}, pendingFilters: {},
   sortKey: 'fechaReclamo', sortDir: 'desc',
   page: 1, pageSize: 25
@@ -533,6 +534,8 @@ function applyFilters(rows){
   });
   if (state.dateFrom) { const from = new Date(state.dateFrom); out = out.filter(r => r.fechaReclamo && r.fechaReclamo >= from); }
   if (state.dateTo) { const to = new Date(state.dateTo); to.setHours(23,59,59,999); out = out.filter(r => r.fechaReclamo && r.fechaReclamo <= to); }
+  if (state.dateFromProd) { const from = new Date(state.dateFromProd); out = out.filter(r => r.fechaProd && r.fechaProd >= from); }
+  if (state.dateToProd) { const to = new Date(state.dateToProd); to.setHours(23,59,59,999); out = out.filter(r => r.fechaProd && r.fechaProd <= to); }
   return out;
 }
 
@@ -552,6 +555,13 @@ function renderFilterSheetOptions(){
       <div class="date-range">
         <input type="date" id="dateFrom" value="${state.dateFrom}">
         <input type="date" id="dateTo" value="${state.dateTo}">
+      </div>
+    </div>
+    <div class="filter-group">
+      <h4>Fecha de producción</h4>
+      <div class="date-range">
+        <input type="date" id="dateFromProd" value="${state.dateFromProd}">
+        <input type="date" id="dateToProd" value="${state.dateToProd}">
       </div>
     </div>`;
   const groupsHtml = FILTERABLE.map(f => {
@@ -573,6 +583,8 @@ function updateFilterCount(){
   FILTERABLE.forEach(f => n += state.filters[f.key].size);
   if (state.dateFrom) n++;
   if (state.dateTo) n++;
+  if (state.dateFromProd) n++;
+  if (state.dateToProd) n++;
   const el = document.getElementById('filterCount');
   el.textContent = n;
   el.classList.toggle('hidden', n === 0);
@@ -1421,6 +1433,8 @@ function bindEvents(){
     FILTERABLE.forEach(f => state.filters[f.key] = new Set(state.pendingFilters[f.key]));
     state.dateFrom = document.getElementById('dateFrom').value;
     state.dateTo = document.getElementById('dateTo').value;
+    state.dateFromProd = document.getElementById('dateFromProd').value;
+    state.dateToProd = document.getElementById('dateToProd').value;
     state.page = 1;
     closeFilters();
     renderAll();
@@ -1435,7 +1449,8 @@ function bindEvents(){
   document.body.addEventListener('click', e => {
     if (e.target.closest('[data-action="reset-filters"]')) {
       FILTERABLE.forEach(f => { state.filters[f.key] = new Set(); state.pendingFilters[f.key] = new Set(); });
-      state.dateFrom = ''; state.dateTo = ''; state.page = 1;
+      state.dateFrom = ''; state.dateTo = '';
+      state.dateFromProd = ''; state.dateToProd = ''; state.page = 1;
       renderFilterSheetOptions();
       renderAll();
     }
