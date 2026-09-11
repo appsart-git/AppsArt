@@ -200,6 +200,10 @@
   .diff-list p:last-child{border-bottom:none;}
   .admin-note{font-size:12px; color:var(--text-faint); line-height:1.5; margin:10px 0 4px;}
   .admin-spinner{text-align:center; padding:30px 0; color:var(--text-muted); font-size:13px;}
+  .admin-tabs{display:flex; gap:8px; margin-bottom:16px;}
+  .admin-tab{flex:1; padding:9px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); color:var(--text-muted); font-weight:700; font-size:12.5px; cursor:pointer; text-align:center;}
+  .admin-tab.active{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
+  textarea.admin-input{resize:vertical; font-family:inherit;}
 
   /* ---------- Detail drawer ---------- */
   .detail{
@@ -255,7 +259,7 @@
     </div></div>
     <div class="topbar-actions">
       <button class="icon-btn" data-action="refresh" title="Recargar datos">⟳</button>
-      <button class="icon-btn" data-action="open-admin" title="Actualizar datos">⇪</button>
+      <button class="icon-btn" data-action="open-admin" title="Nuevo reclamo / datos">✚ Nuevo</button>
       <button class="icon-btn" data-action="open-filters">⚙ Filtros <span class="count hidden" id="filterCount">0</span></button>
     </div>
   </div>
@@ -275,8 +279,8 @@
 <main id="main">
   <div id="emptyState" class="empty-state hidden">
     <div class="big">📥</div>
-    <p><b>Todavía no hay reclamos cargados.</b><br>Subí la planilla de reclamos para ver las estadísticas.</p>
-    <button class="btn-primary" data-action="open-admin">Cargar planilla</button>
+    <p><b>Todavía no hay reclamos cargados.</b><br>Importá la planilla histórica o cargá el primer reclamo a mano.</p>
+    <button class="btn-primary" data-action="open-admin">Cargar datos</button>
   </div>
 
   <div id="dashboardView">
@@ -1020,13 +1024,14 @@ function closeFilters(){
 /* ===================== Admin: carga de planilla ===================== */
 
 const XLSX_FIELDS = Object.values(XLSX_KEY_MAP);
-const admin = { logged:false, diff:null };
+const admin = { logged:false, tab:'new', diff:null };
 
 function openAdmin(){
   document.getElementById('overlay').classList.remove('show');
   document.getElementById('filterSheet').classList.remove('show');
   document.getElementById('adminOverlay').classList.add('show');
   document.getElementById('adminPanel').classList.add('show');
+  if (!admin.diff) admin.tab = ALL.length ? 'new' : 'import';
   renderAdmin();
 }
 function closeAdmin(){
@@ -1038,9 +1043,21 @@ function renderAdmin(){
   if (!auth) return renderAdminError('Firebase no está disponible ahora mismo.');
   if (!admin.logged) return renderAdminLogin();
   if (admin.diff) return renderAdminPreview();
-  return renderAdminUpload();
+  return renderAdminTabs();
 }
 function renderAdminError(msg){ document.getElementById('adminBody').innerHTML = `<p class="admin-error">${esc(msg)}</p>`; }
+
+function renderAdminTabs(){
+  document.getElementById('adminBody').innerHTML = `
+    <div class="admin-tabs">
+      <div class="admin-tab ${admin.tab==='new'?'active':''}" data-tab="new">Nuevo reclamo</div>
+      <div class="admin-tab ${admin.tab==='import'?'active':''}" data-tab="import">Importar planilla</div>
+    </div>
+    <div id="adminSourceBody"></div>
+  `;
+  document.querySelectorAll('.admin-tab').forEach(t => t.addEventListener('click', () => { admin.tab = t.dataset.tab; renderAdminTabs(); }));
+  if (admin.tab === 'import') renderAdminUpload(); else renderNewReclamoForm();
+}
 
 function renderAdminLogin(){
   document.getElementById('adminBody').innerHTML = `
@@ -1067,8 +1084,8 @@ async function doLogin(){
 }
 
 function renderAdminUpload(){
-  document.getElementById('adminBody').innerHTML = `
-    <p class="admin-p">Subí el Excel de reclamos. Voy a comparar cada fila (por N° de reclamo) con lo que ya está cargado y te muestro los cambios antes de aplicar nada.</p>
+  document.getElementById('adminSourceBody').innerHTML = `
+    <p class="admin-p">Para importaciones masivas o correcciones puntuales. Subí el Excel de reclamos: voy a comparar cada fila (por N° de reclamo) con lo que ya está cargado y te muestro los cambios antes de aplicar nada.</p>
     <div class="admin-file" id="adminDrop">
       <span>📄</span>
       <b>Elegir archivo .xlsx</b>
@@ -1082,6 +1099,128 @@ function renderAdminUpload(){
   fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
   dropEl.addEventListener('dragover', e => e.preventDefault());
   dropEl.addEventListener('drop', e => { e.preventDefault(); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+}
+
+/* ===================== Nuevo reclamo (numeración correlativa) ===================== */
+
+const NEW_FORM_GROUPS = [
+  { title:'Reclamo', fields:[
+    { key:'causa', label:'Causa', type:'text' },
+    { key:'descripcionReclamo', label:'Descripción', type:'textarea' },
+    { key:'estimado', label:'Estimado', type:'sino' },
+    { key:'finalizado', label:'Finalizado', type:'sino' },
+    { key:'resolucion', label:'Resolución', type:'textarea' }
+  ]},
+  { title:'Producto', fields:[
+    { key:'articulo', label:'Artículo', type:'text' },
+    { key:'nombre', label:'Nombre', type:'text' },
+    { key:'marca', label:'Marca', type:'text' },
+    { key:'tono', label:'Tono', type:'text' },
+    { key:'calibre', label:'Calibre', type:'text' },
+    { key:'metros', label:'Metros (m²)', type:'number' },
+    { key:'horno', label:'Horno', type:'text' },
+    { key:'lineaProd', label:'Línea de producción', type:'text' },
+    { key:'turno', label:'Turno', type:'text' },
+    { key:'fechaProd', label:'Fecha de producción', type:'date' },
+    { key:'hora', label:'Hora', type:'text' }
+  ]},
+  { title:'Cliente / usuario', fields:[
+    { key:'esDeUnUsuario', label:'Es de un usuario final', type:'sino' },
+    { key:'nombreCliente', label:'Nombre de cliente', type:'text' },
+    { key:'cuentaCliente', label:'Cuenta cliente', type:'text' },
+    { key:'nombreUsuario', label:'Nombre de usuario', type:'text' },
+    { key:'tipoDocumento', label:'Tipo de documento', type:'text' },
+    { key:'numeroDocumento', label:'N° de documento', type:'text' },
+    { key:'telefono', label:'Teléfono', type:'text' },
+    { key:'fax', label:'Fax', type:'text' },
+    { key:'email', label:'Email', type:'text' },
+    { key:'direccion', label:'Dirección', type:'text' },
+    { key:'localidad', label:'Localidad', type:'text' },
+    { key:'provincia', label:'Provincia', type:'text' },
+    { key:'codigoPostal', label:'Código postal', type:'text' },
+    { key:'fechaColocacion', label:'Fecha de colocación', type:'date' },
+    { key:'inspector', label:'Inspector', type:'text' },
+    { key:'adhesivo', label:'Adhesivo', type:'text' }
+  ]},
+  { title:'Costos', fields:[
+    { key:'manoDeObra', label:'Mano de obra', type:'number' },
+    { key:'materialesPropios', label:'Materiales propios', type:'number' },
+    { key:'materialesDeTerceros', label:'Materiales de terceros', type:'number' },
+    { key:'viaticos', label:'Viáticos', type:'number' },
+    { key:'fletes', label:'Fletes', type:'number' },
+    { key:'totalGastos', label:'Total de gastos', type:'number' }
+  ]}
+];
+
+function parseDateInputVal(v){
+  if (!v) return null;
+  const [y, m, d] = v.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function fieldInputHtml(f){
+  const id = 'nr_' + f.key;
+  let input;
+  if (f.type === 'sino') input = `<select class="admin-input" id="${id}"><option value="NO">No</option><option value="SI">Sí</option></select>`;
+  else if (f.type === 'textarea') input = `<textarea class="admin-input" id="${id}" rows="2"></textarea>`;
+  else input = `<input class="admin-input" id="${id}" type="${f.type==='number'?'number':f.type==='date'?'date':'text'}" ${f.type==='number'?'step="0.01"':''}>`;
+  return `<div class="filter-group"><h4>${esc(f.label)}</h4>${input}</div>`;
+}
+
+function renderNewReclamoForm(){
+  document.getElementById('adminSourceBody').innerHTML = `
+    <p class="admin-p">El N° de reclamo se asigna solo (correlativo, sin repetirse) al guardar.</p>
+    <div class="filter-group"><h4>Fecha de reclamo</h4><input class="admin-input" id="nr_fechaReclamo" type="date" value="${new Date().toISOString().slice(0,10)}"></div>
+    ${NEW_FORM_GROUPS.map(g => `<div class="spec-group-title">${esc(g.title)}</div>${g.fields.map(fieldInputHtml).join('')}`).join('')}
+    <div id="newReclamoStatus"></div>
+    <button class="btn-primary" data-action="save-new-reclamo">Guardar reclamo</button>
+  `;
+}
+
+function collectNewReclamoData(){
+  const obj = { fechaReclamo: parseDateInputVal(document.getElementById('nr_fechaReclamo').value) };
+  NEW_FORM_GROUPS.forEach(g => g.fields.forEach(f => {
+    const el = document.getElementById('nr_' + f.key);
+    const raw = el.value;
+    if (f.type === 'number') obj[f.key] = parseNumber(raw);
+    else if (f.type === 'date') obj[f.key] = parseDateInputVal(raw);
+    else obj[f.key] = raw.trim();
+  }));
+  return obj;
+}
+
+async function getNextNroReclamo(){
+  const ref = db.collection('reclamos_sac_meta').doc('counter');
+  return db.runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    const last = snap.exists ? (snap.data().last || 0) : 0;
+    const next = last + 1;
+    tx.set(ref, { last: next }, { merge:true });
+    return next;
+  });
+}
+
+async function saveNewReclamo(){
+  const statusEl = document.getElementById('newReclamoStatus');
+  const btn = document.querySelector('[data-action="save-new-reclamo"]');
+  btn.disabled = true;
+  try {
+    const data = collectNewReclamoData();
+    if (!data.articulo && !data.causa) throw new Error('Completá al menos el artículo y la causa del reclamo.');
+    const nro = await getNextNroReclamo();
+    data.nroReclamo = String(nro);
+    await db.collection(COLLECTION).doc(String(nro)).set(data);
+    ALL.push(data);
+    renderFilterSheetOptions();
+    statusEl.innerHTML = `<p class="admin-ok">¡Listo! Se creó el reclamo N° ${nro}.</p>`;
+    renderAll();
+    setTimeout(() => { closeAdmin(); openDetail(String(nro)); }, 900);
+  } catch (e) {
+    console.error(e);
+    statusEl.innerHTML = `<p class="admin-error">${esc(e.message || 'No pude guardar el reclamo.')}</p>`;
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 async function handleFile(file){
@@ -1181,6 +1320,13 @@ async function confirmUpdate(){
       await batch.commit();
       statusEl.innerHTML = `<p class="admin-note">Subidos ${Math.min(i+CHUNK, toWrite.length)} / ${toWrite.length}…</p>`;
     }
+    const maxNro = Math.max(0, ...toWrite.map(r => parseInt(r.nroReclamo, 10) || 0), ...ALL.map(r => parseInt(r.nroReclamo, 10) || 0));
+    const counterRef = db.collection('reclamos_sac_meta').doc('counter');
+    await db.runTransaction(async tx => {
+      const snap = await tx.get(counterRef);
+      const cur = snap.exists ? (snap.data().last || 0) : 0;
+      if (maxNro > cur) tx.set(counterRef, { last: maxNro }, { merge:true });
+    });
     ALL = await loadData();
     renderFilterSheetOptions();
     document.getElementById('adminBody').innerHTML = `
@@ -1275,6 +1421,7 @@ function bindEvents(){
     else if (action === 'close-admin') closeAdmin();
     else if (action === 'cancel-diff') { admin.diff = null; renderAdmin(); }
     else if (action === 'confirm-update') confirmUpdate();
+    else if (action === 'save-new-reclamo') saveNewReclamo();
   });
   document.getElementById('adminBody').addEventListener('keydown', e => {
     if (e.key === 'Enter' && e.target.id === 'adminPin') doLogin();
