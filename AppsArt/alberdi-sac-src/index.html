@@ -846,7 +846,8 @@ function renderDashboard(rows){
 
 const TABLE_COLS = [
   { key:'nroReclamo', label:'N°' },
-  { key:'fechaReclamo', label:'Fecha' },
+  { key:'fechaReclamo', label:'Fecha reclamo' },
+  { key:'fechaProd', label:'Fecha prod.' },
   { key:'clienteDisplay', label:'Cliente / usuario', sortKey:'nombreCliente' },
   { key:'productoDisplay', label:'Artículo', sortKey:'articulo' },
   { key:'causa', label:'Causa' },
@@ -884,7 +885,7 @@ function renderTableView(rows){
   document.getElementById('tableBody').innerHTML = pageRows.map(r => {
     const cells = TABLE_COLS.map(c => {
       let v = rowValue(r, c.key);
-      if (c.key === 'fechaReclamo') v = fmtDate(v);
+      if (c.key === 'fechaReclamo' || c.key === 'fechaProd') v = fmtDate(v);
       else if (c.key === 'metros') v = fmtNum(v,1);
       else if (c.key === 'totalGastos') v = fmtMoney(v || Math.max(v||0, (r.manoDeObra||0)+(r.materialesPropios||0)+(r.materialesDeTerceros||0)+(r.viaticos||0)+(r.fletes||0)));
       else if (c.key === 'finalizado') v = `<span class="pill ${isClosed(r.finalizado) ? 'closed' : 'open'}">${isClosed(r.finalizado) ? 'Cerrado' : 'Abierto'}</span>`;
