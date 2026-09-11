@@ -5,9 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SAC · Reclamos - Alberdi</title>
 <meta name="theme-color" content="#14171A">
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>
-<script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
 <style>
   :root{
     --bg:#14171A; --surface:#1D2126; --surface-2:#262B32; --border:#2E343C;
@@ -86,6 +88,12 @@
   .kpi-card.warn .v{color:var(--red);}
   .kpi-card.good .v{color:var(--green);}
   .kpi-card.accent .v{color:var(--accent);}
+
+  /* ---------- Controles del panel ---------- */
+  .dash-controls{display:flex; flex-wrap:wrap; gap:16px; padding:4px 14px 4px; max-width:1200px; margin:0 auto;}
+  @media (min-width:900px){ .dash-controls{padding:4px 24px 4px;} }
+  .dash-control-group{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .dash-control-group span{font-size:11.5px; color:var(--text-muted); font-weight:700; text-transform:uppercase; letter-spacing:.02em;}
 
   /* ---------- Charts ---------- */
   .chart-grid{display:grid; grid-template-columns:1fr; gap:14px; padding:14px 14px 20px; max-width:1200px; margin:0 auto;}
@@ -192,9 +200,6 @@
   .diff-list p:last-child{border-bottom:none;}
   .admin-note{font-size:12px; color:var(--text-faint); line-height:1.5; margin:10px 0 4px;}
   .admin-spinner{text-align:center; padding:30px 0; color:var(--text-muted); font-size:13px;}
-  .admin-tabs{display:flex; gap:8px; margin-bottom:16px;}
-  .admin-tab{flex:1; padding:9px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); color:var(--text-muted); font-weight:700; font-size:12.5px; cursor:pointer; text-align:center;}
-  .admin-tab.active{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
 
   /* ---------- Detail drawer ---------- */
   .detail{
@@ -208,6 +213,11 @@
     .detail.show{transform:translate(-50%,-50%) scale(1); opacity:1;}
   }
   .detail-head{position:relative; flex:none; padding:18px 18px 14px; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
+  .detail-head-actions{display:flex; align-items:center; gap:8px; flex:none;}
+  .detail-report-btn{
+    background:var(--accent-soft); color:var(--accent); border:1px solid var(--accent); border-radius:10px;
+    padding:8px 12px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap;
+  }
   .detail-close{
     width:34px; height:34px; border-radius:50%; flex:none;
     background:var(--surface-2); color:var(--text); border:1px solid var(--border); font-size:16px; cursor:pointer;
@@ -265,20 +275,23 @@
 <main id="main">
   <div id="emptyState" class="empty-state hidden">
     <div class="big">📥</div>
-    <p id="emptyStateText"><b>Conectate con tu cuenta de Microsoft de Alberdi</b><br>para ver los reclamos y estadísticas desde SharePoint.</p>
-    <button class="btn-primary" data-action="connect-now">Conectar con Microsoft</button>
-    <p class="admin-note" style="margin-top:14px;">¿Preferís subir el archivo a mano? <button data-action="open-admin" style="background:none;border:none;color:var(--accent);text-decoration:underline;cursor:pointer;font-size:inherit;padding:0;">Abrí el panel acá</button>.</p>
+    <p><b>Todavía no hay reclamos cargados.</b><br>Subí la planilla de reclamos para ver las estadísticas.</p>
+    <button class="btn-primary" data-action="open-admin">Cargar planilla</button>
   </div>
 
   <div id="dashboardView">
     <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="dash-controls" id="dashControls"></div>
     <div class="chart-grid" id="chartGrid"></div>
   </div>
 
   <div id="tableView" class="hidden">
     <div class="table-toolbar">
       <span></span>
-      <button class="btn-ghost" data-action="export-csv">⬇ Exportar CSV</button>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-ghost" data-action="export-csv">⬇ CSV</button>
+        <button class="btn-ghost" data-action="export-xlsx">⬇ Excel</button>
+      </div>
     </div>
     <div class="table-wrap">
       <table class="data-table">
@@ -314,7 +327,10 @@
       <h2 class="detail-title" id="detailTitle"></h2>
       <p class="detail-sub" id="detailSub"></p>
     </div>
-    <button class="detail-close" data-action="close-detail">✕</button>
+    <div class="detail-head-actions">
+      <button class="detail-report-btn" data-action="open-informe">🖨 Informe</button>
+      <button class="detail-close" data-action="close-detail">✕</button>
+    </div>
   </div>
   <div class="detail-body" id="detailBody"></div>
 </div>
@@ -331,6 +347,26 @@
 
 <script>
 'use strict';
+
+/* ===================== Config ===================== */
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBbyTSnTekMkXOZOAZEV0SQzk46NqkyaSA",
+  authDomain: "de-r-13.firebaseapp.com",
+  projectId: "de-r-13",
+  storageBucket: "de-r-13.firebasestorage.app",
+  messagingSenderId: "79165446593",
+  appId: "1:79165446593:web:19719e556144c227833740"
+};
+const COLLECTION = 'reclamos_sac';
+const ADMIN_EMAIL = 'admin@catalogo-alberdi.app';
+
+let db = null, auth = null;
+try {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  auth = firebase.auth();
+} catch (e) { console.warn('Firebase no disponible.', e); }
 
 /* ===================== Datos: mapeo de columnas ===================== */
 
@@ -381,6 +417,7 @@ const FILTERABLE = [
   { key:'esDeUnUsuario', label:'Origen' }
 ];
 const COLORS = ['#E8A33D','#4C8B5A','#E15252','#5B8DEF','#9B6BDE','#4FB6C7','#D98BD9','#C9A227','#7FA1C3','#6FCF97'];
+const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
 /* ===================== Helpers de parseo ===================== */
 
@@ -424,11 +461,17 @@ function fmtMoney(n){ return (n||0).toLocaleString('es-AR', { style:'currency', 
 function fmtNum(n, dec){ return (n||0).toLocaleString('es-AR', { maximumFractionDigits: dec ?? 1 }); }
 function fmtDate(d){ return d ? d.toLocaleDateString('es-AR') : '—'; }
 function monthKey(d){ return d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` : null; }
-function monthLabel(k){
-  const [y,m] = k.split('-');
-  return new Date(+y, +m-1, 1).toLocaleDateString('es-AR', { month:'short', year:'2-digit' });
+function monthLabel(k){ const [y,m] = k.split('-'); return `${MONTH_NAMES[+m-1]} '${y.slice(2)}`; }
+function quarterKey(d){ return d ? `${d.getFullYear()}-T${Math.floor(d.getMonth()/3)+1}` : null; }
+function quarterLabel(k){ const [y,q] = k.split('-'); return `${q} '${y.slice(2)}`; }
+function yearKey(d){ return d ? String(d.getFullYear()) : null; }
+function yearLabel(k){ return k; }
+function periodKey(d, g){ if (g==='month') return monthKey(d); if (g==='quarter') return quarterKey(d); return yearKey(d); }
+function periodLabel(k, g){ if (g==='month') return monthLabel(k); if (g==='quarter') return quarterLabel(k); return yearLabel(k); }
+function isClosed(finalizado){
+  const v = stripAccents(String(finalizado||'')).toUpperCase().trim();
+  return v === 'SI' || v === 'S' || v === 'YES' || v === '1' || v === 'TRUE';
 }
-function isClosed(finalizado){ return /FINAL/i.test(stripAccents(String(finalizado||''))); }
 
 /* ===================== Estado ===================== */
 
@@ -436,7 +479,9 @@ let ALL = [];
 const state = {
   view: 'dashboard',
   search: '',
-  monthlyMetric: 'count',
+  trendMetric: 'count',
+  dateBasis: 'fechaReclamo',
+  granularity: 'month',
   dateFrom: '', dateTo: '',
   filters: {}, pendingFilters: {},
   sortKey: 'fechaReclamo', sortDir: 'desc',
@@ -446,75 +491,23 @@ FILTERABLE.forEach(f => { state.filters[f.key] = new Set(); state.pendingFilters
 
 const charts = {};
 
-/* ===================== Conexión con SharePoint/OneDrive ===================== */
+/* ===================== Carga de datos ===================== */
 
-let msalInstance = null;
-let lastAccount = null;
-let lastSyncAt = null;
-let connectError = null;
-
-function initMsal(){
-  const cfg = loadOneDriveCfg();
-  if (!window.msal || !cfg.clientId || !cfg.tenantId) return null;
-  if (!msalInstance) {
-    msalInstance = new window.msal.PublicClientApplication({
-      auth: { clientId: cfg.clientId, authority: `https://login.microsoftonline.com/${cfg.tenantId}`, redirectUri: window.location.origin + window.location.pathname },
-      cache: { cacheLocation: 'localStorage' }
-    });
-  }
-  return msalInstance;
-}
-
-const GRAPH_SCOPES = ['Files.Read', 'Sites.Read.All'];
-
-async function downloadAndParse(accessToken, cfg){
-  const shareId = encodeSharingUrl(cfg.shareUrl);
-  const res = await fetch(`https://graph.microsoft.com/v1.0/shares/${shareId}/driveItem/content`, {
-    headers: { Authorization: `Bearer ${accessToken}` }
+async function loadData(){
+  if (!db) return [];
+  const snap = await db.collection(COLLECTION).get();
+  return snap.docs.map(d => {
+    const data = d.data();
+    DATE_FIELDS.forEach(f => { if (data[f] && data[f].toDate) data[f] = data[f].toDate(); });
+    return data;
   });
-  if (!res.ok) throw new Error('No pude descargar el archivo (código ' + res.status + '). Revisá el link y los permisos.');
-  const buf = await res.arrayBuffer();
-  ALL = parseWorkbook(buf);
-  lastSyncAt = Date.now();
-  connectError = null;
-  renderFilterSheetOptions();
-  renderAll();
-}
-
-// autoRedirect=true: si no hay sesión (o le falta algún permiso), redirige solo a Microsoft (sin botón).
-// autoRedirect=false: en ese caso tira error en vez de redirigir (para reintentos silenciosos).
-async function syncFromSharePoint(autoRedirect){
-  const cfg = loadOneDriveCfg();
-  const pca = initMsal();
-  if (!pca) throw new Error('Falta configurar la conexión con Microsoft (Tenant ID / Client ID).');
-  if (!cfg.shareUrl) throw new Error('Falta el link para compartir del archivo.');
-  const account = pca.getAllAccounts()[0] || null;
-  let tokenResp = null;
-  if (account) {
-    try { tokenResp = await pca.acquireTokenSilent({ scopes: GRAPH_SCOPES, account }); }
-    catch (e) { tokenResp = null; }
-  }
-  if (!tokenResp) {
-    if (!autoRedirect) throw new Error('sin-sesion');
-    await pca.loginRedirect({ scopes: [...GRAPH_SCOPES, 'User.Read'] });
-    return; // la página navega a Microsoft; se retoma en init() al volver
-  }
-  lastAccount = account;
-  await downloadAndParse(tokenResp.accessToken, cfg);
 }
 
 async function init(){
-  const pca = initMsal();
-  if (pca) {
-    try { await pca.handleRedirectPromise(); }
-    catch (e) { connectError = e.message; renderAll(); return; }
-  }
-  try {
-    await syncFromSharePoint(true);
-  } catch (e) {
-    connectError = e.message === 'sin-sesion' ? null : e.message;
-    renderAll();
-  }
+  try { ALL = await loadData(); }
+  catch (e) { console.error(e); ALL = []; }
+  renderFilterSheetOptions();
+  renderAll();
 }
 
 /* ===================== Filtros ===================== */
@@ -613,6 +606,35 @@ function avgDays(rows, fromKey, toKey){
   return diffs.reduce((a,b) => a+b, 0) / diffs.length;
 }
 
+function buildTimeSeries(rows, dateField, granularity){
+  const count = {}, cost = {};
+  rows.forEach(r => {
+    const k = periodKey(r[dateField], granularity);
+    if (!k) return;
+    count[k] = (count[k]||0) + 1;
+    cost[k] = (cost[k]||0) + (r.totalGastos||0);
+  });
+  const periods = Object.keys(count).sort();
+  return { periods, count, cost };
+}
+
+// Compara el mismo mes/trimestre a través de distintos años (interanual).
+function buildYoY(rows, dateField, granularity){
+  const subCount = {};
+  const years = new Set();
+  rows.forEach(r => {
+    const d = r[dateField];
+    if (!(d instanceof Date)) return;
+    const year = d.getFullYear();
+    const sub = granularity === 'quarter' ? Math.floor(d.getMonth()/3) : d.getMonth();
+    years.add(year);
+    subCount[year] = subCount[year] || {};
+    subCount[year][sub] = (subCount[year][sub]||0) + 1;
+  });
+  const subLabels = granularity === 'quarter' ? ['T1','T2','T3','T4'] : MONTH_NAMES;
+  return { subLabels, years: [...years].sort(), subCount };
+}
+
 function computeStats(rows){
   const s = {};
   s.total = rows.length;
@@ -639,16 +661,8 @@ function computeStats(rows){
   s.porInspector = topN(groupCount(rows, 'inspector'), 8);
   s.origenCounts = groupCount(rows, 'esDeUnUsuario');
 
-  const porMesCount = {}, porMesCosto = {};
-  rows.forEach(r => {
-    const k = monthKey(r.fechaReclamo);
-    if (!k) return;
-    porMesCount[k] = (porMesCount[k]||0) + 1;
-    porMesCosto[k] = (porMesCosto[k]||0) + (r.totalGastos||0);
-  });
-  s.meses = Object.keys({ ...porMesCount }).sort();
-  s.porMesCount = porMesCount;
-  s.porMesCosto = porMesCosto;
+  s.trend = buildTimeSeries(rows, state.dateBasis, state.granularity);
+  s.yoy = state.granularity !== 'year' ? buildYoY(rows, state.dateBasis, state.granularity) : null;
 
   s.lagProdReclamo = avgDays(rows, 'fechaProd', 'fechaReclamo');
   s.lagColocReclamo = avgDays(rows, 'fechaColocacion', 'fechaReclamo');
@@ -678,21 +692,18 @@ function renderAll(){
   document.getElementById('dashboardView').classList.toggle('hidden', ALL.length === 0 || state.view !== 'dashboard');
   document.getElementById('tableView').classList.toggle('hidden', ALL.length === 0 || state.view !== 'table');
   document.getElementById('resultCount').textContent = ALL.length ? `${rows.length} reclamo(s)` : '';
-  if (ALL.length === 0 && connectError) {
-    document.getElementById('emptyStateText').innerHTML = `<b style="color:var(--red);">No pude conectar con SharePoint.</b><br>${esc(connectError)}`;
-  }
   if (!ALL.length) return;
   if (state.view === 'dashboard') renderDashboard(rows); else renderTableView(rows);
 }
 
-async function connectNow(){
-  connectError = null;
-  try { await syncFromSharePoint(true); }
-  catch (e) { console.error(e); connectError = e.message; renderAll(); }
-}
-
 function kpiCard(value, label, cls){
   return `<div class="kpi-card ${cls||''}"><div class="v">${value}</div><div class="l">${esc(label)}</div></div>`;
+}
+
+function controlToggle(groupLabel, options, activeVal, action){
+  return `<div class="dash-control-group"><span>${esc(groupLabel)}</span><div class="chart-toggle">
+    ${options.map(o => `<button data-${action}="${o.val}" class="${activeVal===o.val?'active':''}">${esc(o.label)}</button>`).join('')}
+  </div></div>`;
 }
 
 function renderDashboard(rows){
@@ -708,21 +719,39 @@ function renderDashboard(rows){
     kpiCard(s.cerrados, 'Finalizados', 'good')
   ].join('');
 
+  document.getElementById('dashControls').innerHTML =
+    controlToggle('Fecha base', [
+      { val:'fechaReclamo', label:'Fecha de reclamo' },
+      { val:'fechaProd', label:'Fecha de producción' }
+    ], state.dateBasis, 'basis') +
+    controlToggle('Período', [
+      { val:'month', label:'Mensual' },
+      { val:'quarter', label:'Trimestral' },
+      { val:'year', label:'Anual' }
+    ], state.granularity, 'granularity');
+
   Chart.defaults.color = '#8B92A0';
   Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
   const grid = 'rgba(46,52,60,.7)';
 
+  const yoyCardHtml = s.yoy && s.yoy.years.length > 1 ? `
+    <div class="chart-card wide">
+      <div class="chart-card-head"><h4>Comparación interanual (${state.granularity==='quarter'?'por trimestre':'por mes'})</h4></div>
+      <div class="chart-wrap"><canvas id="chYoY"></canvas></div>
+    </div>` : '';
+
   document.getElementById('chartGrid').innerHTML = `
     <div class="chart-card wide">
       <div class="chart-card-head">
-        <h4>Evolución mensual</h4>
+        <h4>Evolución (${state.dateBasis==='fechaReclamo'?'fecha de reclamo':'fecha de producción'})</h4>
         <div class="chart-toggle">
-          <button data-metric="count" class="${state.monthlyMetric==='count'?'active':''}">Reclamos</button>
-          <button data-metric="cost" class="${state.monthlyMetric==='cost'?'active':''}">Costo</button>
+          <button data-metric="count" class="${state.trendMetric==='count'?'active':''}">Reclamos</button>
+          <button data-metric="cost" class="${state.trendMetric==='cost'?'active':''}">Costo</button>
         </div>
       </div>
-      <div class="chart-wrap"><canvas id="chMensual"></canvas></div>
+      <div class="chart-wrap"><canvas id="chTrend"></canvas></div>
     </div>
+    ${yoyCardHtml}
     <div class="chart-card"><div class="chart-card-head"><h4>Estado de los reclamos</h4></div><div class="chart-wrap"><canvas id="chEstado"></canvas></div></div>
     <div class="chart-card"><div class="chart-card-head"><h4>Origen del reclamo</h4></div><div class="chart-wrap"><canvas id="chOrigen"></canvas></div></div>
     <div class="chart-card"><div class="chart-card-head"><h4>Reclamos abiertos por antigüedad</h4></div><div class="chart-wrap"><canvas id="chAging"></canvas></div></div>
@@ -744,7 +773,9 @@ function renderDashboard(rows){
     charts[id] = new Chart(el, config);
   }
   function hbar(id, entries, color){
-    if (!entries.length) { document.getElementById(id).closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!entries.length) { el.closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
     makeChart(id, {
       type:'bar',
       data:{ labels: entries.map(e=>e[0]), datasets:[{ data: entries.map(e=>e[1]), backgroundColor: color||'#E8A33D', borderRadius:4 }] },
@@ -754,8 +785,10 @@ function renderDashboard(rows){
     });
   }
   function donut(id, map){
+    const el = document.getElementById(id);
+    if (!el) return;
     const entries = Object.entries(map);
-    if (!entries.length) { document.getElementById(id).closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
+    if (!entries.length) { el.closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
     makeChart(id, {
       type:'doughnut',
       data:{ labels: entries.map(e=>e[0]), datasets:[{ data: entries.map(e=>e[1]), backgroundColor: COLORS, borderColor: '#1D2126', borderWidth:2 }] },
@@ -763,16 +796,30 @@ function renderDashboard(rows){
     });
   }
 
-  makeChart('chMensual', {
+  makeChart('chTrend', {
     type:'bar',
-    data:{ labels: s.meses.map(monthLabel),
-      datasets:[{ label: state.monthlyMetric==='count'?'Reclamos':'Costo',
-        data: s.meses.map(m => state.monthlyMetric==='count' ? s.porMesCount[m] : s.porMesCosto[m]),
+    data:{ labels: s.trend.periods.map(p => periodLabel(p, state.granularity)),
+      datasets:[{ label: state.trendMetric==='count'?'Reclamos':'Costo',
+        data: s.trend.periods.map(p => state.trendMetric==='count' ? s.trend.count[p] : s.trend.cost[p]),
         backgroundColor:'#E8A33D', borderRadius:4 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false},
-      tooltip:{ callbacks:{ label: ctx => state.monthlyMetric==='count' ? ctx.parsed.y+' reclamos' : fmtMoney(ctx.parsed.y) } } },
+      tooltip:{ callbacks:{ label: ctx => state.trendMetric==='count' ? ctx.parsed.y+' reclamos' : fmtMoney(ctx.parsed.y) } } },
       scales:{ x:{ grid:{display:false} }, y:{ grid:{color:grid}, beginAtZero:true } } }
   });
+
+  if (s.yoy && s.yoy.years.length > 1) {
+    makeChart('chYoY', {
+      type:'bar',
+      data:{ labels: s.yoy.subLabels,
+        datasets: s.yoy.years.map((y,i) => ({
+          label:String(y), backgroundColor: COLORS[i % COLORS.length], borderRadius:4,
+          data: s.yoy.subLabels.map((_,idx) => (s.yoy.subCount[y] && s.yoy.subCount[y][idx]) || 0)
+        })) },
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{size:11} } } },
+        scales:{ x:{ grid:{display:false} }, y:{ grid:{color:grid}, beginAtZero:true } } }
+    });
+  }
 
   donut('chEstado', s.estadoCounts);
   donut('chOrigen', s.origenCounts);
@@ -833,7 +880,7 @@ function renderTableView(rows){
       if (c.key === 'fechaReclamo') v = fmtDate(v);
       else if (c.key === 'metros') v = fmtNum(v,1);
       else if (c.key === 'totalGastos') v = fmtMoney(v || Math.max(v||0, (r.manoDeObra||0)+(r.materialesPropios||0)+(r.materialesDeTerceros||0)+(r.viaticos||0)+(r.fletes||0)));
-      else if (c.key === 'finalizado') v = `<span class="pill ${isClosed(r.finalizado) ? 'closed' : 'open'}">${esc(r.finalizado||'—')}</span>`;
+      else if (c.key === 'finalizado') v = `<span class="pill ${isClosed(r.finalizado) ? 'closed' : 'open'}">${isClosed(r.finalizado) ? 'Cerrado' : 'Abierto'}</span>`;
       else v = esc(v ?? '—');
       const cls = c.key === 'productoDisplay' ? 'desc' : '';
       return `<td class="${cls}">${v}</td>`;
@@ -846,6 +893,19 @@ function renderTableView(rows){
     <span>Página ${state.page} de ${totalPages} (${sorted.length} reclamos)</span>
     <button data-page="next" ${state.page>=totalPages?'disabled':''}>Siguiente ›</button>
   `;
+}
+
+function rowsForExport(rows){
+  const cols = Object.keys(FIELD_LABELS);
+  return rows.map(r => {
+    const obj = {};
+    cols.forEach(c => {
+      let v = r[c];
+      if (v instanceof Date) v = fmtDate(v);
+      obj[FIELD_LABELS[c]] = v ?? '';
+    });
+    return obj;
+  });
 }
 
 function exportCsv(rows){
@@ -865,14 +925,28 @@ function exportCsv(rows){
   document.body.appendChild(a); a.click(); a.remove();
 }
 
-/* ===================== Detalle ===================== */
+function exportXlsx(rows){
+  const ws = XLSX.utils.json_to_sheet(rowsForExport(rows));
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Reclamos');
+  XLSX.writeFile(wb, 'reclamos_alberdi.xlsx');
+}
+
+/* ===================== Detalle e informe ===================== */
 
 function openDetail(nroReclamo){
   const r = ALL.find(x => String(x.nroReclamo) === String(nroReclamo));
   if (!r) return;
+  document.getElementById('detail').dataset.nro = nroReclamo;
   document.getElementById('detailTitle').textContent = 'Reclamo N° ' + r.nroReclamo;
   document.getElementById('detailSub').textContent = [r.nombreCliente || r.nombreUsuario, r.causa].filter(Boolean).join(' · ');
-  const html = DETAIL_GROUPS.map(g => {
+  document.getElementById('detailBody').innerHTML = buildSpecGroupsHtml(r);
+  document.getElementById('detail').classList.add('show');
+}
+function closeDetail(){ document.getElementById('detail').classList.remove('show'); }
+
+function buildSpecGroupsHtml(r){
+  return DETAIL_GROUPS.map(g => {
     const rows = g.fields.filter(f => {
       const v = r[f];
       return v !== undefined && v !== null && v !== '' && !(typeof v === 'number' && f !== 'metros' && !NUMERIC_FIELDS.includes(f));
@@ -886,11 +960,48 @@ function openDetail(nroReclamo){
     }).join('');
     if (!rows) return '';
     return `<div class="spec-group-title">${esc(g.title)}</div><table class="spec-table">${rows}</table>`;
-  }).join('');
-  document.getElementById('detailBody').innerHTML = html || '<p class="admin-p">Sin datos adicionales.</p>';
-  document.getElementById('detail').classList.add('show');
+  }).join('') || '<p class="admin-p">Sin datos adicionales.</p>';
 }
-function closeDetail(){ document.getElementById('detail').classList.remove('show'); }
+
+function openInforme(){
+  const nro = document.getElementById('detail').dataset.nro;
+  const r = ALL.find(x => String(x.nroReclamo) === String(nro));
+  if (!r) return;
+  const w = window.open('', '_blank');
+  if (!w) { alert('El navegador bloqueó la ventana del informe. Habilitá los pop-ups para este sitio.'); return; }
+  const specsHtml = buildSpecGroupsHtml(r)
+    .replace(/class="spec-group-title"/g, 'class="g-title"')
+    .replace(/class="spec-table"/g, 'class="g-table"');
+  w.document.write(`<!DOCTYPE html><html lang="es-AR"><head><meta charset="UTF-8">
+  <title>Informe reclamo N° ${esc(r.nroReclamo)} - Alberdi</title>
+  <style>
+    *{box-sizing:border-box;} body{font-family:Arial,Helvetica,sans-serif; color:#222; max-width:760px; margin:32px auto; padding:0 20px;}
+    .head{display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid #E8A33D; padding-bottom:14px; margin-bottom:18px;}
+    .head h1{font-size:20px; margin:0 0 4px; color:#14171A;}
+    .head .sub{font-size:12.5px; color:#666;}
+    .brand{font-size:19px; font-weight:800; color:#333;}
+    .brand .dot{color:#E8A33D;}
+    .g-title{margin:20px 0 6px; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#888; font-weight:700; border-bottom:1px solid #ddd; padding-bottom:4px;}
+    table.g-table{width:100%; border-collapse:collapse; font-size:13px;}
+    table.g-table tr{border-bottom:1px solid #eee;}
+    table.g-table td{padding:6px 0; vertical-align:top;}
+    table.g-table td:first-child{color:#666; width:45%;}
+    table.g-table td:last-child{text-align:right; font-weight:600;}
+    .foot{margin-top:30px; padding-top:14px; border-top:1px solid #ddd; font-size:11px; color:#999; display:flex; justify-content:space-between;}
+    .print-bar{margin:0 0 20px; text-align:right;}
+    .print-bar button{background:#E8A33D; color:#1A1305; border:none; padding:10px 18px; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer;}
+    @media print{ .print-bar{display:none;} body{margin:0; max-width:none;} }
+  </style></head><body>
+  <div class="print-bar"><button onclick="window.print()">🖨 Imprimir / Guardar PDF</button></div>
+  <div class="head">
+    <div><h1>Informe de reclamo N° ${esc(r.nroReclamo)}</h1><div class="sub">Generado el ${esc(new Date().toLocaleString('es-AR'))}</div></div>
+    <div class="brand">cerámica Alberdi<span class="dot">•</span></div>
+  </div>
+  ${specsHtml}
+  <div class="foot"><span>SAC · Reclamos - Cerámica Alberdi</span><span>App desarrollada por AppsArt</span></div>
+  </body></html>`);
+  w.document.close();
+}
 
 /* ===================== Filtros: sheet ===================== */
 
@@ -906,27 +1017,10 @@ function closeFilters(){
   document.getElementById('filterSheet').classList.remove('show');
 }
 
-/* ===================== Fuente de datos ===================== */
+/* ===================== Admin: carga de planilla ===================== */
 
-const admin = { tab:'connect' };
-
-const DEFAULT_ONEDRIVE_CFG = {
-  tenantId: 'c01e9ad6-85da-47a6-81f4-042a8be1bec3',
-  clientId: '4cfe669e-2c76-4ae2-96f8-9ff9c813b03a',
-  shareUrl: 'https://ceramicaalberdi00.sharepoint.com/:x:/s/PlantaJCP/IQA_06BzgY-uTYy9QmFmpIvzAT3ota3C06kK6hJb-Og_C_k?e=8zWNGH'
-};
-
-function loadOneDriveCfg(){
-  let stored = {};
-  try { stored = JSON.parse(localStorage.getItem('sac_onedrive_cfg') || '{}'); } catch(e){ stored = {}; }
-  return { ...DEFAULT_ONEDRIVE_CFG, ...stored };
-}
-function saveOneDriveCfg(cfg){ localStorage.setItem('sac_onedrive_cfg', JSON.stringify(cfg)); }
-function encodeSharingUrl(url){
-  const b64 = btoa(unescape(encodeURIComponent(url.trim())));
-  const b64url = b64.replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-');
-  return 'u!' + b64url;
-}
+const XLSX_FIELDS = Object.values(XLSX_KEY_MAP);
+const admin = { logged:false, diff:null };
 
 function openAdmin(){
   document.getElementById('overlay').classList.remove('show');
@@ -941,20 +1035,40 @@ function closeAdmin(){
 }
 
 function renderAdmin(){
+  if (!auth) return renderAdminError('Firebase no está disponible ahora mismo.');
+  if (!admin.logged) return renderAdminLogin();
+  if (admin.diff) return renderAdminPreview();
+  return renderAdminUpload();
+}
+function renderAdminError(msg){ document.getElementById('adminBody').innerHTML = `<p class="admin-error">${esc(msg)}</p>`; }
+
+function renderAdminLogin(){
   document.getElementById('adminBody').innerHTML = `
-    <div class="admin-tabs">
-      <div class="admin-tab ${admin.tab==='connect'?'active':''}" data-tab="connect">Conectar Microsoft</div>
-      <div class="admin-tab ${admin.tab==='upload'?'active':''}" data-tab="upload">Subir archivo</div>
-    </div>
-    <div id="adminSourceBody"></div>
+    <p class="admin-p">Ingresá la clave para poder actualizar los datos.</p>
+    <input type="password" id="adminPin" class="admin-input" placeholder="Clave" autocomplete="off">
+    <div id="adminLoginError"></div>
+    <button class="btn-primary" data-action="do-login">Ingresar</button>
   `;
-  document.querySelectorAll('.admin-tab').forEach(t => t.addEventListener('click', () => { admin.tab = t.dataset.tab; renderAdmin(); }));
-  if (admin.tab === 'upload') renderAdminUpload(); else renderAdminConnect();
+  document.getElementById('adminPin').focus();
+}
+async function doLogin(){
+  const pin = document.getElementById('adminPin').value;
+  if (!pin) return;
+  const btn = document.querySelector('[data-action="do-login"]');
+  btn.disabled = true; btn.textContent = 'Verificando…';
+  try {
+    await auth.signInWithEmailAndPassword(ADMIN_EMAIL, pin);
+    admin.logged = true;
+    renderAdmin();
+  } catch (e) {
+    document.getElementById('adminLoginError').innerHTML = `<p class="admin-error">Clave incorrecta.</p>`;
+    btn.disabled = false; btn.textContent = 'Ingresar';
+  }
 }
 
 function renderAdminUpload(){
-  document.getElementById('adminSourceBody').innerHTML = `
-    <p class="admin-p">Subí el Excel de reclamos manualmente. Reemplaza lo que se esté viendo ahora (solo en tu navegador, no se comparte con nadie más).</p>
+  document.getElementById('adminBody').innerHTML = `
+    <p class="admin-p">Subí el Excel de reclamos. Voy a comparar cada fila (por N° de reclamo) con lo que ya está cargado y te muestro los cambios antes de aplicar nada.</p>
     <div class="admin-file" id="adminDrop">
       <span>📄</span>
       <b>Elegir archivo .xlsx</b>
@@ -970,49 +1084,15 @@ function renderAdminUpload(){
   dropEl.addEventListener('drop', e => { e.preventDefault(); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
 }
 
-function renderAdminConnect(){
-  const cfg = loadOneDriveCfg();
-  document.getElementById('adminSourceBody').innerHTML = `
-    <p class="admin-p">Cualquiera con acceso a este link de SharePoint en Alberdi puede ver los reclamos y estadísticas: al abrir la app se pide iniciar sesión con la cuenta de Microsoft una sola vez (después queda recordada en ese navegador).</p>
-    <input class="admin-input" id="odTenant" placeholder="Tenant ID" value="${esc(cfg.tenantId||'')}">
-    <input class="admin-input" id="odClient" placeholder="Client ID" value="${esc(cfg.clientId||'')}">
-    <input class="admin-input" id="odShareUrl" placeholder="Link para compartir del archivo" value="${esc(cfg.shareUrl||'')}">
-    <div id="odStatus"></div>
-    <button class="btn-primary" data-action="od-connect">Conectar con Microsoft y sincronizar</button>
-    <p class="admin-note">${lastAccount ? 'Conectado como ' + esc(lastAccount.username) + '.' : 'Todavía no iniciaste sesión con Microsoft en este navegador.'}
-    ${lastSyncAt ? ' Última sincronización: ' + new Date(lastSyncAt).toLocaleString('es-AR') : ''}</p>
-  `;
-}
-
-async function connectOneDriveFromPanel(){
-  const tenantId = document.getElementById('odTenant').value.trim();
-  const clientId = document.getElementById('odClient').value.trim();
-  const shareUrl = document.getElementById('odShareUrl').value.trim();
-  const statusEl = document.getElementById('odStatus');
-  if (!tenantId || !clientId || !shareUrl) { statusEl.innerHTML = '<p class="admin-error">Completá Tenant ID, Client ID y el link para compartir.</p>'; return; }
-  saveOneDriveCfg({ tenantId, clientId, shareUrl });
-  msalInstance = null;
-  if (!window.msal) { statusEl.innerHTML = '<p class="admin-error">La librería de Microsoft (MSAL) no cargó. Revisá la conexión a internet.</p>'; return; }
-  statusEl.innerHTML = '<div class="admin-spinner">Conectando…</div>';
-  try {
-    await syncFromSharePoint(true);
-    statusEl.innerHTML = '<p class="admin-ok">¡Listo! Datos actualizados desde SharePoint.</p>';
-    renderAdminConnect();
-  } catch (e) {
-    console.error(e);
-    statusEl.innerHTML = `<p class="admin-error">${esc(e.message || 'No pude conectar con SharePoint/OneDrive.')}</p>`;
-  }
-}
-
 async function handleFile(file){
   const statusEl = document.getElementById('adminUploadStatus');
   statusEl.innerHTML = `<div class="admin-spinner">Leyendo planilla…</div>`;
   try {
     const buf = await file.arrayBuffer();
-    ALL = parseWorkbook(buf);
-    renderFilterSheetOptions();
-    statusEl.innerHTML = `<p class="admin-ok">¡Listo! Se cargaron ${ALL.length} reclamos.</p>`;
-    renderAll();
+    const rows = parseWorkbook(buf);
+    statusEl.innerHTML = `<div class="admin-spinner">Comparando con la base actual…</div>`;
+    admin.diff = buildDiff(rows, ALL);
+    renderAdmin();
   } catch (e) {
     console.error(e);
     statusEl.innerHTML = `<p class="admin-error">${esc(e.message || 'No pude leer el archivo.')}</p>`;
@@ -1047,6 +1127,73 @@ function parseWorkbook(buf){
   return records;
 }
 
+function buildDiff(rows, existing){
+  const byId = new Map(existing.map(r => [String(r.nroReclamo), r]));
+  const nuevos = [], actualizados = [], sinCambios = [];
+  for (const row of rows) {
+    const match = byId.get(String(row.nroReclamo));
+    if (!match) { nuevos.push(row); continue; }
+    const changed = XLSX_FIELDS.some(f => {
+      const a = row[f], b = match[f];
+      if (a instanceof Date || b instanceof Date) return +(a||0) !== +(b||0);
+      return String(a ?? '') !== String(b ?? '');
+    });
+    (changed ? actualizados : sinCambios).push(row);
+  }
+  return { nuevos, actualizados, sinCambios };
+}
+
+function renderAdminPreview(){
+  const d = admin.diff;
+  const listHtml = items => items.length
+    ? items.slice(0, 60).map(r => `<p>N° ${esc(r.nroReclamo)}${r.causa ? ' · ' + esc(r.causa) : ''}</p>`).join('') + (items.length > 60 ? `<p class="admin-note">+${items.length-60} más</p>` : '')
+    : `<p class="admin-note">Ninguno.</p>`;
+  document.getElementById('adminBody').innerHTML = `
+    <div class="diff-summary">
+      <div class="diff-stat"><div class="n">${d.nuevos.length}</div><div class="l">Nuevos</div></div>
+      <div class="diff-stat"><div class="n">${d.actualizados.length}</div><div class="l">Modificados</div></div>
+      <div class="diff-stat"><div class="n">${d.sinCambios.length}</div><div class="l">Sin cambios</div></div>
+    </div>
+    <h4 style="font-size:12.5px; text-transform:uppercase; color:var(--text-muted); margin:16px 0 8px;">Nuevos (${d.nuevos.length})</h4>
+    <div class="diff-list">${listHtml(d.nuevos)}</div>
+    <h4 style="font-size:12.5px; text-transform:uppercase; color:var(--text-muted); margin:16px 0 8px;">Modificados (${d.actualizados.length})</h4>
+    <div class="diff-list">${listHtml(d.actualizados)}</div>
+    <div id="adminConfirmStatus"></div>
+    <button class="btn-primary" data-action="cancel-diff" style="background:var(--surface-2); color:var(--text); margin-bottom:10px;">Cancelar</button>
+    <button class="btn-primary" data-action="confirm-update" ${(d.nuevos.length + d.actualizados.length)===0 ? 'disabled' : ''}>Confirmar actualización</button>
+  `;
+}
+
+async function confirmUpdate(){
+  const d = admin.diff;
+  const statusEl = document.getElementById('adminConfirmStatus');
+  const btn = document.querySelector('[data-action="confirm-update"]');
+  btn.disabled = true;
+  const toWrite = [...d.nuevos, ...d.actualizados];
+  const CHUNK = 400;
+  try {
+    for (let i = 0; i < toWrite.length; i += CHUNK) {
+      const batch = db.batch();
+      toWrite.slice(i, i + CHUNK).forEach(r => {
+        const docId = String(r.nroReclamo).replace(/[\/\s]+/g, '-');
+        batch.set(db.collection(COLLECTION).doc(docId), r);
+      });
+      await batch.commit();
+      statusEl.innerHTML = `<p class="admin-note">Subidos ${Math.min(i+CHUNK, toWrite.length)} / ${toWrite.length}…</p>`;
+    }
+    ALL = await loadData();
+    renderFilterSheetOptions();
+    document.getElementById('adminBody').innerHTML = `
+      <p class="admin-p"><b>¡Listo!</b> Se actualizaron ${toWrite.length} reclamos (${d.nuevos.length} nuevos, ${d.actualizados.length} modificados). El panel ya se actualizó solo.</p>
+      <button class="btn-primary" data-action="close-admin">Cerrar</button>
+    `;
+    renderAll();
+  } catch (e) {
+    console.error(e);
+    statusEl.innerHTML = `<p class="admin-error">Hubo un error subiendo los cambios: ${esc(e.message)}</p>`;
+    btn.disabled = false;
+  }
+}
 
 /* ===================== Eventos ===================== */
 
@@ -1087,9 +1234,10 @@ function bindEvents(){
     }
     const rm = e.target.closest('[data-rm-key]');
     if (rm) { state.filters[rm.dataset.rmKey].delete(rm.dataset.rmVal); state.page = 1; renderAll(); }
-    if (e.target.closest('[data-action="refresh"]')) connectNow();
-    if (e.target.closest('[data-action="connect-now"]')) connectNow();
+    if (e.target.closest('[data-action="refresh"]')) init();
     if (e.target.closest('[data-action="export-csv"]')) exportCsv(getFiltered());
+    if (e.target.closest('[data-action="export-xlsx"]')) exportXlsx(getFiltered());
+    if (e.target.closest('[data-action="open-informe"]')) openInforme();
   });
 
   document.getElementById('main').addEventListener('click', e => {
@@ -1100,35 +1248,36 @@ function bindEvents(){
       state.page += pageBtn.dataset.page === 'next' ? 1 : -1;
       renderTableView(getFiltered());
     }
-  });
-  document.getElementById('tableHead')?.addEventListener?.('click', () => {});
-  document.getElementById('main').addEventListener('click', e => {
     const th = e.target.closest('#tableHead th');
-    if (!th) return;
-    const key = th.dataset.sort;
-    if (state.sortKey === key) state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
-    else { state.sortKey = key; state.sortDir = 'asc'; }
-    renderTableView(getFiltered());
-  });
-
-  document.getElementById('chartGrid')?.addEventListener?.('click', () => {});
-  document.getElementById('main').addEventListener('click', e => {
-    const m = e.target.closest('.chart-toggle button');
-    if (!m) return;
-    state.monthlyMetric = m.dataset.metric;
-    renderDashboard(getFiltered());
+    if (th) {
+      const key = th.dataset.sort;
+      if (state.sortKey === key) state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+      else { state.sortKey = key; state.sortDir = 'asc'; }
+      renderTableView(getFiltered());
+    }
+    const metricBtn = e.target.closest('.chart-toggle button[data-metric]');
+    if (metricBtn) { state.trendMetric = metricBtn.dataset.metric; renderDashboard(getFiltered()); }
+    const basisBtn = e.target.closest('[data-basis]');
+    if (basisBtn) { state.dateBasis = basisBtn.dataset.basis; renderDashboard(getFiltered()); }
+    const granBtn = e.target.closest('[data-granularity]');
+    if (granBtn) { state.granularity = granBtn.dataset.granularity; renderDashboard(getFiltered()); }
   });
 
   document.querySelector('[data-action="close-detail"]').addEventListener('click', closeDetail);
 
-  document.querySelectorAll('[data-action="open-admin"]').forEach(b => b.addEventListener('click', openAdmin));
+  document.querySelectorAll('[data-action="open-admin"]').forEach(b => b.addEventListener('click', () => { admin.diff = null; openAdmin(); }));
   document.getElementById('adminOverlay').addEventListener('click', closeAdmin);
   document.getElementById('adminBody').addEventListener('click', e => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     const action = btn.dataset.action;
-    if (action === 'close-admin') closeAdmin();
-    else if (action === 'od-connect') connectOneDriveFromPanel();
+    if (action === 'do-login') doLogin();
+    else if (action === 'close-admin') closeAdmin();
+    else if (action === 'cancel-diff') { admin.diff = null; renderAdmin(); }
+    else if (action === 'confirm-update') confirmUpdate();
+  });
+  document.getElementById('adminBody').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.id === 'adminPin') doLogin();
   });
 }
 
