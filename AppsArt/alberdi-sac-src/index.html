@@ -328,6 +328,16 @@
   </div>
 </div>
 
+<div class="overlay" id="chartSettingsOverlay"></div>
+<div class="sheet" id="chartSettingsPanel">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <h3>Gráficos del panel</h3>
+    <button data-action="close-chart-settings">Cerrar</button>
+  </div>
+  <div class="sheet-body" id="chartSettingsBody"></div>
+</div>
+
 <div class="detail" id="detail">
   <div class="detail-head">
     <div>
@@ -426,6 +436,31 @@ const FILTERABLE = [
   { key:'esDeUnUsuario', label:'Origen' }
 ];
 const COLORS = ['#E8A33D','#4C8B5A','#E15252','#5B8DEF','#9B6BDE','#4FB6C7','#D98BD9','#C9A227','#7FA1C3','#6FCF97'];
+
+const OPTIONAL_CHARTS = [
+  { id:'chEstado', title:'Estado de los reclamos' },
+  { id:'chOrigen', title:'Origen del reclamo' },
+  { id:'chAging', title:'Reclamos abiertos por antigüedad' },
+  { id:'chCostos', title:'Distribución de costos' },
+  { id:'chCausaCant', title:'Top causas por cantidad' },
+  { id:'chCausaCosto', title:'Top causas por costo' },
+  { id:'chLinea', title:'Reclamos por línea de producción' },
+  { id:'chHorno', title:'Reclamos por horno' },
+  { id:'chTurno', title:'Reclamos por turno' },
+  { id:'chMarca', title:'Top marcas con más reclamos' },
+  { id:'chProvincia', title:'Reclamos por provincia' },
+  { id:'chInspector', title:'Carga por inspector' }
+];
+
+function loadChartVisibility(){
+  let stored = {};
+  try { stored = JSON.parse(localStorage.getItem('sac_chart_visibility') || '{}'); } catch(e) { stored = {}; }
+  const out = {};
+  OPTIONAL_CHARTS.forEach(c => out[c.id] = stored[c.id] !== false);
+  return out;
+}
+function saveChartVisibility(){ localStorage.setItem('sac_chart_visibility', JSON.stringify(chartVisibility)); }
+let chartVisibility = loadChartVisibility();
 const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
 /* ===================== Helpers de parseo ===================== */
@@ -749,7 +784,8 @@ function renderDashboard(rows){
       { val:'month', label:'Mensual' },
       { val:'quarter', label:'Trimestral' },
       { val:'year', label:'Anual' }
-    ], state.granularity, 'granularity');
+    ], state.granularity, 'granularity') +
+    `<div class="dash-control-group"><button class="icon-btn" data-action="open-chart-settings">⚙ Editar gráficos</button></div>`;
 
   Chart.defaults.color = '#8B92A0';
   Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
@@ -760,6 +796,11 @@ function renderDashboard(rows){
       <div class="chart-card-head"><h4>Comparación interanual (${state.granularity==='quarter'?'por trimestre':'por mes'})</h4></div>
       <div class="chart-wrap"><canvas id="chYoY"></canvas></div>
     </div>` : '';
+
+  const optionalCardsHtml = OPTIONAL_CHARTS
+    .filter(c => chartVisibility[c.id])
+    .map(c => `<div class="chart-card"><div class="chart-card-head"><h4>${esc(c.title)}</h4></div><div class="chart-wrap"><canvas id="${c.id}"></canvas></div></div>`)
+    .join('');
 
   document.getElementById('chartGrid').innerHTML = `
     <div class="chart-card wide">
@@ -773,18 +814,7 @@ function renderDashboard(rows){
       <div class="chart-wrap"><canvas id="chTrend"></canvas></div>
     </div>
     ${yoyCardHtml}
-    <div class="chart-card"><div class="chart-card-head"><h4>Estado de los reclamos</h4></div><div class="chart-wrap"><canvas id="chEstado"></canvas></div></div>
-    <div class="chart-card"><div class="chart-card-head"><h4>Origen del reclamo</h4></div><div class="chart-wrap"><canvas id="chOrigen"></canvas></div></div>
-    <div class="chart-card"><div class="chart-card-head"><h4>Reclamos abiertos por antigüedad</h4></div><div class="chart-wrap"><canvas id="chAging"></canvas></div></div>
-    <div class="chart-card"><div class="chart-card-head"><h4>Distribución de costos</h4></div><div class="chart-wrap"><canvas id="chCostos"></canvas></div></div>
-    <div class="chart-card"><div class="chart-card-head"><h4>Top causas por cantidad</h4></div><div class="chart-wrap"><canvas id="chCausaCant"></canvas></div></div>
-    <div class="chart-card"><div class="chart-card-head"><h4>Top causas por costo</h4></div><div class="chart-wrap"><canvas id="chCausaCosto"></canvas></div></div>
-    <div class="chart-card"><div class="chart-card-head"><h4>Reclamos por línea de producción</h4></div><div class="chart-wrap"><canvas id="chLinea"></canvas></div></div>
-    <div class="chart-card"><div class="chart-card-head"><h4>Reclamos por horno</h4></div><div class="chart-wrap"><canvas id="chHorno"></canvas></div></div>
-    <div class="chart-card"><div class="chart-card-head"><h4>Reclamos por turno</h4></div><div class="chart-wrap"><canvas id="chTurno"></canvas></div></div>
-    <div class="chart-card"><div class="chart-card-head"><h4>Top marcas con más reclamos</h4></div><div class="chart-wrap"><canvas id="chMarca"></canvas></div></div>
-    <div class="chart-card"><div class="chart-card-head"><h4>Reclamos por provincia</h4></div><div class="chart-wrap"><canvas id="chProvincia"></canvas></div></div>
-    <div class="chart-card"><div class="chart-card-head"><h4>Carga por inspector</h4></div><div class="chart-wrap"><canvas id="chInspector"></canvas></div></div>
+    ${optionalCardsHtml}
   `;
 
   function makeChart(id, config){
@@ -1037,6 +1067,44 @@ function openFilters(){
 function closeFilters(){
   document.getElementById('overlay').classList.remove('show');
   document.getElementById('filterSheet').classList.remove('show');
+}
+
+/* ===================== Personalizar gráficos ===================== */
+
+function renderChartSettings(){
+  document.getElementById('chartSettingsBody').innerHTML = `
+    <p class="admin-p">Elegí qué gráficos mostrar en el panel (se recuerda en este navegador).</p>
+    <div class="filter-group">
+      <div class="opts">
+        ${OPTIONAL_CHARTS.map(c => `<button class="opt-chip ${chartVisibility[c.id]?'active':''}" data-chart-toggle="${c.id}">${chartVisibility[c.id]?'✓ ':''}${esc(c.title)}</button>`).join('')}
+      </div>
+    </div>
+    <button class="btn-primary" data-action="charts-show-all" style="background:var(--surface-2); color:var(--text); margin-bottom:10px;">Mostrar todos</button>
+    <button class="btn-primary" data-action="charts-hide-all" style="background:var(--surface-2); color:var(--text);">Ocultar todos</button>
+  `;
+}
+function openChartSettings(){
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('filterSheet').classList.remove('show');
+  renderChartSettings();
+  document.getElementById('chartSettingsOverlay').classList.add('show');
+  document.getElementById('chartSettingsPanel').classList.add('show');
+}
+function closeChartSettings(){
+  document.getElementById('chartSettingsOverlay').classList.remove('show');
+  document.getElementById('chartSettingsPanel').classList.remove('show');
+}
+function toggleChart(id){
+  chartVisibility[id] = !chartVisibility[id];
+  saveChartVisibility();
+  renderChartSettings();
+  renderDashboard(getFiltered());
+}
+function setAllCharts(visible){
+  OPTIONAL_CHARTS.forEach(c => chartVisibility[c.id] = visible);
+  saveChartVisibility();
+  renderChartSettings();
+  renderDashboard(getFiltered());
 }
 
 /* ===================== Admin: carga de planilla ===================== */
@@ -1462,7 +1530,14 @@ function bindEvents(){
     if (e.target.closest('[data-action="export-xlsx"]')) exportXlsx(getFiltered());
     if (e.target.closest('[data-action="open-informe"]')) openInforme();
     if (e.target.closest('[data-action="open-edit-reclamo"]')) openEditReclamo();
+    if (e.target.closest('[data-action="open-chart-settings"]')) openChartSettings();
+    if (e.target.closest('[data-action="close-chart-settings"]')) closeChartSettings();
+    if (e.target.closest('[data-action="charts-show-all"]')) setAllCharts(true);
+    if (e.target.closest('[data-action="charts-hide-all"]')) setAllCharts(false);
+    const chartToggleBtn = e.target.closest('[data-chart-toggle]');
+    if (chartToggleBtn) toggleChart(chartToggleBtn.dataset.chartToggle);
   });
+  document.getElementById('chartSettingsOverlay').addEventListener('click', closeChartSettings);
 
   document.getElementById('main').addEventListener('click', e => {
     const row = e.target.closest('#tableBody tr[data-id]');
