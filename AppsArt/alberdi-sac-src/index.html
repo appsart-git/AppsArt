@@ -1685,7 +1685,7 @@ function bindEvents(){
 
   document.querySelectorAll('[data-action="open-admin"]').forEach(b => b.addEventListener('click', () => { admin.diff = null; openAdmin(); }));
   document.getElementById('adminOverlay').addEventListener('click', closeAdmin);
-  document.getElementById('adminBody').addEventListener('click', e => {
+  document.getElementById('adminPanel').addEventListener('click', e => {
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     const action = btn.dataset.action;
