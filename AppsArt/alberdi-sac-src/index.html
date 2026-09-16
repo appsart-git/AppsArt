@@ -403,26 +403,33 @@ const XLSX_KEY_MAP = {
   IDINSPECTOR:'idInspector', IDADHESIVO:'idAdhesivo', IDESTIMADO:'idEstimado',
   IDFINALIZADO:'idFinalizado', IDCAUSA:'idCausa'
 };
-const NUMERIC_FIELDS = ['metros','manoDeObra','materialesPropios','materialesDeTerceros','viaticos','fletes','totalGastos'];
-const DATE_FIELDS = ['fechaProd','fechaReclamo','fechaColocacion'];
+const NUMERIC_FIELDS = ['metros','manoDeObra','materialesPropios','materialesDeTerceros','viaticos','fletes','totalGastos',
+  'm2Comprados','m2SinColocar','ncA','ncB','nc3ros','ncTotal','materialesPropiosM2'];
+const M2_FIELDS = ['metros','m2Comprados','m2SinColocar','materialesPropiosM2'];
+const DATE_FIELDS = ['fechaProd','fechaReclamo','fechaColocacion','fechaIngreso'];
 
 const FIELD_LABELS = {
   nroReclamo:'N° de reclamo', articulo:'Artículo', nombre:'Nombre', marca:'Marca', horno:'Horno',
   tono:'Tono', calibre:'Calibre', metros:'Metros (m²)', causa:'Causa', fechaProd:'Fecha de producción',
   hora:'Hora', turno:'Turno', lineaProd:'Línea de producción', fechaReclamo:'Fecha de reclamo',
+  fechaIngreso:'Fecha de ingreso (primer contacto)',
   esDeUnUsuario:'Origen', nombreUsuario:'Nombre de usuario', tipoDocumento:'Tipo de documento',
   numeroDocumento:'N° de documento', direccion:'Dirección', localidad:'Localidad', codigoPostal:'Código postal',
   provincia:'Provincia', telefono:'Teléfono', fax:'Fax', email:'Email', cuentaCliente:'Cuenta cliente',
-  nombreCliente:'Nombre de cliente', descripcionReclamo:'Descripción', fechaColocacion:'Fecha de colocación',
+  nombreCliente:'Nombre de cliente', facturaRemito:'Factura/Remito (FC/ST)',
+  descripcionReclamo:'Descripción', fechaColocacion:'Fecha de colocación',
   inspector:'Inspector', adhesivo:'Adhesivo', resolucion:'Resolución', estimado:'Estimado', finalizado:'Estado',
+  m2Comprados:'M2 comprados', m2SinColocar:'M2 sin colocar',
   manoDeObra:'Mano de obra', materialesPropios:'Materiales propios', materialesDeTerceros:'Materiales de terceros',
-  viaticos:'Viáticos', fletes:'Fletes', totalGastos:'Total de gastos'
+  viaticos:'Viáticos', fletes:'Fletes', totalGastos:'Total de gastos',
+  ncA:'NC A', ncB:'NC B', nc3ros:'NC terceros', ncTotal:'Total NC',
+  materialesPropiosSR:'Materiales propios (SR)', materialesPropiosM2:'Materiales propios (M2)'
 };
 const DETAIL_GROUPS = [
-  { title:'Reclamo', fields:['nroReclamo','fechaReclamo','causa','estimado','finalizado','resolucion','descripcionReclamo'] },
-  { title:'Producto', fields:['articulo','nombre','marca','tono','calibre','metros','horno','lineaProd','turno','fechaProd','hora'] },
-  { title:'Cliente / usuario', fields:['esDeUnUsuario','nombreCliente','cuentaCliente','nombreUsuario','tipoDocumento','numeroDocumento','telefono','fax','email','direccion','localidad','provincia','codigoPostal','fechaColocacion','inspector','adhesivo'] },
-  { title:'Costos', fields:['manoDeObra','materialesPropios','materialesDeTerceros','viaticos','fletes','totalGastos'] }
+  { title:'Reclamo', fields:['nroReclamo','fechaReclamo','fechaIngreso','causa','estimado','finalizado','resolucion','descripcionReclamo'] },
+  { title:'Producto', fields:['articulo','nombre','marca','tono','calibre','metros','m2Comprados','m2SinColocar','horno','lineaProd','turno','fechaProd','hora'] },
+  { title:'Cliente / usuario', fields:['esDeUnUsuario','nombreCliente','cuentaCliente','facturaRemito','nombreUsuario','tipoDocumento','numeroDocumento','telefono','fax','email','direccion','localidad','provincia','codigoPostal','fechaColocacion','inspector','adhesivo'] },
+  { title:'Costos', fields:['manoDeObra','materialesPropios','materialesDeTerceros','viaticos','fletes','totalGastos','ncA','ncB','nc3ros','ncTotal','materialesPropiosSR','materialesPropiosM2'] }
 ];
 const FILTERABLE = [
   { key:'finalizado', label:'Estado' },
@@ -789,6 +796,8 @@ function renderDashboard(rows){
 
   Chart.defaults.color = '#8B92A0';
   Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
+  Chart.defaults.animation = false;
+  Chart.defaults.responsiveAnimationDuration = 0;
   const grid = 'rgba(46,52,60,.7)';
 
   const yoyCardHtml = s.yoy && s.yoy.years.length > 1 ? `
@@ -1001,11 +1010,11 @@ function buildSpecGroupsHtml(r){
   return DETAIL_GROUPS.map(g => {
     const rows = g.fields.filter(f => {
       const v = r[f];
-      return v !== undefined && v !== null && v !== '' && !(typeof v === 'number' && f !== 'metros' && !NUMERIC_FIELDS.includes(f));
+      return v !== undefined && v !== null && v !== '' && !(typeof v === 'number' && !NUMERIC_FIELDS.includes(f));
     }).map(f => {
       let v = r[f];
       if (v instanceof Date) v = fmtDate(v);
-      else if (f === 'metros') v = fmtNum(v,1) + ' m²';
+      else if (M2_FIELDS.includes(f)) v = fmtNum(v,1) + ' m²';
       else if (NUMERIC_FIELDS.includes(f)) v = fmtMoney(v);
       else v = esc(v);
       return `<tr><td>${esc(FIELD_LABELS[f]||f)}</td><td>${v}</td></tr>`;
@@ -1015,41 +1024,137 @@ function buildSpecGroupsHtml(r){
   }).join('') || '<p class="admin-p">Sin datos adicionales.</p>';
 }
 
+function jcVal(r, f){
+  let v = r[f];
+  if (v === undefined || v === null || v === '') return '';
+  if (v instanceof Date) return fmtDate(v);
+  if (M2_FIELDS.includes(f)) return fmtNum(v,1);
+  if (NUMERIC_FIELDS.includes(f)) return fmtMoney(v);
+  return esc(v);
+}
+function jcField(r, f, labelOverride){
+  const label = labelOverride || FIELD_LABELS[f] || f;
+  return `<div class="jc-field"><label>${esc(label)}</label><div class="val">${jcVal(r,f)}</div></div>`;
+}
+
 function openInforme(){
   const nro = document.getElementById('detail').dataset.nro;
   const r = ALL.find(x => String(x.nroReclamo) === String(nro));
   if (!r) return;
   const w = window.open('', '_blank');
   if (!w) { alert('El navegador bloqueó la ventana del informe. Habilitá los pop-ups para este sitio.'); return; }
-  const specsHtml = buildSpecGroupsHtml(r)
-    .replace(/class="spec-group-title"/g, 'class="g-title"')
-    .replace(/class="spec-table"/g, 'class="g-table"');
+
+  const extraCosts = ['manoDeObra','materialesPropios','materialesDeTerceros','viaticos','fletes','totalGastos'];
+  const extraSection = extraCosts.some(f => (r[f]||0) !== 0) ? `
+  <div class="jc-section">
+    <div class="jc-section-title">8 - Otros costos (sistema)</div>
+    <div class="jc-fields">${extraCosts.map(f => jcField(r,f)).join('')}</div>
+  </div>` : '';
+
   w.document.write(`<!DOCTYPE html><html lang="es-AR"><head><meta charset="UTF-8">
-  <title>Informe reclamo N° ${esc(r.nroReclamo)} - Alberdi</title>
+  <title>Registro JC N° ${esc(r.nroReclamo)} - Alberdi</title>
   <style>
-    *{box-sizing:border-box;} body{font-family:Arial,Helvetica,sans-serif; color:#222; max-width:760px; margin:32px auto; padding:0 20px;}
-    .head{display:flex; align-items:center; justify-content:space-between; border-bottom:3px solid #E8A33D; padding-bottom:14px; margin-bottom:18px;}
-    .head h1{font-size:20px; margin:0 0 4px; color:#14171A;}
-    .head .sub{font-size:12.5px; color:#666;}
-    .brand{font-size:19px; font-weight:800; color:#333;}
-    .brand .dot{color:#E8A33D;}
-    .g-title{margin:20px 0 6px; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#888; font-weight:700; border-bottom:1px solid #ddd; padding-bottom:4px;}
-    table.g-table{width:100%; border-collapse:collapse; font-size:13px;}
-    table.g-table tr{border-bottom:1px solid #eee;}
-    table.g-table td{padding:6px 0; vertical-align:top;}
-    table.g-table td:first-child{color:#666; width:45%;}
-    table.g-table td:last-child{text-align:right; font-weight:600;}
-    .foot{margin-top:30px; padding-top:14px; border-top:1px solid #ddd; font-size:11px; color:#999; display:flex; justify-content:space-between;}
-    .print-bar{margin:0 0 20px; text-align:right;}
+    *{box-sizing:border-box;} body{font-family:Arial,Helvetica,sans-serif; color:#222; max-width:820px; margin:24px auto; padding:0 20px;}
+    .print-bar{margin:0 0 16px; text-align:right;}
     .print-bar button{background:#E8A33D; color:#1A1305; border:none; padding:10px 18px; border-radius:8px; font-weight:700; font-size:13px; cursor:pointer;}
+    .jc-header{display:flex; justify-content:space-between; align-items:center; border:2px solid #222; padding:10px 16px; margin-bottom:12px;}
+    .jc-header .co, .jc-header .doc{font-size:16px; font-weight:800;}
+    .jc-row{display:flex; gap:14px; margin-bottom:12px;}
+    .jc-row .box{flex:1; border:1px solid #999; padding:8px 12px; font-size:12.5px;}
+    .jc-section{border:1px solid #222; padding:10px 14px; margin-bottom:12px;}
+    .jc-section-title{font-weight:700; font-size:12.5px; margin-bottom:8px;}
+    .jc-fields{display:flex; flex-wrap:wrap; gap:12px 22px;}
+    .jc-fields + .jc-fields{margin-top:10px; border-top:1px solid #ddd; padding-top:10px;}
+    .jc-field{display:flex; flex-direction:column; gap:2px; min-width:100px;}
+    .jc-field label{font-size:9.5px; color:#777; text-transform:uppercase; letter-spacing:.03em;}
+    .jc-field .val{border-bottom:1px solid #ccc; padding-bottom:2px; font-weight:600; font-size:12.5px; min-height:15px;}
+    .jc-text-box{border:1px solid #ccc; padding:8px 10px; font-size:12.5px; white-space:pre-wrap; min-height:36px;}
+    .foot{margin-top:20px; padding-top:12px; border-top:1px solid #ddd; font-size:11px; color:#999; display:flex; justify-content:space-between;}
     @media print{ .print-bar{display:none;} body{margin:0; max-width:none;} }
   </style></head><body>
   <div class="print-bar"><button onclick="window.print()">🖨 Imprimir / Guardar PDF</button></div>
-  <div class="head">
-    <div><h1>Informe de reclamo N° ${esc(r.nroReclamo)}</h1><div class="sub">Generado el ${esc(new Date().toLocaleString('es-AR'))}</div></div>
-    <div class="brand">cerámica Alberdi<span class="dot">•</span></div>
+
+  <div class="jc-header">
+    <div class="co">CERAMICA ALBERDI S.A.</div>
+    <div class="doc">REGISTRO - JC</div>
   </div>
-  ${specsHtml}
+  <div class="jc-row">
+    <div class="box">Fecha: <b>${jcVal(r,'fechaReclamo') || '—'}</b></div>
+    <div class="box" style="text-align:right;">N° JC: <b>${esc(r.nroReclamo)}</b></div>
+  </div>
+
+  <div class="jc-section">
+    <div class="jc-section-title">1 - Cliente</div>
+    <div class="jc-fields">
+      ${jcField(r,'cuentaCliente','Cuenta')}
+      ${jcField(r,'nombreCliente','Nombre')}
+      ${jcField(r,'facturaRemito','FC/ST')}
+    </div>
+  </div>
+
+  <div class="jc-row">
+    <div class="box">2 - ¿Corresponde a un Usuario? <b>${esc(r.esDeUnUsuario || '—')}</b></div>
+    <div class="box" style="text-align:right;">Fecha ingreso: <b>${jcVal(r,'fechaIngreso') || '—'}</b></div>
+  </div>
+
+  <div class="jc-section">
+    <div class="jc-section-title">3 - Descripción</div>
+    <div class="jc-text-box">${esc(r.descripcionReclamo || '')}</div>
+  </div>
+
+  <div class="jc-section">
+    <div class="jc-section-title">4 - Artículo</div>
+    <div class="jc-fields">
+      ${jcField(r,'articulo','Código')}
+      ${jcField(r,'nombre','Producto')}
+      ${jcField(r,'tono','Tono')}
+      ${jcField(r,'calibre','Calibre')}
+      ${jcField(r,'metros','M2')}
+      ${jcField(r,'causa','Causa')}
+    </div>
+    <div class="jc-fields">
+      ${jcField(r,'m2Comprados','M2 Comprados')}
+      ${jcField(r,'m2SinColocar','M2 sin colocar')}
+    </div>
+    <div class="jc-fields">
+      ${jcField(r,'horno','Horno')}
+      ${jcField(r,'fechaProd','Fecha de Producción')}
+      ${jcField(r,'hora','Hora')}
+      ${jcField(r,'turno','Turno')}
+      ${jcField(r,'lineaProd','Línea')}
+      ${jcField(r,'adhesivo','Adhesivo')}
+    </div>
+  </div>
+
+  <div class="jc-section">
+    <div class="jc-section-title">5 - Resolución</div>
+    <div class="jc-text-box">${esc(r.resolucion || '')}</div>
+    <div class="jc-fields" style="margin-top:10px;">
+      ${jcField(r,'inspector','Inspector')}
+      ${jcField(r,'estimado','Estimado')}
+      ${jcField(r,'finalizado','Estado')}
+    </div>
+  </div>
+
+  <div class="jc-section">
+    <div class="jc-section-title">6 - Notas de Crédito</div>
+    <div class="jc-fields">
+      ${jcField(r,'ncA','NC A')}
+      ${jcField(r,'ncB','NC B')}
+      ${jcField(r,'nc3ros','NC 3ros')}
+      ${jcField(r,'ncTotal','Total')}
+    </div>
+  </div>
+
+  <div class="jc-section">
+    <div class="jc-section-title">7 - Materiales Propios</div>
+    <div class="jc-fields">
+      ${jcField(r,'materialesPropiosSR','SR')}
+      ${jcField(r,'materialesPropiosM2','M2')}
+    </div>
+  </div>
+  ${extraSection}
+
   <div class="foot"><span>SAC · Reclamos - Cerámica Alberdi</span><span>App desarrollada por AppsArt</span></div>
   </body></html>`);
   w.document.close();
@@ -1208,6 +1313,7 @@ function renderAdminUpload(){
 
 const NEW_FORM_GROUPS = [
   { title:'Reclamo', fields:[
+    { key:'fechaIngreso', label:'Fecha de ingreso (primer contacto)', type:'date' },
     { key:'causa', label:'Causa', type:'text' },
     { key:'descripcionReclamo', label:'Descripción', type:'textarea' },
     { key:'estimado', label:'Estimado', type:'sino' },
@@ -1221,6 +1327,8 @@ const NEW_FORM_GROUPS = [
     { key:'tono', label:'Tono', type:'text' },
     { key:'calibre', label:'Calibre', type:'text' },
     { key:'metros', label:'Metros (m²)', type:'number' },
+    { key:'m2Comprados', label:'M2 comprados', type:'number' },
+    { key:'m2SinColocar', label:'M2 sin colocar', type:'number' },
     { key:'horno', label:'Horno', type:'text' },
     { key:'lineaProd', label:'Línea de producción', type:'text' },
     { key:'turno', label:'Turno', type:'text' },
@@ -1231,6 +1339,7 @@ const NEW_FORM_GROUPS = [
     { key:'esDeUnUsuario', label:'Es de un usuario final', type:'sino' },
     { key:'nombreCliente', label:'Nombre de cliente', type:'text' },
     { key:'cuentaCliente', label:'Cuenta cliente', type:'text' },
+    { key:'facturaRemito', label:'Factura/Remito (FC/ST)', type:'text' },
     { key:'nombreUsuario', label:'Nombre de usuario', type:'text' },
     { key:'tipoDocumento', label:'Tipo de documento', type:'text' },
     { key:'numeroDocumento', label:'N° de documento', type:'text' },
@@ -1251,7 +1360,13 @@ const NEW_FORM_GROUPS = [
     { key:'materialesDeTerceros', label:'Materiales de terceros', type:'number' },
     { key:'viaticos', label:'Viáticos', type:'number' },
     { key:'fletes', label:'Fletes', type:'number' },
-    { key:'totalGastos', label:'Total de gastos', type:'number' }
+    { key:'totalGastos', label:'Total de gastos', type:'number' },
+    { key:'ncA', label:'NC A', type:'number' },
+    { key:'ncB', label:'NC B', type:'number' },
+    { key:'nc3ros', label:'NC terceros', type:'number' },
+    { key:'ncTotal', label:'Total NC', type:'number' },
+    { key:'materialesPropiosSR', label:'Materiales propios (SR)', type:'text' },
+    { key:'materialesPropiosM2', label:'Materiales propios (M2)', type:'number' }
   ]}
 ];
 
