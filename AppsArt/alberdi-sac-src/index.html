@@ -412,7 +412,7 @@ const FIELD_LABELS = {
   nroReclamo:'N° de reclamo', articulo:'Artículo', nombre:'Nombre', marca:'Marca', horno:'Horno',
   tono:'Tono', calibre:'Calibre', metros:'Metros (m²)', causa:'Causa', fechaProd:'Fecha de producción',
   hora:'Hora', turno:'Turno', lineaProd:'Línea de producción', fechaReclamo:'Fecha de reclamo',
-  fechaIngreso:'Fecha de ingreso (primer contacto)',
+  fechaIngreso:'Fecha de ingreso (primer contacto)', registradoPor:'Registrado por', aprobado:'Aprobado',
   esDeUnUsuario:'Origen', nombreUsuario:'Nombre de usuario', tipoDocumento:'Tipo de documento',
   numeroDocumento:'N° de documento', direccion:'Dirección', localidad:'Localidad', codigoPostal:'Código postal',
   provincia:'Provincia', telefono:'Teléfono', fax:'Fax', email:'Email', cuentaCliente:'Cuenta cliente',
@@ -426,7 +426,7 @@ const FIELD_LABELS = {
   materialesPropiosSR:'Materiales propios (SR)', materialesPropiosM2:'Materiales propios (M2)'
 };
 const DETAIL_GROUPS = [
-  { title:'Reclamo', fields:['nroReclamo','fechaReclamo','fechaIngreso','causa','estimado','finalizado','resolucion','descripcionReclamo'] },
+  { title:'Reclamo', fields:['nroReclamo','fechaReclamo','fechaIngreso','registradoPor','causa','estimado','aprobado','finalizado','resolucion','descripcionReclamo'] },
   { title:'Producto', fields:['articulo','nombre','marca','tono','calibre','metros','m2Comprados','m2SinColocar','horno','lineaProd','turno','fechaProd','hora'] },
   { title:'Cliente / usuario', fields:['esDeUnUsuario','nombreCliente','cuentaCliente','facturaRemito','nombreUsuario','tipoDocumento','numeroDocumento','telefono','fax','email','direccion','localidad','provincia','codigoPostal','fechaColocacion','inspector','adhesivo'] },
   { title:'Costos', fields:['manoDeObra','materialesPropios','materialesDeTerceros','viaticos','fletes','totalGastos','ncA','ncB','nc3ros','ncTotal','materialesPropiosSR','materialesPropiosM2'] }
@@ -1080,6 +1080,7 @@ function openInforme(){
   </div>
   <div class="jc-row">
     <div class="box">Fecha: <b>${jcVal(r,'fechaReclamo') || '—'}</b></div>
+    <div class="box">Registro: <b>${esc(r.registradoPor || '—')}</b></div>
     <div class="box" style="text-align:right;">N° JC: <b>${esc(r.nroReclamo)}</b></div>
   </div>
 
@@ -1132,6 +1133,7 @@ function openInforme(){
     <div class="jc-fields" style="margin-top:10px;">
       ${jcField(r,'inspector','Inspector')}
       ${jcField(r,'estimado','Estimado')}
+      ${jcField(r,'aprobado','Aprobado')}
       ${jcField(r,'finalizado','Estado')}
     </div>
   </div>
@@ -1314,9 +1316,11 @@ function renderAdminUpload(){
 const NEW_FORM_GROUPS = [
   { title:'Reclamo', fields:[
     { key:'fechaIngreso', label:'Fecha de ingreso (primer contacto)', type:'date' },
+    { key:'registradoPor', label:'Registrado por', type:'text' },
     { key:'causa', label:'Causa', type:'text' },
     { key:'descripcionReclamo', label:'Descripción', type:'textarea' },
     { key:'estimado', label:'Estimado', type:'sino' },
+    { key:'aprobado', label:'Aprobado', type:'sino' },
     { key:'finalizado', label:'Finalizado', type:'sino' },
     { key:'resolucion', label:'Resolución', type:'textarea' }
   ]},
