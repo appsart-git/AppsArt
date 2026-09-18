@@ -1,4 +1,4 @@
-**/.claude/settings.local.json
-**/.claude/scheduled_tasks.lock
-.DS_Store
-Thumbs.db
+.claude/
+*.zip
+DE-R-13*.xlsx
+Registro de Recalmos SAC.xlsx

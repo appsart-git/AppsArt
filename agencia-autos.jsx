@@ -15,10 +15,6 @@ import {
   CheckCircle2,
   Gauge,
   ChevronRight,
-  Route,
-  FileCheck2,
-  Image as ImageIcon,
-  ImagePlus,
 } from "lucide-react";
 
 const STORAGE_KEY = "agencia-autos-data-v1";
@@ -29,47 +25,7 @@ const ESTADOS = {
   VENDIDO: "vendido",
 };
 
-const TIPO_GASTO = ["Reparación mecánica", "Acondicionamiento / Limpieza", "Documentación / Trámites", "Repuestos", "Otro"];
-
-const CONDICIONES = ["Excelente", "Muy buena", "Buena", "Regular", "Para repuestos"];
-
-const DOCUMENTACIONES = ["Al día", "En trámite", "Con observaciones"];
-
-// Marcas y modelos habitualmente comercializados (0km y usados) en Argentina.
-const CATALOGO_ARG = {
-  "Toyota": ["Corolla", "Corolla Cross", "Etios", "Yaris", "Hilux", "SW4", "RAV4", "Camry", "Prius"],
-  "Volkswagen": ["Gol", "Voyage", "Polo", "Virtus", "Vento", "Suran", "Amarok", "Taos", "Nivus", "Fox", "Up!", "Saveiro"],
-  "Chevrolet": ["Corsa", "Classic", "Celta", "Onix", "Onix Plus", "Prisma", "Cruze", "Tracker", "S10", "Spin", "Agile", "Astra"],
-  "Ford": ["Fiesta", "Focus", "Ka", "EcoSport", "Ranger", "Territory", "Mondeo", "Escort", "F-100"],
-  "Fiat": ["Palio", "Siena", "Uno", "Punto", "Cronos", "Argo", "Mobi", "Toro", "Strada", "Idea", "Pulse", "Fiorino"],
-  "Renault": ["Clio", "Sandero", "Logan", "Duster", "Kangoo", "Fluence", "Megane", "Captur", "Symbol", "Kwid", "Alaskan", "Oroch", "Stepway"],
-  "Peugeot": ["208", "207", "206", "307", "308", "2008", "3008", "Partner", "408", "508"],
-  "Citroën": ["C3", "C4 Cactus", "C4 Lounge", "Berlingo", "C4 Aircross", "Xsara", "C3 Aircross"],
-  "Honda": ["Civic", "Fit", "HR-V", "City", "CR-V"],
-  "Nissan": ["March", "Versa", "Sentra", "Kicks", "Frontier", "X-Trail"],
-  "Hyundai": ["HB20", "Creta", "Tucson", "i10", "Accent", "Elantra", "Santa Fe"],
-  "Kia": ["Rio", "Sportage", "Cerato", "Picanto", "Sorento", "Soul"],
-  "Jeep": ["Renegade", "Compass", "Cherokee", "Grand Cherokee"],
-  "RAM": ["1500", "700", "2500"],
-  "Chery": ["Tiggo 2", "Tiggo 3", "Tiggo 7", "Tiggo 8", "Arauca", "QQ"],
-  "DS": ["DS3", "DS4", "DS7"],
-  "Suzuki": ["Fun", "Swift", "Ertiga", "Vitara"],
-  "Mitsubishi": ["Lancer", "Outlander", "L200", "ASX"],
-  "Subaru": ["Impreza", "Forester", "XV"],
-  "Alfa Romeo": ["147", "Giulietta", "Stelvio"],
-  "Audi": ["A3", "A4", "Q3", "Q5"],
-  "BMW": ["Serie 1", "Serie 3", "X1", "X3"],
-  "Mercedes-Benz": ["Clase A", "Clase C", "GLA", "Sprinter", "Vito"],
-  "Volvo": ["XC40", "XC60", "S60"],
-  "Land Rover": ["Discovery", "Range Rover Evoque", "Defender"],
-  "Baic": ["X35", "X55"],
-  "JAC": ["S2", "T40", "T60"],
-  "Haval": ["H6", "Jolion"],
-  "Daihatsu": ["Applause", "Terios"],
-  "Isuzu": ["D-Max"],
-};
-
-const MARCAS_ORDENADAS = Object.keys(CATALOGO_ARG).sort((a, b) => a.localeCompare(b, "es"));
+const TIPO_GASTO = ["Reparación", "Limpieza / Detailing", "Papeles / Trámites", "Repuestos", "Otro"];
 
 const PALETTE_SOCIOS = ["#E8A33D", "#4C8DFF", "#34B27B", "#E15252", "#C77DFF", "#5FD3C4"];
 
@@ -265,72 +221,6 @@ function Select(props) {
   );
 }
 
-function MarcaModeloFields({ marca, modelo, onChange }) {
-  const [otraMarca, setOtraMarca] = useState(!!marca && !CATALOGO_ARG[marca]);
-  const modelosDisponibles = CATALOGO_ARG[marca] || [];
-  const [otroModelo, setOtroModelo] = useState(!!modelo && !modelosDisponibles.includes(modelo));
-
-  function handleMarcaSelect(val) {
-    if (val === "__otra__") {
-      setOtraMarca(true);
-      setOtroModelo(true);
-      onChange({ marca: "", modelo: "" });
-    } else {
-      setOtraMarca(false);
-      setOtroModelo(false);
-      onChange({ marca: val, modelo: "" });
-    }
-  }
-
-  function handleModeloSelect(val) {
-    if (val === "__otro__") {
-      setOtroModelo(true);
-      onChange({ modelo: "" });
-    } else {
-      onChange({ modelo: val });
-    }
-  }
-
-  return (
-    <>
-      <Field label="Marca">
-        {otraMarca ? (
-          <div style={{ display: "flex", gap: 6 }}>
-            <Input autoFocus value={marca} onChange={(e) => onChange({ marca: e.target.value })} placeholder="Escribí la marca" />
-            <button type="button" className="btn-ghost" style={{ padding: "0 10px" }} onClick={() => { setOtraMarca(false); onChange({ marca: "", modelo: "" }); }}>
-              Lista
-            </button>
-          </div>
-        ) : (
-          <Select value={marca} onChange={(e) => handleMarcaSelect(e.target.value)} required>
-            <option value="">Seleccionar marca</option>
-            {MARCAS_ORDENADAS.map((m) => <option key={m} value={m}>{m}</option>)}
-            <option value="__otra__">Otra marca…</option>
-          </Select>
-        )}
-      </Field>
-      <Field label="Modelo">
-        {otraMarca || otroModelo ? (
-          <div style={{ display: "flex", gap: 6 }}>
-            <Input value={modelo} onChange={(e) => onChange({ modelo: e.target.value })} placeholder="Escribí el modelo" />
-            {!otraMarca && (
-              <button type="button" className="btn-ghost" style={{ padding: "0 10px" }} onClick={() => { setOtroModelo(false); onChange({ modelo: "" }); }}>
-                Lista
-              </button>
-            )}
-          </div>
-        ) : (
-          <Select value={modelo} onChange={(e) => handleModeloSelect(e.target.value)} disabled={!marca}>
-            <option value="">{marca ? "Seleccionar modelo" : "Elegí primero la marca"}</option>
-            {modelosDisponibles.map((m) => <option key={m} value={m}>{m}</option>)}
-            {marca && <option value="__otro__">Otro modelo…</option>}
-          </Select>
-        )}
-      </Field>
-    </>
-  );
-}
-
 // ---------- App ----------
 export default function App() {
   const [data, setData] = useState(null);
@@ -352,25 +242,6 @@ export default function App() {
     return () => clearTimeout(t);
   }, [data]);
 
-  const socios = data ? data.socios : [];
-  const vehiculos = data ? data.vehiculos : [];
-
-  // Todos los hooks deben ejecutarse siempre en el mismo orden,
-  // así que este cálculo va antes del "return" temprano de abajo.
-  const vendidosParaCalculo = vehiculos.filter((v) => v.estado === ESTADOS.VENDIDO);
-  const gananciaPorSocio = useMemo(() => {
-    const map = {};
-    socios.forEach((s) => (map[s.id] = 0));
-    vendidosParaCalculo.forEach((v) => {
-      const g = ganancia(v) || 0;
-      (v.participaciones || []).forEach((p) => {
-        if (map[p.socioId] === undefined) return;
-        map[p.socioId] += g * ((Number(p.porcentaje) || 0) / 100);
-      });
-    });
-    return map;
-  }, [socios, vendidosParaCalculo]);
-
   if (!data) {
     return (
       <Shell tab={tab} setTab={setTab} data={{ socios: [], vehiculos: [] }}>
@@ -378,6 +249,8 @@ export default function App() {
       </Shell>
     );
   }
+
+  const { socios, vehiculos } = data;
 
   function updateData(fn) {
     setData((prev) => {
@@ -411,10 +284,6 @@ export default function App() {
         modelo: v.modelo,
         anio: v.anio,
         patente: v.patente,
-        kilometraje: v.kilometraje,
-        condicion: v.condicion,
-        documentacion: v.documentacion,
-        notasDocumentacion: v.notasDocumentacion,
         fechaCompra: v.fechaCompra,
         precioCompra: v.precioCompra,
         vendedor: v.vendedor,
@@ -424,7 +293,6 @@ export default function App() {
         comprador: "",
         participaciones: v.participaciones,
         gastos: [],
-        fotos: [],
       });
     });
   }
@@ -441,20 +309,6 @@ export default function App() {
       d.vehiculos = d.vehiculos.filter((v) => v.id !== id);
     });
     setSelectedVehiculo(null);
-  }
-
-  function addFoto(vehiculoId, url) {
-    updateData((d) => {
-      const v = d.vehiculos.find((x) => x.id === vehiculoId);
-      v.fotos = v.fotos || [];
-      v.fotos.push({ id: uid(), url });
-    });
-  }
-  function deleteFoto(vehiculoId, fotoId) {
-    updateData((d) => {
-      const v = d.vehiculos.find((x) => x.id === vehiculoId);
-      v.fotos = (v.fotos || []).filter((f) => f.id !== fotoId);
-    });
   }
 
   function addGasto(vehiculoId, gasto) {
@@ -495,6 +349,19 @@ export default function App() {
   const gananciaTotal = vendidos.reduce((a, v) => a + (ganancia(v) || 0), 0);
   const gastosTotales = vehiculos.reduce((a, v) => a + sumGastos(v), 0);
 
+  const gananciaPorSocio = useMemo(() => {
+    const map = {};
+    socios.forEach((s) => (map[s.id] = 0));
+    vendidos.forEach((v) => {
+      const g = ganancia(v) || 0;
+      (v.participaciones || []).forEach((p) => {
+        if (map[p.socioId] === undefined) return;
+        map[p.socioId] += g * ((Number(p.porcentaje) || 0) / 100);
+      });
+    });
+    return map;
+  }, [socios, vendidos]);
+
   const selected = selectedVehiculo ? vehiculos.find((v) => v.id === selectedVehiculo) : null;
 
   return (
@@ -532,11 +399,8 @@ export default function App() {
           onVolver={() => setSelectedVehiculo(null)}
           onAddGasto={(g) => addGasto(selected.id, g)}
           onDeleteGasto={(gid) => deleteGasto(selected.id, gid)}
-          onAddFoto={(url) => addFoto(selected.id, url)}
-          onDeleteFoto={(fid) => deleteFoto(selected.id, fid)}
           onVender={() => setModal({ type: "vender", payload: selected.id })}
           onReabrir={() => reabrirVenta(selected.id)}
-          onEditar={() => setModal({ type: "editar-vehiculo", payload: selected.id })}
           onEliminar={() => {
             if (confirm(`¿Eliminar ${selected.marca} ${selected.modelo}? Esta acción no se puede deshacer.`)) {
               deleteVehiculo(selected.id);
@@ -571,17 +435,6 @@ export default function App() {
             setModal(null);
           }}
           onNecesitaSocio={() => setModal({ type: "nuevo-socio" })}
-        />
-      )}
-
-      {modal?.type === "editar-vehiculo" && (
-        <FormEditarVehiculo
-          vehiculo={vehiculos.find((v) => v.id === modal.payload)}
-          onClose={() => setModal(null)}
-          onSave={(patch) => {
-            updateVehiculo(modal.payload, patch);
-            setModal(null);
-          }}
         />
       )}
 
@@ -846,7 +699,7 @@ function VehiculoTable({ vehiculos, onAbrir }) {
       <table>
         <thead>
           <tr style={{ background: "var(--surface-2)" }}>
-            {["Vehículo", "Patente", "Km", "Compra", "Costo total", "Estado", "Ganancia", ""].map((h) => (
+            {["Vehículo", "Patente", "Compra", "Costo total", "Estado", "Resultado", ""].map((h) => (
               <th key={h} style={{ textAlign: "left", padding: "10px 14px", fontSize: 11.5, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.04em", fontWeight: 600 }}>
                 {h}
               </th>
@@ -863,7 +716,6 @@ function VehiculoTable({ vehiculos, onAbrir }) {
                   <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{v.anio}</div>
                 </td>
                 <td style={{ padding: "12px 14px" }}><Plate>{v.patente || "S/D"}</Plate></td>
-                <td style={{ padding: "12px 14px", fontFamily: "var(--font-mono)", fontSize: 13 }}>{v.kilometraje ? `${Number(v.kilometraje).toLocaleString("es-AR")} km` : "—"}</td>
                 <td style={{ padding: "12px 14px", fontFamily: "var(--font-mono)", fontSize: 13 }}>{fmtDate(v.fechaCompra)}</td>
                 <td style={{ padding: "12px 14px", fontFamily: "var(--font-mono)", fontSize: 13 }}>{money(costoTotal(v))}</td>
                 <td style={{ padding: "12px 14px" }}>
@@ -942,19 +794,11 @@ function ListaVehiculos({ vehiculos, socios, onNuevo, onAbrir }) {
 }
 
 // ---------- Detalle Vehículo ----------
-function DetalleVehiculo({ vehiculo, socios, onVolver, onAddGasto, onDeleteGasto, onAddFoto, onDeleteFoto, onVender, onReabrir, onEditar, onEliminar }) {
+function DetalleVehiculo({ vehiculo, socios, onVolver, onAddGasto, onDeleteGasto, onVender, onReabrir, onEliminar }) {
   const [gForm, setGForm] = useState({ tipo: TIPO_GASTO[0], monto: "", fecha: new Date().toISOString().slice(0, 10), descripcion: "" });
-  const [fotoUrl, setFotoUrl] = useState("");
   const g = ganancia(vehiculo);
   const costo = costoTotal(vehiculo);
   const gastos = sumGastos(vehiculo);
-
-  function submitFoto(e) {
-    e.preventDefault();
-    if (!fotoUrl.trim()) return;
-    onAddFoto(fotoUrl.trim());
-    setFotoUrl("");
-  }
 
   function socioName(id) {
     return socios.find((s) => s.id === id)?.nombre || "Socio eliminado";
@@ -982,25 +826,12 @@ function DetalleVehiculo({ vehiculo, socios, onVolver, onAddGasto, onDeleteGasto
             <h1 style={{ fontFamily: "var(--font-display)", fontSize: 26, margin: 0 }}>{vehiculo.marca} {vehiculo.modelo} · {vehiculo.anio}</h1>
             <Badge tone={vehiculo.estado === ESTADOS.VENDIDO ? "vendido" : "stock"}>{vehiculo.estado === ESTADOS.VENDIDO ? "Vendido" : "En stock"}</Badge>
           </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <Plate>{vehiculo.patente || "S/D"}</Plate>
             <span style={{ color: "var(--text-muted)", fontSize: 13 }}>Comprado el {fmtDate(vehiculo.fechaCompra)}{vehiculo.vendedor ? ` a ${vehiculo.vendedor}` : ""}</span>
           </div>
-          <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", marginTop: 10 }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-muted)" }}>
-              <Route size={14} /> {vehiculo.kilometraje ? `${Number(vehiculo.kilometraje).toLocaleString("es-AR")} km` : "Km no cargado"}
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-muted)" }}>
-              <Sparkles size={14} /> {vehiculo.condicion || "Condición no cargada"}
-            </span>
-            <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--text-muted)" }}>
-              <FileCheck2 size={14} /> Documentación: {vehiculo.documentacion || "S/D"}
-              {vehiculo.notasDocumentacion ? ` · ${vehiculo.notasDocumentacion}` : ""}
-            </span>
-          </div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn-ghost" onClick={onEditar}><Pencil size={15} /> Editar ficha</button>
           {vehiculo.estado === ESTADOS.STOCK ? (
             <button className="btn-primary" onClick={onVender}><DollarSign size={16} /> Registrar venta</button>
           ) : (
@@ -1017,43 +848,8 @@ function DetalleVehiculo({ vehiculo, socios, onVolver, onAddGasto, onDeleteGasto
         {vehiculo.estado === ESTADOS.VENDIDO && (
           <>
             <StatCard icon={DollarSign} label="Precio de venta" value={money(vehiculo.precioVenta)} tone="green" />
-            <StatCard icon={g >= 0 ? TrendingUp : TrendingDown} label="Ganancia (venta − compra − gastos)" value={money(g)} tone={g >= 0 ? "green" : "red"} />
+            <StatCard icon={g >= 0 ? TrendingUp : TrendingDown} label="Resultado" value={money(g)} tone={g >= 0 ? "green" : "red"} />
           </>
-        )}
-      </div>
-
-      <div style={{ marginBottom: 28 }}>
-        <SectionTitle>Fotos</SectionTitle>
-        <form onSubmit={submitFoto} style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          <Input
-            placeholder="Pegá el link de una foto (URL) y sumala a la ficha"
-            value={fotoUrl}
-            onChange={(e) => setFotoUrl(e.target.value)}
-            style={{ flex: 1 }}
-          />
-          <button type="submit" className="btn-ghost" style={{ whiteSpace: "nowrap" }}>
-            <ImagePlus size={15} /> Agregar
-          </button>
-        </form>
-        {(vehiculo.fotos || []).length === 0 ? (
-          <div style={{ border: "1px dashed var(--border)", borderRadius: 10, padding: 20, color: "var(--text-muted)", fontSize: 13, display: "flex", alignItems: "center", gap: 8 }}>
-            <ImageIcon size={16} /> Todavía no hay fotos cargadas para este vehículo.
-          </div>
-        ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10 }}>
-            {vehiculo.fotos.map((f) => (
-              <div key={f.id} style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: "1px solid var(--border)", aspectRatio: "4/3", background: "var(--surface-2)" }}>
-                <img src={f.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                <button
-                  className="icon-btn"
-                  onClick={() => onDeleteFoto(f.id)}
-                  style={{ position: "absolute", top: 4, right: 4, background: "rgba(10,12,14,0.65)", color: "#fff" }}
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            ))}
-          </div>
         )}
       </div>
 
@@ -1212,10 +1008,6 @@ function FormVehiculo({ socios, onClose, onSave, onNecesitaSocio }) {
     modelo: "",
     anio: "",
     patente: "",
-    kilometraje: "",
-    condicion: CONDICIONES[1],
-    documentacion: DOCUMENTACIONES[0],
-    notasDocumentacion: "",
     fechaCompra: new Date().toISOString().slice(0, 10),
     precioCompra: "",
     vendedor: "",
@@ -1240,27 +1032,14 @@ function FormVehiculo({ socios, onClose, onSave, onNecesitaSocio }) {
     <Modal title="Cargar vehículo comprado" onClose={onClose} width={620}>
       <form onSubmit={submit}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <MarcaModeloFields marca={f.marca} modelo={f.modelo} onChange={(patch) => setF({ ...f, ...patch })} />
+          <Field label="Marca"><Input required value={f.marca} onChange={(e) => setF({ ...f, marca: e.target.value })} placeholder="Ej: Toyota" /></Field>
+          <Field label="Modelo"><Input value={f.modelo} onChange={(e) => setF({ ...f, modelo: e.target.value })} placeholder="Ej: Corolla" /></Field>
           <Field label="Año"><Input type="number" value={f.anio} onChange={(e) => setF({ ...f, anio: e.target.value })} placeholder="2018" /></Field>
           <Field label="Patente / Dominio"><Input value={f.patente} onChange={(e) => setF({ ...f, patente: e.target.value.toUpperCase() })} placeholder="AB123CD" /></Field>
           <Field label="Fecha de compra"><Input type="date" value={f.fechaCompra} onChange={(e) => setF({ ...f, fechaCompra: e.target.value })} /></Field>
           <Field label="Precio de compra (USD)"><Input required type="number" min="0" value={f.precioCompra} onChange={(e) => setF({ ...f, precioCompra: e.target.value })} placeholder="8000" /></Field>
-          <Field label="Kilometraje"><Input type="number" min="0" value={f.kilometraje} onChange={(e) => setF({ ...f, kilometraje: e.target.value })} placeholder="Ej: 85000" /></Field>
-          <Field label="Condición">
-            <Select value={f.condicion} onChange={(e) => setF({ ...f, condicion: e.target.value })}>
-              {CONDICIONES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </Select>
-          </Field>
-          <Field label="Documentación">
-            <Select value={f.documentacion} onChange={(e) => setF({ ...f, documentacion: e.target.value })}>
-              {DOCUMENTACIONES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </Select>
-          </Field>
-          <Field label="Comprado a (opcional)"><Input value={f.vendedor} onChange={(e) => setF({ ...f, vendedor: e.target.value })} placeholder="Nombre del vendedor" /></Field>
         </div>
-        <Field label="Notas de documentación (opcional)">
-          <Input value={f.notasDocumentacion} onChange={(e) => setF({ ...f, notasDocumentacion: e.target.value })} placeholder="Ej: falta cédula verde, deuda de patentes, etc." />
-        </Field>
+        <Field label="Comprado a (opcional)"><Input value={f.vendedor} onChange={(e) => setF({ ...f, vendedor: e.target.value })} placeholder="Nombre del vendedor" /></Field>
 
         <div style={{ marginTop: 6, marginBottom: 4, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600, letterSpacing: "0.03em" }}>PARTICIPACIÓN POR SOCIO</span>
@@ -1301,60 +1080,6 @@ function FormVehiculo({ socios, onClose, onSave, onNecesitaSocio }) {
 
         <button className="btn-primary" type="submit" style={{ width: "100%", justifyContent: "center", marginTop: 10 }}>
           <Sparkles size={15} /> Guardar vehículo
-        </button>
-      </form>
-    </Modal>
-  );
-}
-
-function FormEditarVehiculo({ vehiculo, onClose, onSave }) {
-  const [f, setF] = useState(
-    vehiculo
-      ? {
-          marca: vehiculo.marca || "",
-          modelo: vehiculo.modelo || "",
-          anio: vehiculo.anio || "",
-          patente: vehiculo.patente || "",
-          kilometraje: vehiculo.kilometraje || "",
-          condicion: vehiculo.condicion || CONDICIONES[1],
-          documentacion: vehiculo.documentacion || DOCUMENTACIONES[0],
-          notasDocumentacion: vehiculo.notasDocumentacion || "",
-          vendedor: vehiculo.vendedor || "",
-        }
-      : {}
-  );
-  if (!vehiculo) return null;
-
-  return (
-    <Modal title={`Editar ficha · ${vehiculo.marca} ${vehiculo.modelo}`} onClose={onClose} width={620}>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSave(f);
-        }}
-      >
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-          <MarcaModeloFields marca={f.marca} modelo={f.modelo} onChange={(patch) => setF({ ...f, ...patch })} />
-          <Field label="Año"><Input type="number" value={f.anio} onChange={(e) => setF({ ...f, anio: e.target.value })} /></Field>
-          <Field label="Patente / Dominio"><Input value={f.patente} onChange={(e) => setF({ ...f, patente: e.target.value.toUpperCase() })} /></Field>
-          <Field label="Kilometraje"><Input type="number" min="0" value={f.kilometraje} onChange={(e) => setF({ ...f, kilometraje: e.target.value })} /></Field>
-          <Field label="Condición">
-            <Select value={f.condicion} onChange={(e) => setF({ ...f, condicion: e.target.value })}>
-              {CONDICIONES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </Select>
-          </Field>
-          <Field label="Documentación">
-            <Select value={f.documentacion} onChange={(e) => setF({ ...f, documentacion: e.target.value })}>
-              {DOCUMENTACIONES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </Select>
-          </Field>
-          <Field label="Comprado a (opcional)"><Input value={f.vendedor} onChange={(e) => setF({ ...f, vendedor: e.target.value })} /></Field>
-        </div>
-        <Field label="Notas de documentación (opcional)">
-          <Input value={f.notasDocumentacion} onChange={(e) => setF({ ...f, notasDocumentacion: e.target.value })} />
-        </Field>
-        <button className="btn-primary" type="submit" style={{ width: "100%", justifyContent: "center", marginTop: 6 }}>
-          Guardar cambios
         </button>
       </form>
     </Modal>
