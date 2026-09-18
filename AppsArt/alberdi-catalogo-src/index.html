@@ -10,6 +10,8 @@
 <link rel="icon" href="./icon-192.png">
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --bg:#14171A; --surface:#1D2126; --surface-2:#262B32; --border:#2E343C;
@@ -48,7 +50,7 @@
     white-space:nowrap;
   }
   .filters-btn .count{
-    background:var(--accent); color:#fff; border-radius:20px; font-size:11px; padding:1px 7px; font-weight:700;
+    background:var(--accent); color:var(--accent-ink); border-radius:20px; font-size:11px; padding:1px 7px; font-weight:700;
   }
   .search-row{position:relative; margin-bottom:10px;}
   .search-row input{
@@ -63,7 +65,7 @@
     flex:none; padding:8px 14px; border-radius:20px; border:1px solid var(--border); background:var(--surface);
     color:var(--text-muted); font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;
   }
-  .tab-chip.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .tab-chip.active{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
 
   .active-filters{display:flex; gap:6px; flex-wrap:wrap; padding:10px 14px 0;}
   .active-filters:empty{display:none;}
@@ -133,9 +135,35 @@
   .filter-group .opts{display:flex; flex-wrap:wrap; gap:7px;}
   .opt-chip{padding:7px 12px; border-radius:18px; border:1px solid var(--border); background:var(--surface);
     color:var(--text); font-size:12.5px; font-weight:600; cursor:pointer;}
-  .opt-chip.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .opt-chip.active{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
   .sheet-foot{padding:12px 18px calc(14px + env(safe-area-inset-bottom)); border-top:1px solid var(--border); flex:none;}
-  .btn-primary{width:100%; padding:13px; border-radius:12px; border:none; background:var(--accent); color:#fff; font-size:14.5px; font-weight:700; cursor:pointer;}
+  .btn-primary{width:100%; padding:13px; border-radius:12px; border:none; background:var(--accent); color:var(--accent-ink); font-size:14.5px; font-weight:700; cursor:pointer;}
+  .btn-primary:disabled{opacity:.5; cursor:default;}
+
+  .admin-p{font-size:13px; color:var(--text-muted); line-height:1.5; margin:0 0 14px;}
+  .admin-input{
+    width:100%; padding:12px 14px; border-radius:11px; border:1px solid var(--border);
+    background:var(--surface-2); color:var(--text); font-size:15px; margin-bottom:12px;
+  }
+  .admin-error{background:rgba(225,82,82,.12); color:var(--red); border-radius:10px; padding:10px 12px; font-size:13px; margin-bottom:12px;}
+  .admin-file{
+    position:relative; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:8px;
+    border:1.5px dashed var(--border); border-radius:12px; padding:28px 16px; text-align:center;
+    color:var(--text-muted); font-size:13px; cursor:pointer; margin-bottom:14px;
+  }
+  .admin-file input[type="file"]{
+    position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer;
+  }
+  .admin-file b{color:var(--text); font-size:14px;}
+  .diff-summary{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px;}
+  .diff-stat{background:var(--surface-2); border-radius:11px; padding:12px 8px; text-align:center;}
+  .diff-stat .n{font-size:20px; font-weight:800; color:var(--text);}
+  .diff-stat .l{font-size:11px; color:var(--text-muted); margin-top:2px;}
+  .diff-list{max-height:180px; overflow-y:auto; border:1px solid var(--border); border-radius:11px; padding:4px 12px; margin-bottom:14px;}
+  .diff-list p{font-size:12.5px; padding:6px 0; border-bottom:1px solid var(--border); margin:0;}
+  .diff-list p:last-child{border-bottom:none;}
+  .admin-note{font-size:12px; color:var(--text-faint); line-height:1.5; margin:10px 0 4px;}
+  .admin-spinner{text-align:center; padding:30px 0; color:var(--text-muted); font-size:13px;}
 
   /* ---------- Detail modal ---------- */
   .detail{
@@ -186,7 +214,10 @@
       <span class="marca-main">Alberdi<i class="dot"></i></span>
       <small id="brandSub">cargando…</small>
     </div></div>
-    <button class="filters-btn" data-action="open-filters">⚙ Filtros <span class="count hidden" id="filterCount">0</span></button>
+    <div style="display:flex; gap:8px;">
+      <button class="filters-btn" data-action="open-admin" title="Actualizar base de datos">⇪</button>
+      <button class="filters-btn" data-action="open-filters">⚙ Filtros <span class="count hidden" id="filterCount">0</span></button>
+    </div>
   </div>
   <div class="search-row">
     <span class="search-icon">🔎</span>
@@ -232,6 +263,16 @@
   </div>
 </div>
 
+<div class="overlay" id="adminOverlay"></div>
+<div class="sheet" id="adminPanel">
+  <div class="sheet-handle"></div>
+  <div class="sheet-head">
+    <h3>Actualizar base de datos</h3>
+    <button data-action="close-admin">Cerrar</button>
+  </div>
+  <div class="sheet-body" id="adminBody"></div>
+</div>
+
 <script>
 'use strict';
 
@@ -243,11 +284,14 @@ const firebaseConfig = {
   messagingSenderId: "79165446593",
   appId: "1:79165446593:web:19719e556144c227833740"
 };
-let db = null;
+let db = null, auth = null;
 try {
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
+  auth = firebase.auth();
 } catch (e) { console.warn('Firebase no disponible, uso datos locales.', e); }
+
+const ADMIN_EMAIL = 'admin@catalogo-alberdi.app';
 
 const FILTERABLE = [
   { key:'formato', label:'Formato' },
@@ -468,6 +512,262 @@ function closeDetail(){
   document.getElementById('detail').classList.remove('show');
 }
 
+/* ===================== Actualizar base de datos ===================== */
+
+const XLSX_KEY_MAP = {
+  'ESTADO':'estado','MOTIVO':'motivo','FORMATO':'formato','TECNOLOGIA':'tecnologia',
+  'COLECCION':'coleccion','IMAGEN':'imagen','C. P.':'cp','SRI':'sri','LINEA':'linea',
+  'PRODUCTO':'producto','COLOR':'color','TERMINACION':'terminacion','CODIGO':'codigo',
+  'ABSORCION DE AGUA':'absorcion_agua','RESISTENCIA A LA FLEXION':'resistencia_flexion',
+  'BORDES':'bordes','TIPOLOGIA':'tipologia','GRANILLA':'granilla','GOTEADO':'goteado',
+  'LOW SLIP':'low_slip','PROTECCION':'proteccion','CUBIERTA DE ESMALTE':'cubierta_esmalte',
+  'ESPESOR':'espesor','USO GRUPO':'uso_grupo','RECOMENDACION DE USO':'recomendacion_uso',
+  'TONALIDAD':'tonalidad','CANTIDAD DE CARAS':'cantidad_caras','MICRORELIEVE':'microrelieve',
+  'ESTRUCTURA (RELIEVE)':'estructura_relieve','HORNO':'horno','INSUMOS OBSOLETOS':'insumos_obsoletos',
+  'OBSERVACIONES':'observaciones','DESARROLLO':'desarrollo','APROBACION INDUSTRIAL':'aprobacion_industrial',
+  'APROBACION COMERCIAL':'aprobacion_comercial','FECHA DE PEDIDO':'fecha_pedido','FECHA DE ALTA':'fecha_alta',
+  'PATRON':'patron','ESTADO DE ALTA':'estado_alta'
+};
+function stripAccents(s){
+  return String(s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+function normHeader(h){ return stripAccents(h).toUpperCase().replace(/\s+/g,' ').trim(); }
+function normMatch(s){ return stripAccents(String(s ?? '')).toLowerCase().replace(/\s+/g,' ').trim(); }
+function matchKey(p){ return [p.linea,p.color,p.terminacion,p.formato].map(normMatch).join('|'); }
+
+const admin = { logged:false, rows:null, diff:null, existing:null };
+
+function openAdmin(){
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('filterSheet').classList.remove('show');
+  document.getElementById('adminOverlay').classList.add('show');
+  document.getElementById('adminPanel').classList.add('show');
+  renderAdmin();
+}
+function closeAdmin(){
+  document.getElementById('adminOverlay').classList.remove('show');
+  document.getElementById('adminPanel').classList.remove('show');
+}
+
+function renderAdmin(){
+  if (!auth) { renderAdminError('Firebase no está disponible ahora mismo.'); return; }
+  if (!admin.logged) return renderAdminLogin();
+  if (!admin.diff) return renderAdminUpload();
+  return renderAdminPreview();
+}
+
+function renderAdminError(msg){
+  document.getElementById('adminBody').innerHTML = `<p class="admin-error">${esc(msg)}</p>`;
+}
+
+function renderAdminLogin(){
+  document.getElementById('adminBody').innerHTML = `
+    <p class="admin-p">Ingresá la clave para poder subir una planilla actualizada.</p>
+    <input type="password" id="adminPin" class="admin-input" placeholder="Clave" autocomplete="off">
+    <div id="adminLoginError"></div>
+    <button class="btn-primary" data-action="do-login">Ingresar</button>
+  `;
+  document.getElementById('adminPin').focus();
+}
+
+async function doLogin(){
+  const pin = document.getElementById('adminPin').value;
+  if (!pin) return;
+  const btn = document.querySelector('[data-action="do-login"]');
+  btn.disabled = true; btn.textContent = 'Verificando…';
+  try {
+    await auth.signInWithEmailAndPassword(ADMIN_EMAIL, pin);
+    admin.logged = true;
+    renderAdmin();
+  } catch (e) {
+    document.getElementById('adminLoginError').innerHTML = `<p class="admin-error">Clave incorrecta.</p>`;
+    btn.disabled = false; btn.textContent = 'Ingresar';
+  }
+}
+
+function renderAdminUpload(){
+  document.getElementById('adminBody').innerHTML = `
+    <p class="admin-p">Subí el Excel de "Descripción y Registro de Productos" (hoja PRODUCTOS). Voy a comparar cada fila con lo que ya está cargado y te muestro los cambios antes de aplicar nada.</p>
+    <div class="admin-file" id="adminDrop">
+      <span>📄</span>
+      <b>Elegir archivo .xlsx</b>
+      <span>o arrastralo acá</span>
+      <input type="file" id="adminFile" accept=".xlsx,.xls">
+    </div>
+    <div id="adminUploadStatus"></div>
+    <p class="admin-note">Las fotos no se actualizan desde acá: los productos nuevos van a quedar sin foto hasta que se agreguen a mano.</p>
+  `;
+  const dropEl = document.getElementById('adminDrop');
+  const fileInput = document.getElementById('adminFile');
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files[0]) handleFile(e.target.files[0]);
+  });
+  dropEl.addEventListener('dragover', (e) => { e.preventDefault(); });
+  dropEl.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+}
+
+async function handleFile(file){
+  const statusEl = document.getElementById('adminUploadStatus');
+  statusEl.innerHTML = `<div class="admin-spinner">Leyendo planilla…</div>`;
+  try {
+    const rows = await parseExcelFile(file);
+    statusEl.innerHTML = `<div class="admin-spinner">Comparando con la base actual…</div>`;
+    const snap = await db.collection('productos').get();
+    const existing = snap.docs.map(d => d.data());
+    admin.diff = buildDiff(rows, existing);
+    admin.existing = existing;
+    renderAdmin();
+  } catch (e) {
+    console.error(e);
+    statusEl.innerHTML = `<p class="admin-error">${esc(e.message || 'No pude leer el archivo.')}</p>`;
+  }
+}
+
+function parseSheetRows(ws, sheetName){
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', blankrows: false });
+  const headerRowIdx = rows.findIndex(r =>
+    r.some(c => normHeader(c) === 'ESTADO') && r.some(c => normHeader(c) === 'PRODUCTO')
+  );
+  if (headerRowIdx === -1) return [];
+
+  const headers = rows[headerRowIdx].map(h => normHeader(h));
+  const dataRows = rows.slice(headerRowIdx + 1);
+
+  const products = [];
+  for (const r of dataRows) {
+    const obj = {};
+    let hasData = false;
+    headers.forEach((h, i) => {
+      if (!h) return;
+      const key = XLSX_KEY_MAP[h] || h.toLowerCase().replace(/\s+/g, '_');
+      const val = (r[i] ?? '').toString().trim();
+      if (val) hasData = true;
+      obj[key] = val;
+    });
+    if (hasData && (obj.linea || obj.producto)) products.push(obj);
+  }
+  return products;
+}
+
+async function parseExcelFile(file){
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf, { type: 'array' });
+  const sheetName = wb.SheetNames[0];
+  const products = parseSheetRows(wb.Sheets[sheetName], sheetName);
+  if (!products.length) throw new Error('No encontré filas de productos con datos debajo del encabezado en la primera hoja ("' + sheetName + '").');
+  return products;
+}
+
+function looseKey(p){ return [p.linea, p.color, p.terminacion].map(normMatch).join('|'); }
+
+function buildDiff(rows, existing){
+  // Algunos productos comparten línea+color+terminación+formato (variantes históricas/
+  // en desarrollo de un mismo producto). Esos casos son ambiguos: no podemos saber con
+  // certeza a cuál le corresponde cada fila del Excel, así que los dejamos sin tocar.
+  const FIELDS = Object.values(XLSX_KEY_MAP).filter(f => f !== 'imagen');
+
+  const existingKeyCounts = {};
+  existing.forEach(p => { const k = matchKey(p); existingKeyCounts[k] = (existingKeyCounts[k] || 0) + 1; });
+  const rowKeyCounts = {};
+  rows.forEach(r => { const k = matchKey(r); rowKeyCounts[k] = (rowKeyCounts[k] || 0) + 1; });
+  const byKey = new Map();
+  existing.forEach(p => { const k = matchKey(p); if (existingKeyCounts[k] === 1) byKey.set(k, p); });
+
+  // Filas sin FORMATO (dato faltante en el archivo, no en el catálogo): si hay un único
+  // producto existente con esa línea+color+terminación, igual lo emparejamos con seguridad.
+  const looseCounts = {};
+  existing.forEach(p => { const k = looseKey(p); looseCounts[k] = (looseCounts[k] || 0) + 1; });
+  const byLooseKey = new Map();
+  existing.forEach(p => { const k = looseKey(p); if (looseCounts[k] === 1) byLooseKey.set(k, p); });
+
+  const seen = new Set();
+  const nuevos = [], actualizados = [], sinCambios = [], ambiguos = [];
+  let nextId = existing.reduce((m, p) => Math.max(m, p.id || 0), 0) + 1;
+
+  for (const row of rows) {
+    const key = matchKey(row);
+    if (existingKeyCounts[key] > 1 || rowKeyCounts[key] > 1) { ambiguos.push(row); continue; }
+
+    let match = byKey.get(key);
+    if (!match && !normMatch(row.formato)) {
+      const lk = looseKey(row);
+      if (looseCounts[lk] > 1) { ambiguos.push(row); continue; }
+      match = byLooseKey.get(lk);
+    }
+
+    if (match) {
+      seen.add(matchKey(match));
+      // Un campo vacío en el Excel nuevo no borra un dato que ya existe: solo compara/
+      // aplica los campos que realmente traen valor.
+      const changed = FIELDS.some(f => normMatch(row[f]) && normMatch(row[f]) !== normMatch(match[f]));
+      const merged = Object.assign({}, match);
+      FIELDS.forEach(f => { if (normMatch(row[f])) merged[f] = row[f]; });
+      merged.id = match.id;
+      merged.imagen = match.imagen ?? null;
+      if (changed) actualizados.push(merged); else sinCambios.push(merged);
+    } else {
+      nuevos.push(Object.assign({}, row, { id: nextId++, imagen: null }));
+    }
+  }
+  const ausentes = existing.filter(p => existingKeyCounts[matchKey(p)] === 1 && !seen.has(matchKey(p)));
+  return { nuevos, actualizados, sinCambios, ambiguos, ausentes };
+}
+
+function renderAdminPreview(){
+  const d = admin.diff;
+  const listHtml = (items, empty) => items.length
+    ? items.slice(0, 60).map(p => `<p>${esc(p.producto || p.linea)}${p.formato ? ' · ' + esc(p.formato) : ''}</p>`).join('') + (items.length > 60 ? `<p class="admin-note">+${items.length - 60} más</p>` : '')
+    : `<p class="admin-note">${empty}</p>`;
+
+  document.getElementById('adminBody').innerHTML = `
+    <div class="diff-summary">
+      <div class="diff-stat"><div class="n">${d.nuevos.length}</div><div class="l">Nuevos</div></div>
+      <div class="diff-stat"><div class="n">${d.actualizados.length}</div><div class="l">Modificados</div></div>
+      <div class="diff-stat"><div class="n">${d.sinCambios.length}</div><div class="l">Sin cambios</div></div>
+    </div>
+    ${d.ausentes.length ? `<p class="admin-note">${d.ausentes.length} producto(s) que están en la base ya no aparecen en esta planilla. No los voy a tocar — si están discontinuados, marcalos como BAJA en el Excel.</p>` : ''}
+    ${d.ambiguos.length ? `<p class="admin-note">${d.ambiguos.length} fila(s) tienen la misma línea + color + terminación + formato que otra (variantes en desarrollo/históricas). No puedo saber con certeza a cuál corresponde cada una, así que no las toco — hay que actualizarlas a mano en Firebase si hace falta.</p>` : ''}
+    <h4 style="font-size:12.5px; text-transform:uppercase; color:var(--text-muted); margin:16px 0 8px;">Nuevos (${d.nuevos.length})</h4>
+    <div class="diff-list">${listHtml(d.nuevos, 'Ninguno.')}</div>
+    <h4 style="font-size:12.5px; text-transform:uppercase; color:var(--text-muted); margin:16px 0 8px;">Modificados (${d.actualizados.length})</h4>
+    <div class="diff-list">${listHtml(d.actualizados, 'Ninguno.')}</div>
+    ${d.ambiguos.length ? `<h4 style="font-size:12.5px; text-transform:uppercase; color:var(--text-muted); margin:16px 0 8px;">Ambiguos, sin tocar (${d.ambiguos.length})</h4><div class="diff-list">${listHtml(d.ambiguos, 'Ninguno.')}</div>` : ''}
+    <div id="adminConfirmStatus"></div>
+    <button class="btn-primary" data-action="cancel-diff" style="background:var(--surface-2); color:var(--text); margin-bottom:10px;">Cancelar</button>
+    <button class="btn-primary" data-action="confirm-update" ${(d.nuevos.length + d.actualizados.length) === 0 ? 'disabled' : ''}>Confirmar actualización</button>
+  `;
+}
+
+async function confirmUpdate(){
+  const d = admin.diff;
+  const statusEl = document.getElementById('adminConfirmStatus');
+  const btn = document.querySelector('[data-action="confirm-update"]');
+  btn.disabled = true;
+  const toWrite = [...d.nuevos, ...d.actualizados];
+  const CHUNK = 400;
+  try {
+    for (let i = 0; i < toWrite.length; i += CHUNK) {
+      const batch = db.batch();
+      toWrite.slice(i, i + CHUNK).forEach(p => {
+        batch.set(db.collection('productos').doc('p' + p.id), p);
+      });
+      await batch.commit();
+      statusEl.innerHTML = `<p class="admin-note">Subidos ${Math.min(i + CHUNK, toWrite.length)} / ${toWrite.length}…</p>`;
+    }
+    document.getElementById('adminBody').innerHTML = `
+      <p class="admin-p"><b>¡Listo!</b> Se actualizaron ${toWrite.length} productos (${d.nuevos.length} nuevos, ${d.actualizados.length} modificados). El catálogo ya se actualizó solo.</p>
+      <button class="btn-primary" data-action="close-admin">Cerrar</button>
+    `;
+  } catch (e) {
+    console.error(e);
+    statusEl.innerHTML = `<p class="admin-error">Hubo un error subiendo los cambios: ${esc(e.message)}</p>`;
+    btn.disabled = false;
+  }
+}
+
 function bindEvents(){
   document.getElementById('search').addEventListener('input', (e)=>{
     state.search = e.target.value;
@@ -519,6 +819,21 @@ function bindEvents(){
   });
 
   document.querySelector('[data-action="close-detail"]').addEventListener('click', closeDetail);
+
+  document.querySelector('[data-action="open-admin"]').addEventListener('click', openAdmin);
+  document.getElementById('adminOverlay').addEventListener('click', closeAdmin);
+  document.getElementById('adminBody').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const action = btn.dataset.action;
+    if (action === 'do-login') doLogin();
+    else if (action === 'close-admin') closeAdmin();
+    else if (action === 'cancel-diff') { admin.diff = null; renderAdmin(); }
+    else if (action === 'confirm-update') confirmUpdate();
+  });
+  document.getElementById('adminBody').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target.id === 'adminPin') doLogin();
+  });
 }
 
 function updateFilterCount(){
