@@ -3,18 +3,40 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+const NOTA_JSON_VALIDO = `
+Importante: el JSON tiene que ser válido y parseable. Si un valor de texto necesita una comilla
+doble adentro, escapala como \\" (o mejor, evitá comillas dobles dentro del texto y usá comillas
+simples o guiones). No uses saltos de línea sin escapar dentro de un string.`;
+
 async function pedirJSON(prompt, maxTokens){
-  const msg = await anthropic.messages.create({
-    model: 'claude-sonnet-5',
-    max_tokens: maxTokens || 1024,
-    messages: [{ role: 'user', content: prompt }]
-  });
-  const raw = msg.content.map(b => (b.type === 'text' ? b.text : '')).join('').trim();
-  const jsonStr = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+  const messages = [{ role: 'user', content: prompt }];
+
+  async function pedir(){
+    const msg = await anthropic.messages.create({
+      model: 'claude-sonnet-5',
+      max_tokens: maxTokens || 1024,
+      messages
+    });
+    const raw = msg.content.map(b => (b.type === 'text' ? b.text : '')).join('').trim();
+    const jsonStr = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+    return { raw, jsonStr };
+  }
+
+  let { raw, jsonStr } = await pedir();
   try{
     return JSON.parse(jsonStr);
-  }catch(e){
-    throw new Error(`No se pudo parsear la respuesta de Claude como JSON: ${e.message}. Respuesta cruda: ${raw.slice(0,300)}`);
+  }catch(primerError){
+    // Reintenta una vez pidiéndole a Claude que corrija el JSON, en vez de fallar
+    // directamente (esto pasó en producción: una comilla suelta en un caption rompió
+    // JSON.parse y se perdió la publicación del día entero).
+    messages.push({ role: 'assistant', content: raw });
+    messages.push({ role: 'user', content: `Eso no es JSON válido: ${primerError.message}\nRespondé de nuevo con el JSON corregido y bien formado, escapando correctamente cualquier comilla doble o barra invertida dentro de los strings. Devolvé SOLO el objeto JSON, sin texto extra ni bloque de markdown.` });
+    try{
+      ({ raw, jsonStr } = await pedir());
+      return JSON.parse(jsonStr);
+    }catch(segundoError){
+      throw new Error(`No se pudo parsear la respuesta de Claude como JSON: ${segundoError.message}. Respuesta cruda: ${raw.slice(0,300)}`);
+    }
   }
 }
 
