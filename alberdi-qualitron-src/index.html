@@ -460,12 +460,12 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 /* ===================== Config ===================== */
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBbyTSnTekMkXOZOAZEV0SQzk46NqkyaSA",
-  authDomain: "de-r-13.firebaseapp.com",
-  projectId: "de-r-13",
-  storageBucket: "de-r-13.firebasestorage.app",
-  messagingSenderId: "79165446593",
-  appId: "1:79165446593:web:19719e556144c227833740"
+  apiKey: "AIzaSyCvvxXlUYNq24NEwv5ne1mwig8XsnurG90",
+  authDomain: "appsart-qualitron.firebaseapp.com",
+  projectId: "appsart-qualitron",
+  storageBucket: "appsart-qualitron.firebasestorage.app",
+  messagingSenderId: "1053105465688",
+  appId: "1:1053105465688:web:5d3869cdc2d964b31e1d2d"
 };
 const COL_HORAS = 'qualitron_horas';
 const COL_TOLERANCIAS = 'qualitron_tolerancias';
@@ -653,20 +653,22 @@ function tapFalla(falla, delta){
   var cur = (state.horaDoc && state.horaDoc.fallas && state.horaDoc.fallas[falla]) || 0;
   if(delta<0 && cur<=0) return;
   var id = docId(state.linea, state.fechaCarga, state.horaCarga);
-  var patch = {};
-  patch['fallas.'+falla] = firebase.firestore.FieldValue.increment(delta);
+  var fallasPatch = {};
+  fallasPatch[falla] = firebase.firestore.FieldValue.increment(delta);
   var base = {
     linea: state.linea, fecha: state.fechaCarga, hora: state.horaCarga,
     bloque: bloqueFromHora(state.horaCarga), turno: state.turno,
+    fallas: fallasPatch,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
-  Object.assign(base, patch);
   db.collection(COL_HORAS).doc(id).set(base, { merge:true }).catch(function(e){ console.error(e); toast('Error al guardar'); });
 }
 
 function setMedicion(falla, valor){
   var v = valor===''? null : Number(valor);
-  writeHoraDoc({ ['fallas.'+falla]: v });
+  var fallasPatch = {};
+  fallasPatch[falla] = v;
+  writeHoraDoc({ fallas: fallasPatch });
 }
 
 /* ===================== Carga: suscripción hora actual ===================== */
@@ -1496,7 +1498,7 @@ document.getElementById('mnlBtnPreguntar').addEventListener('click', async funct
 
 function watchConnection(){
   if(!db) return;
-  db.collection(COL_HORAS).doc('__ping__').onSnapshot(function(){
+  db.collection(COL_HORAS).doc('_ping_').onSnapshot(function(){
     document.getElementById('connDot').classList.remove('off'); document.getElementById('connDot').classList.add('ok');
   }, function(){
     document.getElementById('connDot').classList.remove('ok'); document.getElementById('connDot').classList.add('off');
