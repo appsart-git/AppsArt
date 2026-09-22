@@ -224,7 +224,7 @@
       </button>
       <button class="role-btn" data-role="panel">
         <div class="rt">📊 Solo Panel</div>
-        <div class="rd">Ver estadísticas y gráficos únicamente</div>
+        <div class="rd">Ver estadísticas y gráficos únicamente — sin clave</div>
       </button>
     </div>
     <div id="pinForm" class="hidden">
@@ -503,10 +503,7 @@ const firebaseConfig = {
 const COL_HORAS = 'qualitron_horas';
 const COL_TOLERANCIAS = 'qualitron_tolerancias';
 
-const ROLE_ACCOUNTS = {
-  operador: 'operador@qualitron-alberdi.app',
-  panel: 'panel@qualitron-alberdi.app'
-};
+const OPERADOR_EMAIL = 'operador@qualitron-alberdi.app';
 
 let db = null, auth = null;
 try {
@@ -1532,13 +1529,23 @@ function hideLoginGate(){
 }
 document.getElementById('rolePick').addEventListener('click', function(e){
   var btn = e.target.closest('.role-btn'); if(!btn) return;
-  selectedRole = btn.dataset.role;
-  document.getElementById('pinFormLabel').textContent = selectedRole==='panel' ? 'PIN de Panel' : 'PIN de Operador';
+  var role = btn.dataset.role;
+  if(role==='panel'){ enterPanelOnly(); return; }
+  selectedRole = role;
+  document.getElementById('pinFormLabel').textContent = 'PIN de Operador';
   document.getElementById('rolePick').classList.add('hidden');
   document.getElementById('pinForm').classList.remove('hidden');
   document.getElementById('pinInput').focus();
 });
 document.getElementById('btnLoginBack').addEventListener('click', showLoginGate);
+
+function enterPanelOnly(){
+  state.role = 'panel';
+  hideLoginGate();
+  applyRoleVisibility();
+  if(!appStarted){ appStarted = true; init(); }
+  else { refreshPanel(); }
+}
 
 async function doLogin(){
   var pin = document.getElementById('pinInput').value;
@@ -1546,7 +1553,7 @@ async function doLogin(){
   var btn = document.getElementById('btnLoginSubmit');
   btn.disabled = true; btn.textContent = 'Verificando…';
   try {
-    await auth.signInWithEmailAndPassword(ROLE_ACCOUNTS[selectedRole], pin);
+    await auth.signInWithEmailAndPassword(OPERADOR_EMAIL, pin);
   } catch(e){
     document.getElementById('loginError').textContent = 'PIN incorrecto.';
   } finally {
@@ -1555,7 +1562,10 @@ async function doLogin(){
 }
 document.getElementById('btnLoginSubmit').addEventListener('click', doLogin);
 document.getElementById('pinInput').addEventListener('keydown', function(e){ if(e.key==='Enter') doLogin(); });
-document.getElementById('btnLogout').addEventListener('click', function(){ if(auth) auth.signOut(); });
+document.getElementById('btnLogout').addEventListener('click', function(){
+  if(auth && auth.currentUser){ auth.signOut(); }
+  else { state.role = null; showLoginGate(); }
+});
 
 function applyRoleVisibility(){
   var restrict = state.role === 'panel';
@@ -1603,12 +1613,12 @@ let appStarted = false;
 if(auth){
   auth.onAuthStateChanged(function(user){
     if(user){
-      state.role = (user.email===ROLE_ACCOUNTS.panel) ? 'panel' : 'operador';
+      state.role = 'operador';
       hideLoginGate();
       applyRoleVisibility();
       if(!appStarted){ appStarted = true; init(); }
-      else if(state.role==='panel'){ refreshPanel(); }
     } else {
+      if(state.role==='panel') return; // ya se entró sin login como "Solo Panel", no pisar esa sesión
       state.role = null;
       showLoginGate();
     }
