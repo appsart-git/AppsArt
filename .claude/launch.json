@@ -10,6 +10,18 @@
     {
       "name": "enfermeros-demo",
       "url": "http://localhost:8899"
+    },
+    {
+      "name": "tutaller-demo",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-ExecutionPolicy", "Bypass", "-File", ".claude/serve-static.ps1", "demo-tutaller-src", "8791"],
+      "port": 8791
+    },
+    {
+      "name": "repuestospro-demo",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-ExecutionPolicy", "Bypass", "-File", ".claude/serve-static.ps1", "demo-repuestospro-src", "8792"],
+      "port": 8792
     }
   ]
 }
