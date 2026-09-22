@@ -7,6 +7,7 @@
 <meta name="theme-color" content="#14171A">
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -188,9 +189,57 @@
   .app-footer{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:26px 14px calc(26px + env(safe-area-inset-bottom)); opacity:.85;}
   .app-footer span{font-size:12px; color:var(--text-muted);}
   .app-footer .appsart-logo{height:34px; width:auto; display:block;}
+
+  /* ---------- Login gate ---------- */
+  #loginGate{position:fixed; inset:0; z-index:100; background:var(--bg); display:flex; align-items:center; justify-content:center; padding:20px;}
+  #loginGate.hidden{display:none;}
+  .login-card{width:100%; max-width:360px;}
+  .login-card .brand-logo{text-align:center; margin-bottom:22px;}
+  .login-card .marca-main{font-size:26px;}
+  .role-pick{display:flex; flex-direction:column; gap:10px;}
+  .role-btn{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px; text-align:left; cursor:pointer; color:var(--text);
+  }
+  .role-btn .rt{font-size:14.5px; font-weight:800;}
+  .role-btn .rd{font-size:12px; color:var(--text-muted); margin-top:3px;}
+  .role-btn:active{border-color:var(--accent);}
+  .login-error{color:var(--red); font-size:12.5px; margin-top:8px;}
+  .login-back{background:none; border:none; color:var(--text-muted); font-size:12.5px; text-decoration:underline; cursor:pointer; padding:6px 0; margin-top:4px;}
 </style>
 </head>
 <body>
+
+<div id="loginGate">
+  <div class="login-card">
+    <div class="brand-logo">
+      <span class="marca-sub">cerámica · clasificación</span>
+      <div class="marca-main">Qualitron<span class="dot"></span></div>
+      <small>Alberdi · CL-R-04</small>
+    </div>
+    <div class="role-pick" id="rolePick">
+      <button class="role-btn" data-role="operador">
+        <div class="rt">🖐 Operador</div>
+        <div class="rd">Carga, Panel, Tolerancias y Manuales — acceso completo</div>
+      </button>
+      <button class="role-btn" data-role="panel">
+        <div class="rt">📊 Solo Panel</div>
+        <div class="rd">Ver estadísticas y gráficos únicamente</div>
+      </button>
+    </div>
+    <div id="pinForm" class="hidden">
+      <div class="field">
+        <label id="pinFormLabel">PIN</label>
+        <input type="password" id="pinInput" inputmode="numeric" placeholder="····" autocomplete="off">
+      </div>
+      <div class="login-error" id="loginError"></div>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn-primary" id="btnLoginSubmit">Ingresar</button>
+      </div>
+      <button class="login-back" id="btnLoginBack">‹ Elegir otro acceso</button>
+    </div>
+  </div>
+</div>
 
 <header class="topbar">
   <div class="topbar-inner">
@@ -199,7 +248,10 @@
       <span class="marca-main">Qualitron<i class="dot"></i></span>
       <small>Alberdi · CL-R-04</small>
     </div></div>
-    <div class="conn-dot" id="connDot" title="Estado de conexión"></div>
+    <div class="row" style="gap:10px;">
+      <div class="conn-dot" id="connDot" title="Estado de conexión"></div>
+      <button class="login-back" id="btnLogout" style="margin:0; padding:0;" title="Cambiar de acceso">Salir</button>
+    </div>
   </div>
   <div class="view-tabs" id="viewTabs">
     <button class="tab-chip active" data-view="carga">🖐 Carga</button>
@@ -451,10 +503,16 @@ const firebaseConfig = {
 const COL_HORAS = 'qualitron_horas';
 const COL_TOLERANCIAS = 'qualitron_tolerancias';
 
-let db = null;
+const ROLE_ACCOUNTS = {
+  operador: 'operador@qualitron-alberdi.app',
+  panel: 'panel@qualitron-alberdi.app'
+};
+
+let db = null, auth = null;
 try {
   firebase.initializeApp(firebaseConfig);
   db = firebase.firestore();
+  auth = firebase.auth();
   var storageOk = false;
   try { localStorage.setItem('__qtr_test__','1'); localStorage.removeItem('__qtr_test__'); storageOk = true; } catch(e){}
   if(storageOk){
@@ -506,6 +564,7 @@ function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ re
 
 const state = {
   view: 'carga',
+  role: null,
   linea: LINEAS[0].id,
   turno: TURNOS[0],
   fechaCarga: fechaStr(new Date()),
@@ -524,6 +583,7 @@ const state = {
 
 document.getElementById('viewTabs').addEventListener('click', function(e){
   var btn = e.target.closest('.tab-chip'); if(!btn) return;
+  if(state.role==='panel' && btn.dataset.view!=='panel') return;
   state.view = btn.dataset.view;
   document.querySelectorAll('#viewTabs .tab-chip').forEach(function(b){ b.classList.toggle('active', b===btn); });
   document.getElementById('viewCarga').classList.toggle('hidden', state.view!=='carga');
@@ -1455,29 +1515,110 @@ function watchConnection(){
   });
 }
 
+/* ===================== Autenticación / roles ===================== */
+
+let selectedRole = null;
+
+function showLoginGate(){
+  document.getElementById('loginGate').classList.remove('hidden');
+  document.getElementById('rolePick').classList.remove('hidden');
+  document.getElementById('pinForm').classList.add('hidden');
+  document.getElementById('pinInput').value = '';
+  document.getElementById('loginError').textContent = '';
+  selectedRole = null;
+}
+function hideLoginGate(){
+  document.getElementById('loginGate').classList.add('hidden');
+}
+document.getElementById('rolePick').addEventListener('click', function(e){
+  var btn = e.target.closest('.role-btn'); if(!btn) return;
+  selectedRole = btn.dataset.role;
+  document.getElementById('pinFormLabel').textContent = selectedRole==='panel' ? 'PIN de Panel' : 'PIN de Operador';
+  document.getElementById('rolePick').classList.add('hidden');
+  document.getElementById('pinForm').classList.remove('hidden');
+  document.getElementById('pinInput').focus();
+});
+document.getElementById('btnLoginBack').addEventListener('click', showLoginGate);
+
+async function doLogin(){
+  var pin = document.getElementById('pinInput').value;
+  if(!pin || !selectedRole || !auth) return;
+  var btn = document.getElementById('btnLoginSubmit');
+  btn.disabled = true; btn.textContent = 'Verificando…';
+  try {
+    await auth.signInWithEmailAndPassword(ROLE_ACCOUNTS[selectedRole], pin);
+  } catch(e){
+    document.getElementById('loginError').textContent = 'PIN incorrecto.';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Ingresar';
+  }
+}
+document.getElementById('btnLoginSubmit').addEventListener('click', doLogin);
+document.getElementById('pinInput').addEventListener('keydown', function(e){ if(e.key==='Enter') doLogin(); });
+document.getElementById('btnLogout').addEventListener('click', function(){ if(auth) auth.signOut(); });
+
+function applyRoleVisibility(){
+  var restrict = state.role === 'panel';
+  ['carga','tolerancias','manuales'].forEach(function(v){
+    document.querySelector('#viewTabs [data-view="'+v+'"]').classList.toggle('hidden', restrict);
+  });
+  if(restrict){
+    state.view = 'panel';
+    document.querySelectorAll('#viewTabs .tab-chip').forEach(function(b){ b.classList.toggle('active', b.dataset.view==='panel'); });
+    document.getElementById('viewCarga').classList.add('hidden');
+    document.getElementById('viewPanel').classList.remove('hidden');
+    document.getElementById('viewTolerancias').classList.add('hidden');
+    document.getElementById('viewManuales').classList.add('hidden');
+  }
+}
+
 /* ===================== Init ===================== */
 
 function init(){
-  state.linea = lsGet('qtr_linea', LINEAS[0].id);
-  state.turno = lsGet('qtr_turno_'+state.linea, TURNOS[0]);
-  renderLineaToggle();
-  renderTurnoToggle();
   renderRangoToggle();
   fillLineaSelects();
-  loadProductoFormato();
-  updateHourNav();
-  subscribeHoraDoc();
-  subscribeTodayDocs();
-  subscribeTolerancias();
   watchConnection();
-  mnlApplySub();
-  mnlCargarDesdeDB();
+  if(state.role!=='panel'){
+    state.linea = lsGet('qtr_linea', LINEAS[0].id);
+    state.turno = lsGet('qtr_turno_'+state.linea, TURNOS[0]);
+    renderLineaToggle();
+    renderTurnoToggle();
+    loadProductoFormato();
+    updateHourNav();
+    subscribeHoraDoc();
+    subscribeTodayDocs();
+    subscribeTolerancias();
+    mnlApplySub();
+    mnlCargarDesdeDB();
+  } else {
+    refreshPanel();
+  }
   setInterval(function(){
     var now = new Date();
     if(fechaStr(now)===state.fechaCarga && now.getHours()===state.horaCarga) updateHourNav();
   }, 30000);
 }
-init();
+
+let appStarted = false;
+if(auth){
+  auth.onAuthStateChanged(function(user){
+    if(user){
+      state.role = (user.email===ROLE_ACCOUNTS.panel) ? 'panel' : 'operador';
+      hideLoginGate();
+      applyRoleVisibility();
+      if(!appStarted){ appStarted = true; init(); }
+      else if(state.role==='panel'){ refreshPanel(); }
+    } else {
+      state.role = null;
+      showLoginGate();
+    }
+  });
+} else {
+  console.warn('Firebase Auth no disponible: entrando sin restricción de rol.');
+  state.role = 'operador';
+  hideLoginGate();
+  init();
+}
 </script>
 </body>
 </html>
