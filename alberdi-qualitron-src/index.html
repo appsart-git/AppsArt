@@ -323,25 +323,6 @@
       <button data-sub="cargar" class="active">Cargar manuales</button>
       <button data-sub="preguntar">Preguntar</button>
     </div>
-    <button class="btn-ghost" id="mnlBtnAjustes" title="Ajustes">⚙ Ajustes</button>
-  </div>
-
-  <div id="mnlViewAjustes" class="card hidden" style="margin-top:14px;">
-    <div class="section-title" style="margin-top:0">Ajustes</div>
-    <div class="field">
-      <label>Clave de API de Anthropic (Claude)</label>
-      <input type="password" id="mnlApiKeyInput" placeholder="sk-ant-...">
-    </div>
-    <p class="muted">
-      La clave se guarda solo en este navegador (localStorage) y se usa para llamar directamente a la API de Claude
-      desde acá. No se envía a ningún otro lugar. Conseguila en
-      <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.
-    </p>
-    <div class="row" style="margin-top:10px">
-      <button class="btn-primary" id="mnlBtnGuardarKey">Guardar clave</button>
-      <button class="btn-danger" id="mnlBtnBorrarKey">Borrar clave</button>
-      <span id="mnlKeyStatus" class="muted"></span>
-    </div>
   </div>
 
   <div id="mnlViewCargar" style="margin-top:14px;">
@@ -992,8 +973,7 @@ function renderTolList(){
 /* ===================== Manuales ===================== */
 
 const MNL_PLANTA_LABEL = { planta4: 'Planta 4', planta5: 'Planta 5' };
-const MNL_MODEL = 'claude-sonnet-5';
-const MNL_API_KEY_STORAGE = 'qualitron_manual_api_key';
+const MNL_FUNCTION_URL = 'https://us-central1-appsart-qualitron.cloudfunctions.net/qualitronManualesAsk';
 const MNL_MIN_CHUNK_CHARS = 150;
 
 /* ---------------- IndexedDB ---------------- */
@@ -1339,44 +1319,16 @@ document.querySelectorAll('.planta-card').forEach(function(card){
   });
 });
 
-/* ---------------- Sub-tabs y Ajustes ---------------- */
+/* ---------------- Sub-tabs ---------------- */
 function mnlApplySub(){
   document.querySelectorAll('#mnlSubTabs button').forEach(function(b){ b.classList.toggle('active', b.dataset.sub===mnlActiveSub); });
   document.getElementById('mnlViewCargar').classList.toggle('hidden', mnlActiveSub!=='cargar');
   document.getElementById('mnlViewPreguntar').classList.toggle('hidden', mnlActiveSub!=='preguntar');
-  document.getElementById('mnlViewAjustes').classList.add('hidden');
 }
 document.getElementById('mnlSubTabs').addEventListener('click', function(e){
   var btn = e.target.closest('button'); if(!btn) return;
   mnlActiveSub = btn.dataset.sub;
   mnlApplySub();
-});
-document.getElementById('mnlBtnAjustes').addEventListener('click', function(){
-  var el = document.getElementById('mnlViewAjustes');
-  var willShow = el.classList.contains('hidden');
-  if(willShow){
-    el.classList.remove('hidden');
-    document.getElementById('mnlViewCargar').classList.add('hidden');
-    document.getElementById('mnlViewPreguntar').classList.add('hidden');
-    document.querySelectorAll('#mnlSubTabs button').forEach(function(b){ b.classList.remove('active'); });
-  } else { mnlApplySub(); }
-});
-
-function mnlRefreshGear(){
-  var has = !!lsGet(MNL_API_KEY_STORAGE, '');
-  document.getElementById('mnlBtnAjustes').classList.toggle('on', !has);
-  document.getElementById('mnlKeyStatus').textContent = has ? 'Clave guardada.' : 'No hay clave guardada.';
-}
-document.getElementById('mnlBtnGuardarKey').addEventListener('click', function(){
-  var v = document.getElementById('mnlApiKeyInput').value.trim();
-  if(!v) return;
-  lsSet(MNL_API_KEY_STORAGE, v);
-  mnlRefreshGear();
-});
-document.getElementById('mnlBtnBorrarKey').addEventListener('click', function(){
-  try { localStorage.removeItem(MNL_API_KEY_STORAGE); } catch(e){}
-  document.getElementById('mnlApiKeyInput').value = '';
-  mnlRefreshGear();
 });
 
 /* ---------------- Preguntar ---------------- */
@@ -1415,17 +1367,15 @@ function mnlArmarPrompt(pregunta, resultados){
 }
 
 async function mnlLlamarClaude(pregunta, resultados){
-  var apiKey = lsGet(MNL_API_KEY_STORAGE, '');
-  if(!apiKey) throw new Error('Falta configurar la clave de API en Ajustes (⚙).');
-  var body = { model: MNL_MODEL, max_tokens:1500, system: MNL_SYSTEM_PROMPT, messages:[{ role:'user', content: mnlArmarPrompt(pregunta, resultados) }] };
-  var resp = await fetch('https://api.anthropic.com/v1/messages', {
+  var body = { system: MNL_SYSTEM_PROMPT, messages:[{ role:'user', content: mnlArmarPrompt(pregunta, resultados) }] };
+  var resp = await fetch(MNL_FUNCTION_URL, {
     method:'POST',
-    headers:{ 'content-type':'application/json', 'x-api-key':apiKey, 'anthropic-version':'2023-06-01', 'anthropic-dangerous-direct-browser-access':'true' },
+    headers:{ 'content-type':'application/json' },
     body: JSON.stringify(body)
   });
   if(!resp.ok){
     var errText = await resp.text().catch(function(){ return ''; });
-    throw new Error('API respondió '+resp.status+': '+errText.slice(0,300));
+    throw new Error('Función respondió '+resp.status+': '+errText.slice(0,300));
   }
   var data = await resp.json();
   return (data.content && data.content[0] && data.content[0].text) || '(respuesta vacía)';
@@ -1521,7 +1471,6 @@ function init(){
   subscribeTolerancias();
   watchConnection();
   mnlApplySub();
-  mnlRefreshGear();
   mnlCargarDesdeDB();
   setInterval(function(){
     var now = new Date();

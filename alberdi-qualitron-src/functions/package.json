@@ -1,0 +1,10 @@
+{
+  "name": "qualitron-functions",
+  "description": "Proxy server-side de la API de Claude para la pestaña de Manuales de Qualitron, asi ningun dispositivo necesita guardar la clave de API",
+  "engines": { "node": "20" },
+  "main": "index.js",
+  "dependencies": {
+    "firebase-functions": "^5.0.0"
+  },
+  "private": true
+}
