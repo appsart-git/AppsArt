@@ -29,6 +29,11 @@ jobs:
       - name: Guardar credencial de Firebase
         run: echo '${{ secrets.QUALITRON_FIREBASE_SERVICE_ACCOUNT }}' > /tmp/qualitron-service-account.json
 
+      - name: Configurar clave de Anthropic en Secret Manager
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/qualitron-service-account.json
+        run: printf '%s' "${{ secrets.QUALITRON_ANTHROPIC_API_KEY }}" | npx firebase-tools functions:secrets:set ANTHROPIC_API_KEY --project appsart-qualitron --data-file - --force
+
       - name: Deploy de las Cloud Functions
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/qualitron-service-account.json
