@@ -10,6 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="./manuales-data.js"></script>
 <style>
   :root{
     --bg:#14171A; --surface:#1D2126; --surface-2:#262B32; --border:#2E343C;
@@ -1214,8 +1215,14 @@ let mnlActiveSub = 'cargar';
 async function mnlCargarDesdeDB(){
   for(var i=0;i<2;i++){
     var planta = ['planta4','planta5'][i];
-    try { mnlManuales[planta] = await mnlDbGet(planta); }
-    catch(e){ console.warn('IndexedDB no disponible:', e); mnlManuales[planta] = null; }
+    try {
+      var rec = await mnlDbGet(planta);
+      if(!rec && typeof MNL_SEED_DATA !== 'undefined' && MNL_SEED_DATA[planta]){
+        rec = MNL_SEED_DATA[planta];
+        try { await mnlDbSet(rec); } catch(e){ console.warn('No se pudo guardar el precargado en IndexedDB:', e); }
+      }
+      mnlManuales[planta] = rec;
+    } catch(e){ console.warn('IndexedDB no disponible:', e); mnlManuales[planta] = (typeof MNL_SEED_DATA !== 'undefined' && MNL_SEED_DATA[planta]) || null; }
     mnlRenderEstadoPlanta(planta);
   }
   mnlActualizarScopeNote();
