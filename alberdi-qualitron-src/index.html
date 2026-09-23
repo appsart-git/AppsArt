@@ -310,8 +310,9 @@
 <!-- ===================== PANEL ===================== -->
 <section id="viewPanel" class="hidden">
   <div class="section-title">Filtros</div>
-  <div class="row" style="margin-bottom:4px;">
+  <div class="row" style="margin-bottom:4px; align-items:center;">
     <div class="chip-toggle" id="rangoToggle"></div>
+    <div class="field" style="max-width:170px;"><label>Día puntual</label><input type="date" id="selFechaDia"></div>
   </div>
   <div class="row">
     <div class="field"><label>Planta</label>
@@ -567,7 +568,8 @@ const state = {
   unsubHora: null,
   unsubToday: null,
   panelDocs: [],
-  panelRango: 'mes'
+  panelRango: 'mes',
+  panelFechaDia: ''
 };
 
 /* ===================== Render: tabs ===================== */
@@ -821,16 +823,25 @@ const RANGOS = [
   { id:'trimestre', label:'Trimestre' }, { id:'anio', label:'Año' }, { id:'todo', label:'Todo' }
 ];
 function renderRangoToggle(){
+  var haySelectorDia = !!state.panelFechaDia;
   document.getElementById('rangoToggle').innerHTML = RANGOS.map(function(r){
-    return '<button data-rango="'+r.id+'" class="'+(state.panelRango===r.id?'active':'')+'">'+esc(r.label)+'</button>';
+    return '<button data-rango="'+r.id+'" class="'+(!haySelectorDia && state.panelRango===r.id?'active':'')+'">'+esc(r.label)+'</button>';
   }).join('');
 }
 const RANGO_GRAN_DEFAULT = { hoy:'hora', semana:'dia', mes:'dia', trimestre:'mes', anio:'mes', todo:'anio' };
 document.getElementById('rangoToggle').addEventListener('click', function(e){
   var btn = e.target.closest('button'); if(!btn) return;
   state.panelRango = btn.dataset.rango;
+  state.panelFechaDia = '';
+  document.getElementById('selFechaDia').value = '';
   renderRangoToggle();
   if(RANGO_GRAN_DEFAULT[state.panelRango]) document.getElementById('selGranularidad').value = RANGO_GRAN_DEFAULT[state.panelRango];
+  refreshPanel();
+});
+document.getElementById('selFechaDia').addEventListener('change', function(){
+  state.panelFechaDia = this.value;
+  if(state.panelFechaDia) document.getElementById('selGranularidad').value = 'hora';
+  renderRangoToggle();
   refreshPanel();
 });
 ['selPlanta','selLinea','selTurno','selGranularidad'].forEach(function(id){
@@ -851,7 +862,7 @@ function rangoFechas(rango){
 
 function refreshPanel(){
   if(!db) return;
-  var r = rangoFechas(state.panelRango);
+  var r = state.panelFechaDia ? { from: state.panelFechaDia, to: state.panelFechaDia } : rangoFechas(state.panelRango);
   db.collection(COL_HORAS).where('fecha','>=',r.from).where('fecha','<=',r.to).orderBy('fecha')
     .get().then(function(snap){
       state.panelDocs = snap.docs.map(function(d){ return d.data(); });
