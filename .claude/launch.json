@@ -22,6 +22,18 @@
       "runtimeExecutable": "powershell",
       "runtimeArgs": ["-ExecutionPolicy", "Bypass", "-File", ".claude/serve-static.ps1", "demo-repuestospro-src", "8792"],
       "port": 8792
+    },
+    {
+      "name": "remates-el-cruce",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["remates-el-cruce-src/_serve.js"],
+      "port": 8900
+    },
+    {
+      "name": "union-industrial",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "AppsArt/union-industrial-src", "run", "web"],
+      "port": 8081
     }
   ]
 }

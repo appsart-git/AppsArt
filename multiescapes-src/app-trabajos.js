@@ -20,13 +20,36 @@ function trabajosFiltrados(){
   return list;
 }
 
+function trabajosDelMes(mesStr){
+  return state.trabajos.filter(t => (t.fecha||'').slice(0,7) === mesStr);
+}
+
 function renderTrabajos(){
   const list = trabajosFiltrados();
   const totalManoObra = list.reduce((s,t)=>s+(t.manoObra||0),0);
   const totalGeneral = list.reduce((s,t)=>s+(t.total||0),0);
   const hayFiltroFecha = state.filtroTrabajos.desde || state.filtroTrabajos.hasta;
+  const mes = state.trabajosMes;
+  const delMes = trabajosDelMes(mes);
+  const manoObraMes = delMes.reduce((s,t)=>s+(t.manoObra||0),0);
+  const totalMes = delMes.reduce((s,t)=>s+(t.total||0),0);
   document.getElementById('main').innerHTML = `
     <div class="section-head"><h1>Trabajos</h1></div>
+
+    <div class="filters-row" style="align-items:center;">
+      <button class="btn btn-sm" data-action="mesTrabajosAnterior">‹</button>
+      <div style="font-weight:700; text-transform:capitalize; min-width:160px; text-align:center;">${esc(mesLabel(mes))}</div>
+      <button class="btn btn-sm" data-action="mesTrabajosSiguiente">›</button>
+    </div>
+    <div style="margin-bottom:14px; background:var(--black-950); color:#fff; border-radius:14px; padding:16px 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+      <span class="muted small" style="color:#C9C4C1;">Mano de obra del mes</span>
+      <span style="font-size:22px; font-weight:800;">${money(manoObraMes)}</span>
+    </div>
+    <div class="trabajos-summary" style="margin-bottom:16px;">
+      <span>${delMes.length} trabajo${delMes.length===1?'':'s'} en ${esc(mesLabel(mes))}</span>
+      <span>Total del mes: <b>${money(totalMes)}</b></span>
+    </div>
+
     <div class="filters-row">
       <div class="searchbar"><span class="ico">🔎</span><input placeholder="Cliente, patente o marca…" data-input="filtro_trabajos_query" value="${esc(state.filtroTrabajos.query)}"></div>
       <div class="field"><label>Desde</label><input type="date" data-change="filtro_trabajos_desde" value="${esc(state.filtroTrabajos.desde)}"></div>
@@ -113,7 +136,9 @@ Object.assign(actions, {
         toast('PDF descargado.');
       }catch(e){ alert('No se pudo generar el PDF. Probá de nuevo.'); }
     });
-  }
+  },
+  mesTrabajosAnterior(){ state.trabajosMes = shiftMes(state.trabajosMes, -1); renderTrabajos(); },
+  mesTrabajosSiguiente(){ state.trabajosMes = shiftMes(state.trabajosMes, 1); renderTrabajos(); }
 });
 
 inputActions.filtro_trabajos_query = (el) => { state.filtroTrabajos.query = el.value; renderTrabajos(); };

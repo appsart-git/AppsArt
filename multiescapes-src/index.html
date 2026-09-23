@@ -317,9 +317,29 @@
 
   .toast{position:fixed; left:50%; bottom:calc(88px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:var(--black-950); color:#fff; padding:11px 18px; border-radius:10px; font-size:13.5px; display:none; z-index:200; box-shadow:0 10px 30px rgba(0,0,0,.3);}
   @media(min-width:860px){ .toast{bottom:26px;} }
+
+  /* ---------- PIN de acceso (traba simple para que no entre cualquiera con el link) ---------- */
+  .pin-gate{position:fixed; inset:0; z-index:500; background:var(--black-950); display:none; align-items:center; justify-content:center; padding:24px;}
+  .pin-card{background:#fff; border-radius:18px; padding:30px 26px; max-width:320px; width:100%; text-align:center; box-shadow:0 30px 60px -20px rgba(0,0,0,.5);}
+  .pin-card img{max-width:170px; margin:0 auto 18px; display:block;}
+  .pin-card p{color:var(--ink-600); font-size:14px; margin:0 0 16px;}
+  .pin-card input{width:100%; text-align:center; font-size:26px; letter-spacing:8px; padding:14px; border:1.5px solid var(--line); border-radius:10px; margin-bottom:14px; font-family:inherit;}
+  .pin-card input:focus{outline:none; border-color:var(--red-500);}
+  .pin-error{color:#b3261e; font-size:13px; margin:-6px 0 12px;}
 </style>
 </head>
 <body>
+
+<!-- ===== PIN DE ACCESO ===== -->
+<div id="pinGate" class="pin-gate">
+  <div class="pin-card">
+    <img src="./logo-multiescapes.png" alt="Multiescapes">
+    <p>Ingresá el PIN para entrar</p>
+    <input id="pinInput" type="tel" inputmode="numeric" autocomplete="off" placeholder="••••">
+    <p class="pin-error" id="pinError" style="display:none;">PIN incorrecto. Probá de nuevo.</p>
+    <button class="btn btn-primary btn-block" data-action="intentarPin">Entrar</button>
+  </div>
+</div>
 
 <!-- ===== APP SHELL ===== -->
 <div id="app" class="app-shell">
@@ -357,7 +377,20 @@
 // configure. Mientras Multiescapes no tenga su proyecto de Firebase, esto queda en null y la app
 // arranca sola en modo local (sin avisar ni preguntar nada). Cuando creemos el proyecto real, se
 // pega ese firebaseConfig acá mismo — nada más pasa a conectarse automáticamente para todos.
-const DEFAULT_FIREBASE_CONFIG = null;
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyACaXugos4db20Kw_bn4cqGUrUnjh1q_G4",
+  authDomain: "multiescapes-9e609.firebaseapp.com",
+  projectId: "multiescapes-9e609",
+  storageBucket: "multiescapes-9e609.firebasestorage.app",
+  messagingSenderId: "651396856418",
+  appId: "1:651396856418:web:675bc9c343f24b37746f3b"
+};
+
+// PIN de acceso: traba simple para que no entre cualquiera que tenga el link (no es seguridad real,
+// es solo un filtro). El PIN normal lo elige/cambia el taller desde Configuración y se guarda hasheado
+// (SHA-256) en Firestore (config/acceso) — nunca en texto plano, así ni nosotros lo sabemos. MASTER_PIN
+// es un PIN de emergencia fijo, solo para soporte nuestro, que funciona sin tocar Firestore.
+const MASTER_PIN = '861045';
 
 const LS_PREFIX = 'multiescapes:';
 function lsKey(name){ return LS_PREFIX + name; }
@@ -365,6 +398,29 @@ function lsKey(name){ return LS_PREFIX + name; }
 let backendMode = null; // 'firebase' | 'local'
 let db = null;
 const localRegistry = {};
+
+async function sha256Hex(text){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+// Se conecta a Firebase ya, antes de mostrar nada, porque el propio PIN de acceso necesita
+// consultar Firestore para validar contra el hash guardado (config/acceso).
+(function initFirebaseConnection(){
+  const cfg = tryLoadFirebaseConfig();
+  if(cfg){
+    try{
+      firebase.initializeApp(cfg);
+      db = firebase.firestore();
+      backendMode = 'firebase';
+    }catch(e){
+      console.error('Firebase init failed, usando modo local', e);
+      backendMode = 'local';
+    }
+  } else {
+    backendMode = 'local';
+  }
+})();
 
 function lsReadAll(name){ try{ return JSON.parse(localStorage.getItem(lsKey(name)) || '[]'); }catch(e){ return []; } }
 function lsWriteAll(name, arr){ localStorage.setItem(lsKey(name), JSON.stringify(arr)); }
@@ -470,6 +526,7 @@ let state = {
   loaded: {},
   negocio: {nombre:'MULTIESCAPES', direccion:'', telefono:''},
   gastosMes: todayISO().slice(0,7),
+  trabajosMes: todayISO().slice(0,7),
   filtro: {clientes:''},
   filtroTrabajos: {query:'', desde:'', hasta:''},
   saving:false
@@ -481,7 +538,8 @@ const actions = {
   nav(el){ goSection(el.dataset.id); },
   closeModalBackdrop(el, e){ if(e.target === el) closeModal(); },
   closeModal(){ closeModal(); },
-  confirmDialogYes(){ const cb = _confirmCb; closeModal(); if(cb) cb(); }
+  confirmDialogYes(){ const cb = _confirmCb; closeModal(); if(cb) cb(); },
+  intentarPin(){ intentarPin(); }
 };
 const inputActions = {};
 
@@ -495,8 +553,12 @@ document.addEventListener('click', (e) => {
 // esto los hace operables por teclado/lector de pantalla igual que un botón real.
 document.addEventListener('keydown', (e) => {
   if(e.key !== 'Enter' && e.key !== ' ') return;
-  const el = e.target.closest('[data-action]');
-  if(!el || el.tagName === 'BUTTON' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') return;
+  const t = e.target;
+  // Si se está escribiendo (input/textarea/select/contentEditable), la espaciadora es texto,
+  // nunca un "click" — si no, escribir una palabra con espacio cierra el modal que la contiene.
+  if(t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable) return;
+  const el = t.closest('[data-action]');
+  if(!el || el.tagName === 'BUTTON') return;
   e.preventDefault();
   el.click();
 });
@@ -612,19 +674,6 @@ function tryLoadFirebaseConfig(){
   return DEFAULT_FIREBASE_CONFIG;
 }
 function initApp(){
-  const cfg = tryLoadFirebaseConfig();
-  if(cfg){
-    try{
-      firebase.initializeApp(cfg);
-      db = firebase.firestore();
-      backendMode = 'firebase';
-    }catch(e){
-      console.error('Firebase init failed, usando modo local', e);
-      backendMode = 'local';
-    }
-  } else {
-    backendMode = 'local';
-  }
   startApp();
 }
 function startApp(){
@@ -642,6 +691,64 @@ function startApp(){
 
   render();
 }
+
+/* ===================== PIN DE ACCESO ===================== */
+// El PIN "normal" vive hasheado en Firestore (config/acceso.pinHash) y es el mismo para todos los
+// dispositivos del taller; se cachea localmente (pinHashCache) para poder validar sin conexión.
+// MASTER_PIN es aparte, fijo en el código, y funciona siempre como llave de soporte.
+function pinYaValidado(){
+  return localStorage.getItem(lsKey('pinOk')) === '1';
+}
+function unlockGate(){
+  localStorage.setItem(lsKey('pinOk'), '1');
+  document.getElementById('pinGate').style.display = 'none';
+  initApp();
+}
+async function intentarPin(){
+  const input = document.getElementById('pinInput');
+  const errEl = document.getElementById('pinError');
+  const btn = document.querySelector('#pinGate [data-action="intentarPin"]');
+  const val = input.value.trim();
+  if(!val) return;
+  errEl.style.display = 'none';
+  if(btn) btn.disabled = true;
+  try{
+    if(val === MASTER_PIN){ unlockGate(); return; }
+    const hash = await sha256Hex(val);
+    let pinHash = null;
+    if(backendMode === 'firebase' && db){
+      try{
+        const doc = await db.collection('config').doc('acceso').get();
+        pinHash = doc.exists ? doc.data().pinHash : null;
+        if(pinHash) localStorage.setItem(lsKey('pinHashCache'), pinHash);
+      }catch(e){
+        pinHash = localStorage.getItem(lsKey('pinHashCache'));
+      }
+    } else {
+      pinHash = localStorage.getItem(lsKey('pinHashCache'));
+    }
+    if(pinHash && hash === pinHash){
+      unlockGate();
+    } else {
+      errEl.textContent = 'PIN incorrecto. Probá de nuevo.';
+      errEl.style.display = 'block';
+      input.value = '';
+      input.focus();
+    }
+  }catch(e){
+    errEl.textContent = 'No se pudo verificar el PIN. Revisá tu conexión e intentá de nuevo.';
+    errEl.style.display = 'block';
+  } finally {
+    if(btn) btn.disabled = false;
+  }
+}
+document.getElementById('pinInput').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter') intentarPin();
+});
+if(!pinYaValidado()){
+  document.getElementById('pinGate').style.display = 'flex';
+  document.getElementById('pinInput').focus();
+}
 </script>
 <script src="./app-config.js"></script>
 <script src="./app-clientes.js"></script>
@@ -654,7 +761,7 @@ if('serviceWorker' in navigator){
     navigator.serviceWorker.register('./sw.js').catch(()=>{ /* si falla, la app igual funciona online */ });
   });
 }
-initApp();
+if(pinYaValidado()) initApp();
 </script>
 </body>
 </html>
