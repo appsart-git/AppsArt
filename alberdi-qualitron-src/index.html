@@ -283,8 +283,10 @@
 
   <div class="section-title">Producto en curso</div>
   <div class="row">
-    <div class="field"><label>Producto</label><input id="inpProducto" placeholder="Ej: Porcelanato 60x60"></div>
-    <div class="field"><label>Formato</label><input id="inpFormato" placeholder="Ej: 60x60"></div>
+    <div class="field"><label>Producto</label><input id="inpProducto" list="dlProductos" autocomplete="off" placeholder="Ej: Porcelanato 60x60"></div>
+    <div class="field"><label>Formato</label><input id="inpFormato" list="dlFormatos" autocomplete="off" placeholder="Ej: 60x60"></div>
+    <datalist id="dlProductos"></datalist>
+    <datalist id="dlFormatos"></datalist>
     <div class="field" style="max-width:150px;"><label>Placas evaluadas (hora)</label><input id="inpEvaluadas" type="number" min="0" inputmode="numeric" placeholder="0"></div>
   </div>
 
@@ -326,6 +328,9 @@
     </div>
     <div class="field"><label>Producto</label>
       <select id="selProducto"><option value="">Todos</option></select>
+    </div>
+    <div class="field"><label>Formato</label>
+      <select id="selFormato"><option value="">Todos</option></select>
     </div>
     <div class="field"><label>Agrupar por</label>
       <select id="selGranularidad">
@@ -485,6 +490,8 @@ const firebaseConfig = {
   appId: "1:1053105465688:web:5d3869cdc2d964b31e1d2d"
 };
 const COL_HORAS = 'qualitron_horas';
+const COL_PRODUCTOS = 'qualitron_productos';
+const COL_FORMATOS = 'qualitron_formatos';
 
 const OPERADOR_EMAIL = 'operador@qualitron.app';
 
@@ -554,6 +561,11 @@ function parseDecimalInput(str){
 }
 function formatDecimalDisplay(v){ return v==null ? '' : String(v).replace('.', ','); }
 function trimestreOf(mes){ return Math.ceil(mes/3); }
+function slugify(s){
+  return String(s||'').trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
 function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); }, 1800); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 
@@ -655,10 +667,31 @@ function loadProductoFormato(){
   document.getElementById('inpProducto').value = p;
   document.getElementById('inpFormato').value = f;
 }
+/* ===================== Catálogo de productos/formatos (autocompletar) ===================== */
+
+function loadCatalogo(col, datalistId){
+  if(!db) return;
+  db.collection(col).get().then(function(snap){
+    var el = document.getElementById(datalistId);
+    el.innerHTML = snap.docs.map(function(d){ return '<option value="'+esc(d.data().nombre)+'">'; }).join('');
+  }).catch(function(e){ console.error(e); });
+}
+function upsertCatalogValue(col, datalistId, value){
+  var v = (value||'').trim(); if(!v) return;
+  var id = slugify(v); if(!id) return;
+  var dl = document.getElementById(datalistId);
+  if(dl && !Array.prototype.some.call(dl.options, function(o){ return o.value===v; })){
+    dl.insertAdjacentHTML('beforeend', '<option value="'+esc(v)+'">');
+  }
+  if(!db) return;
+  db.collection(col).doc(id).set({ nombre: v }, { merge:true }).catch(function(e){ console.error(e); });
+}
+
 ['inpProducto','inpFormato'].forEach(function(id){
   document.getElementById(id).addEventListener('change', function(){
     lsSet(id==='inpProducto' ? 'qtr_producto_'+state.linea : 'qtr_formato_'+state.linea, this.value);
     saveHoraMeta();
+    upsertCatalogValue(id==='inpProducto'?COL_PRODUCTOS:COL_FORMATOS, id==='inpProducto'?'dlProductos':'dlFormatos', this.value);
   });
 });
 document.getElementById('inpEvaluadas').addEventListener('change', function(){
@@ -847,7 +880,7 @@ document.getElementById('selFechaDia').addEventListener('change', function(){
   renderRangoToggle();
   refreshPanel();
 });
-['selPlanta','selLinea','selTurno','selProducto','selGranularidad'].forEach(function(id){
+['selPlanta','selLinea','selTurno','selProducto','selFormato','selGranularidad'].forEach(function(id){
   document.getElementById(id).addEventListener('change', renderPanel);
 });
 
@@ -870,6 +903,7 @@ function refreshPanel(){
     .get().then(function(snap){
       state.panelDocs = snap.docs.map(function(d){ return d.data(); });
       fillProductoSelect();
+      fillFormatoSelect();
       renderPanel();
     }).catch(function(err){ console.error(err); toast('Error al leer datos del panel'); });
 }
@@ -881,17 +915,26 @@ function fillProductoSelect(){
   sel.innerHTML = '<option value="">Todos</option>' + productos.map(function(p){ return '<option value="'+esc(p)+'">'+esc(p)+'</option>'; }).join('');
   if(productos.indexOf(actual)!==-1) sel.value = actual;
 }
+function fillFormatoSelect(){
+  var sel = document.getElementById('selFormato');
+  var actual = sel.value;
+  var formatos = Array.from(new Set(state.panelDocs.map(function(d){ return (d.formato||'').trim(); }).filter(Boolean))).sort();
+  sel.innerHTML = '<option value="">Todos</option>' + formatos.map(function(f){ return '<option value="'+esc(f)+'">'+esc(f)+'</option>'; }).join('');
+  if(formatos.indexOf(actual)!==-1) sel.value = actual;
+}
 
 function filteredPanelDocs(){
   var planta = document.getElementById('selPlanta').value;
   var linea = document.getElementById('selLinea').value;
   var turno = document.getElementById('selTurno').value;
   var producto = document.getElementById('selProducto').value;
+  var formato = document.getElementById('selFormato').value;
   return state.panelDocs.filter(function(d){
     if(planta && plantaOfLinea(d.linea)!==planta) return false;
     if(linea && d.linea!==linea) return false;
     if(turno && d.turno!==turno) return false;
     if(producto && (d.producto||'').trim()!==producto) return false;
+    if(formato && (d.formato||'').trim()!==formato) return false;
     return true;
   });
 }
@@ -1576,6 +1619,8 @@ function init(){
     updateHourNav();
     subscribeHoraDoc();
     subscribeTodayDocs();
+    loadCatalogo(COL_PRODUCTOS, 'dlProductos');
+    loadCatalogo(COL_FORMATOS, 'dlFormatos');
     mnlApplySub();
     mnlCargarDesdeDB();
   } else {
