@@ -280,6 +280,9 @@
     <button data-action="hour-next">›</button>
     <button class="now-badge hidden" id="hourNowBadge" data-action="hour-now">ahora</button>
   </div>
+  <div class="row" style="margin-top:8px;">
+    <button class="btn-danger sm" id="btnVaciarHora">🗑 Vaciar esta hora</button>
+  </div>
 
   <div class="section-title">Producto en curso</div>
   <div class="row">
@@ -657,6 +660,17 @@ document.querySelector('.hour-nav').addEventListener('click', function(e){
   state.horaCarga = d.getHours();
   updateHourNav();
   subscribeHoraDoc();
+});
+
+document.getElementById('btnVaciarHora').addEventListener('click', function(){
+  if(!db){ toast('Sin conexión a base de datos'); return; }
+  var lineaLabel = (LINEAS.find(function(l){ return l.id===state.linea; })||{}).label || state.linea;
+  var msg = '¿Vaciar todo lo cargado en '+lineaLabel+' — '+pad2(state.horaCarga)+':00 del '+state.fechaCarga+'? Esta acción no se puede deshacer.';
+  if(!confirm(msg)) return;
+  var id = docId(state.linea, state.fechaCarga, state.horaCarga);
+  db.collection(COL_HORAS).doc(id).delete().then(function(){
+    toast('Hora vaciada');
+  }).catch(function(e){ console.error(e); toast('Error al vaciar'); });
 });
 
 /* ===================== Carga: producto/formato ===================== */
