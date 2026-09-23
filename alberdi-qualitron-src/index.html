@@ -324,6 +324,9 @@
     <div class="field"><label>Turno</label>
       <select id="selTurno"><option value="">Todos</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option></select>
     </div>
+    <div class="field"><label>Producto</label>
+      <select id="selProducto"><option value="">Todos</option></select>
+    </div>
     <div class="field"><label>Agrupar por</label>
       <select id="selGranularidad">
         <option value="hora">Hora</option>
@@ -844,7 +847,7 @@ document.getElementById('selFechaDia').addEventListener('change', function(){
   renderRangoToggle();
   refreshPanel();
 });
-['selPlanta','selLinea','selTurno','selGranularidad'].forEach(function(id){
+['selPlanta','selLinea','selTurno','selProducto','selGranularidad'].forEach(function(id){
   document.getElementById(id).addEventListener('change', renderPanel);
 });
 
@@ -866,18 +869,29 @@ function refreshPanel(){
   db.collection(COL_HORAS).where('fecha','>=',r.from).where('fecha','<=',r.to).orderBy('fecha')
     .get().then(function(snap){
       state.panelDocs = snap.docs.map(function(d){ return d.data(); });
+      fillProductoSelect();
       renderPanel();
     }).catch(function(err){ console.error(err); toast('Error al leer datos del panel'); });
+}
+
+function fillProductoSelect(){
+  var sel = document.getElementById('selProducto');
+  var actual = sel.value;
+  var productos = Array.from(new Set(state.panelDocs.map(function(d){ return (d.producto||'').trim(); }).filter(Boolean))).sort();
+  sel.innerHTML = '<option value="">Todos</option>' + productos.map(function(p){ return '<option value="'+esc(p)+'">'+esc(p)+'</option>'; }).join('');
+  if(productos.indexOf(actual)!==-1) sel.value = actual;
 }
 
 function filteredPanelDocs(){
   var planta = document.getElementById('selPlanta').value;
   var linea = document.getElementById('selLinea').value;
   var turno = document.getElementById('selTurno').value;
+  var producto = document.getElementById('selProducto').value;
   return state.panelDocs.filter(function(d){
     if(planta && plantaOfLinea(d.linea)!==planta) return false;
     if(linea && d.linea!==linea) return false;
     if(turno && d.turno!==turno) return false;
+    if(producto && (d.producto||'').trim()!==producto) return false;
     return true;
   });
 }
