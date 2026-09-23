@@ -30,6 +30,12 @@
       "port": 8900
     },
     {
+      "name": "qualitron",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["alberdi-qualitron-src/_serve.js"],
+      "port": 8901
+    },
+    {
       "name": "union-industrial",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "AppsArt/union-industrial-src", "run", "web"],

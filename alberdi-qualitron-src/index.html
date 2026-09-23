@@ -220,7 +220,7 @@
     <div class="role-pick" id="rolePick">
       <button class="role-btn" data-role="operador">
         <div class="rt">🖐 Operador</div>
-        <div class="rd">Carga, Panel, Tolerancias y Manuales — acceso completo</div>
+        <div class="rd">Carga, Panel y Manuales — acceso completo</div>
       </button>
       <button class="role-btn" data-role="panel">
         <div class="rt">📊 Solo Panel</div>
@@ -256,7 +256,6 @@
   <div class="view-tabs" id="viewTabs">
     <button class="tab-chip active" data-view="carga">🖐 Carga</button>
     <button class="tab-chip" data-view="panel">📊 Panel</button>
-    <button class="tab-chip" data-view="tolerancias">🎚 Tolerancias</button>
     <button class="tab-chip" data-view="manuales">📖 Manuales</button>
   </div>
 </header>
@@ -294,7 +293,7 @@
   <div class="section-title">Fallas — tocá para sumar 1</div>
   <div class="falla-groups" id="fallaGroups"></div>
 
-  <div class="section-title">Mediciones dimensionales (Qualitron) — valor de la hora</div>
+  <div class="section-title">Mediciones dimensionales — valor de la hora</div>
   <div class="card">
     <div class="row" id="medicionesRow"></div>
   </div>
@@ -315,6 +314,9 @@
     <div class="chip-toggle" id="rangoToggle"></div>
   </div>
   <div class="row">
+    <div class="field"><label>Planta</label>
+      <select id="selPlanta"><option value="">Todas</option><option value="planta4">Planta 4</option><option value="planta5">Planta 5</option></select>
+    </div>
     <div class="field"><label>Línea</label>
       <select id="selLinea"><option value="">Todas</option></select>
     </div>
@@ -337,35 +339,13 @@
   <div class="chart-grid">
     <div class="chart-card"><h3>Pareto de fallas</h3><canvas id="chartPareto"></canvas></div>
     <div class="chart-card"><h3>% Calidad en el tiempo</h3><canvas id="chartCalidad"></canvas></div>
-    <div class="chart-card"><h3>Fallas por turno</h3><canvas id="chartTurno"></canvas></div>
-    <div class="chart-card"><h3>Fallas por línea</h3><canvas id="chartLinea"></canvas></div>
+    <div class="chart-card"><h3>% Calidad por turno</h3><canvas id="chartTurno"></canvas></div>
+    <div class="chart-card"><h3>% Calidad por línea</h3><canvas id="chartLinea"></canvas></div>
   </div>
 
   <div class="row" style="margin:6px 0 20px;">
     <button class="btn-ghost" id="btnExport">⬇ Exportar Excel (rango filtrado)</button>
   </div>
-</section>
-
-<!-- ===================== TOLERANCIAS ===================== -->
-<section id="viewTolerancias" class="hidden">
-  <div class="section-title">Registrar ajuste de tolerancia</div>
-  <div class="card">
-    <div class="row">
-      <div class="field"><label>Línea</label><select id="tolLinea"></select></div>
-      <div class="field" style="min-width:200px;"><label>Falla</label><select id="tolFalla"></select></div>
-    </div>
-    <div class="row" style="margin-top:10px;">
-      <div class="field"><label>Valor anterior</label><input id="tolAnterior" type="number" step="any" placeholder="Ej: 3.0"></div>
-      <div class="field"><label>Valor nuevo</label><input id="tolNuevo" type="number" step="any" placeholder="Ej: 2.5"></div>
-      <div class="field"><label>Operador</label><input id="tolOperador" placeholder="Nombre"></div>
-    </div>
-    <div class="row" style="margin-top:12px;">
-      <button class="btn-primary" id="btnTolGuardar">Registrar ajuste</button>
-    </div>
-  </div>
-
-  <div class="section-title">Últimos ajustes</div>
-  <div class="tol-list" id="tolList"></div>
 </section>
 
 <!-- ===================== MANUALES ===================== -->
@@ -501,7 +481,6 @@ const firebaseConfig = {
   appId: "1:1053105465688:web:5d3869cdc2d964b31e1d2d"
 };
 const COL_HORAS = 'qualitron_horas';
-const COL_TOLERANCIAS = 'qualitron_tolerancias';
 
 const OPERADOR_EMAIL = 'operador@qualitron.app';
 
@@ -526,6 +505,15 @@ function lsSet(key, val){ try { localStorage.setItem(key, val); } catch(e){} }
 const LINEAS = [8,9,10,11,12,13].map(function(n){ return { id:String(n), label:'Línea '+n }; });
 const TURNOS = ['A','B','C','D'];
 
+const PLANTAS = [
+  { id:'planta4', label:'Planta 4', lineas:['8','9','10'] },
+  { id:'planta5', label:'Planta 5', lineas:['11','12','13'] }
+];
+function plantaOfLinea(lineaId){
+  var p = PLANTAS.find(function(pl){ return pl.lineas.indexOf(lineaId)!==-1; });
+  return p ? p.id : null;
+}
+
 const CATEGORIAS = [
   { nombre:'Prensa', fallas:['Pegado de Prensa','Suciedad de Prensa','Grumo reprensado','Empastado','Bordes Agrietados','Despunte crudo'] },
   { nombre:'Esmalte', fallas:['Gota de Esmalte','Grieta de Esmalte','Grumo de Esmalte','Falta de Aplicación','Fuera de tono','Mancha de nano','Gota de cubierta','Raya de engobe / gota de engobe'] },
@@ -535,9 +523,9 @@ const CATEGORIAS = [
   { nombre:'Otros', fallas:['Placas Rotas','Tono'] }
 ];
 
-/* Planar y Trapecio se registran en la planilla como una medición (con coma decimal),
+/* Planar y Calibre se registran en la planilla como una medición (con coma decimal),
    no como conteo de piezas — se cargan aparte y no suman al total de fallas / % calidad. */
-const FALLAS_MEDICION = ['Planar','Trapecio'];
+const FALLAS_MEDICION = ['Planar','Calibre'];
 const FALLAS_CONTEO = CATEGORIAS.flatMap(function(c){ return c.fallas; });
 const TODAS_FALLAS = FALLAS_CONTEO.concat(FALLAS_MEDICION);
 
@@ -553,6 +541,14 @@ function sumFallas(fallasMap){
   return FALLAS_CONTEO.reduce(function(a,f){ return a+(Number(fallasMap[f])||0); },0);
 }
 function calidadPct(evaluadas, fallasTotal){ if(!evaluadas) return null; var p=((evaluadas-fallasTotal)/evaluadas)*100; return Math.max(0, p); }
+function parseDecimalInput(str){
+  if(str==null) return null;
+  var s = String(str).trim().replace(',', '.');
+  if(s==='') return null;
+  var n = Number(s);
+  return isNaN(n) ? null : n;
+}
+function formatDecimalDisplay(v){ return v==null ? '' : String(v).replace('.', ','); }
 function trimestreOf(mes){ return Math.ceil(mes/3); }
 function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(function(){ t.classList.remove('show'); }, 1800); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -570,10 +566,8 @@ const state = {
   todayDocs: {},           // hora -> doc, línea seleccionada, fecha de hoy
   unsubHora: null,
   unsubToday: null,
-  unsubTol: null,
   panelDocs: [],
-  panelRango: 'mes',
-  tolerancias: []
+  panelRango: 'mes'
 };
 
 /* ===================== Render: tabs ===================== */
@@ -585,7 +579,6 @@ document.getElementById('viewTabs').addEventListener('click', function(e){
   document.querySelectorAll('#viewTabs .tab-chip').forEach(function(b){ b.classList.toggle('active', b===btn); });
   document.getElementById('viewCarga').classList.toggle('hidden', state.view!=='carga');
   document.getElementById('viewPanel').classList.toggle('hidden', state.view!=='panel');
-  document.getElementById('viewTolerancias').classList.toggle('hidden', state.view!=='tolerancias');
   document.getElementById('viewManuales').classList.toggle('hidden', state.view!=='manuales');
   if(state.view==='panel') refreshPanel();
 });
@@ -703,7 +696,7 @@ function tapFalla(falla, delta){
 }
 
 function setMedicion(falla, valor){
-  var v = valor===''? null : Number(valor);
+  var v = parseDecimalInput(valor);
   var fallasPatch = {};
   fallasPatch[falla] = v;
   writeHoraDoc({ fallas: fallasPatch });
@@ -766,7 +759,7 @@ function renderMediciones(){
   var fallasMap = (state.horaDoc && state.horaDoc.fallas) || {};
   el.innerHTML = FALLAS_MEDICION.map(function(f){
     var v = fallasMap[f];
-    return '<div class="field"><label>'+esc(f)+'</label><input type="number" step="0.1" inputmode="decimal" data-medicion="'+esc(f)+'" value="'+(v==null?'':v)+'" placeholder="0,0"></div>';
+    return '<div class="field"><label>'+esc(f)+'</label><input type="text" inputmode="decimal" data-medicion="'+esc(f)+'" value="'+esc(formatDecimalDisplay(v))+'" placeholder="0,0"></div>';
   }).join('');
 }
 document.getElementById('medicionesRow').addEventListener('change', function(e){
@@ -832,13 +825,15 @@ function renderRangoToggle(){
     return '<button data-rango="'+r.id+'" class="'+(state.panelRango===r.id?'active':'')+'">'+esc(r.label)+'</button>';
   }).join('');
 }
+const RANGO_GRAN_DEFAULT = { hoy:'hora', semana:'dia', mes:'dia', trimestre:'mes', anio:'mes', todo:'anio' };
 document.getElementById('rangoToggle').addEventListener('click', function(e){
   var btn = e.target.closest('button'); if(!btn) return;
   state.panelRango = btn.dataset.rango;
   renderRangoToggle();
+  if(RANGO_GRAN_DEFAULT[state.panelRango]) document.getElementById('selGranularidad').value = RANGO_GRAN_DEFAULT[state.panelRango];
   refreshPanel();
 });
-['selLinea','selTurno','selGranularidad'].forEach(function(id){
+['selPlanta','selLinea','selTurno','selGranularidad'].forEach(function(id){
   document.getElementById(id).addEventListener('change', renderPanel);
 });
 
@@ -865,9 +860,11 @@ function refreshPanel(){
 }
 
 function filteredPanelDocs(){
+  var planta = document.getElementById('selPlanta').value;
   var linea = document.getElementById('selLinea').value;
   var turno = document.getElementById('selTurno').value;
   return state.panelDocs.filter(function(d){
+    if(planta && plantaOfLinea(d.linea)!==planta) return false;
     if(linea && d.linea!==linea) return false;
     if(turno && d.turno!==turno) return false;
     return true;
@@ -880,7 +877,9 @@ const PALETTE = ['#E8A33D','#4C8B5A','#5B8DEF','#E15252','#9B6BD1','#4FB6C4','#D
 function renderPanel(){
   var docs = filteredPanelDocs();
   var totalEval = 0, totalFallas = 0;
-  var porFalla = {}; var porTurno = { A:0, B:0, C:0, D:0 }; var porLinea = {};
+  var porFalla = {};
+  var porTurno = { A:0, B:0, C:0, D:0 }; var porTurnoEval = { A:0, B:0, C:0, D:0 };
+  var porLinea = {}; var porLineaEval = {};
   var buckets = {};
   var gran = document.getElementById('selGranularidad').value;
 
@@ -889,7 +888,9 @@ function renderPanel(){
     var f = sumFallas(d.fallas);
     totalEval += ev; totalFallas += f;
     porTurno[d.turno] = (porTurno[d.turno]||0) + f;
+    porTurnoEval[d.turno] = (porTurnoEval[d.turno]||0) + ev;
     porLinea[d.linea] = (porLinea[d.linea]||0) + f;
+    porLineaEval[d.linea] = (porLineaEval[d.linea]||0) + ev;
     FALLAS_CONTEO.forEach(function(k){ if(d.fallas && d.fallas[k]) porFalla[k] = (porFalla[k]||0) + d.fallas[k]; });
 
     var key;
@@ -933,16 +934,16 @@ function renderPanel(){
 
   chartTurno = upsertChart(chartTurno, 'chartTurno', {
     type:'bar',
-    data:{ labels:TURNOS, datasets:[{ label:'Fallas', data:TURNOS.map(function(t){ return porTurno[t]||0; }), backgroundColor:PALETTE }] },
-    options:{ plugins:{legend:{display:false}}, scales:chartScales() }
+    data:{ labels:TURNOS, datasets:[{ label:'% Calidad', data:TURNOS.map(function(t){ var p=calidadPct(porTurnoEval[t], porTurno[t]); return p==null?0:Number(p.toFixed(1)); }), backgroundColor:PALETTE }] },
+    options:{ plugins:{legend:{display:false}}, scales:chartScales({min:0,max:100}) }
   });
 
   var lineaLabels = LINEAS.map(function(l){ return l.label; });
-  var lineaData = LINEAS.map(function(l){ return porLinea[l.id]||0; });
+  var lineaData = LINEAS.map(function(l){ var p=calidadPct(porLineaEval[l.id], porLinea[l.id]||0); return p==null?0:Number(p.toFixed(1)); });
   chartLinea = upsertChart(chartLinea, 'chartLinea', {
     type:'bar',
-    data:{ labels:lineaLabels, datasets:[{ label:'Fallas', data:lineaData, backgroundColor:PALETTE }] },
-    options:{ plugins:{legend:{display:false}}, scales:chartScales() }
+    data:{ labels:lineaLabels, datasets:[{ label:'% Calidad', data:lineaData, backgroundColor:PALETTE }] },
+    options:{ plugins:{legend:{display:false}}, scales:chartScales({min:0,max:100}) }
   });
 }
 
@@ -960,10 +961,6 @@ function upsertChart(instance, canvasId, cfg){
 function fillLineaSelects(){
   var selLinea = document.getElementById('selLinea');
   LINEAS.forEach(function(l){ selLinea.insertAdjacentHTML('beforeend','<option value="'+l.id+'">'+esc(l.label)+'</option>'); });
-  var tolLinea = document.getElementById('tolLinea');
-  LINEAS.forEach(function(l){ tolLinea.insertAdjacentHTML('beforeend','<option value="'+l.id+'">'+esc(l.label)+'</option>'); });
-  var tolFalla = document.getElementById('tolFalla');
-  TODAS_FALLAS.forEach(function(f){ tolFalla.insertAdjacentHTML('beforeend','<option value="'+esc(f)+'">'+esc(f)+'</option>'); });
 }
 
 document.getElementById('btnExport').addEventListener('click', function(){
@@ -984,48 +981,6 @@ document.getElementById('btnExport').addEventListener('click', function(){
   XLSX.utils.book_append_sheet(wb, ws, 'Qualitron');
   XLSX.writeFile(wb, 'qualitron_'+state.panelRango+'_'+fechaStr(new Date())+'.xlsx');
 });
-
-/* ===================== Tolerancias ===================== */
-
-document.getElementById('btnTolGuardar').addEventListener('click', function(){
-  if(!db){ toast('Sin conexión a base de datos'); return; }
-  var linea = document.getElementById('tolLinea').value;
-  var falla = document.getElementById('tolFalla').value;
-  var anterior = document.getElementById('tolAnterior').value;
-  var nuevo = document.getElementById('tolNuevo').value;
-  var operador = document.getElementById('tolOperador').value.trim();
-  if(!falla || anterior===''|| nuevo===''){ toast('Completá falla, valor anterior y nuevo'); return; }
-  db.collection(COL_TOLERANCIAS).add({
-    linea: linea, falla: falla, valorAnterior: Number(anterior), valorNuevo: Number(nuevo),
-    operador: operador, timestamp: firebase.firestore.FieldValue.serverTimestamp()
-  }).then(function(){
-    toast('Ajuste registrado');
-    document.getElementById('tolAnterior').value='';
-    document.getElementById('tolNuevo').value='';
-  }).catch(function(e){ console.error(e); toast('Error al registrar'); });
-});
-
-function subscribeTolerancias(){
-  if(!db) return;
-  state.unsubTol = db.collection(COL_TOLERANCIAS).orderBy('timestamp','desc').limit(30)
-    .onSnapshot(function(snap){
-      state.tolerancias = snap.docs.map(function(d){ return d.data(); });
-      renderTolList();
-    }, function(err){ console.error(err); });
-}
-function renderTolList(){
-  var el = document.getElementById('tolList');
-  if(!state.tolerancias.length){ el.innerHTML = '<div class="card" style="text-align:center; color:var(--text-muted);">Todavía no hay ajustes registrados.</div>'; return; }
-  el.innerHTML = state.tolerancias.map(function(t){
-    var fecha = t.timestamp && t.timestamp.toDate ? t.timestamp.toDate() : null;
-    var fstr = fecha ? fecha.toLocaleString('es-AR') : '—';
-    var lineaLabel = (LINEAS.find(function(l){ return l.id===t.linea; })||{}).label || t.linea;
-    return '<div class="tol-item">'+
-      '<div><div class="change">'+esc(t.falla)+'</div><div class="meta">'+esc(lineaLabel)+' · '+esc(t.operador||'—')+' · '+fstr+'</div></div>'+
-      '<div class="change">'+esc(t.valorAnterior)+' → '+esc(t.valorNuevo)+'</div>'+
-    '</div>';
-  }).join('');
-}
 
 /* ===================== Manuales ===================== */
 
@@ -1569,7 +1524,7 @@ document.getElementById('btnLogout').addEventListener('click', function(){
 
 function applyRoleVisibility(){
   var restrict = state.role === 'panel';
-  ['carga','tolerancias','manuales'].forEach(function(v){
+  ['carga','manuales'].forEach(function(v){
     document.querySelector('#viewTabs [data-view="'+v+'"]').classList.toggle('hidden', restrict);
   });
   if(restrict){
@@ -1577,7 +1532,6 @@ function applyRoleVisibility(){
     document.querySelectorAll('#viewTabs .tab-chip').forEach(function(b){ b.classList.toggle('active', b.dataset.view==='panel'); });
     document.getElementById('viewCarga').classList.add('hidden');
     document.getElementById('viewPanel').classList.remove('hidden');
-    document.getElementById('viewTolerancias').classList.add('hidden');
     document.getElementById('viewManuales').classList.add('hidden');
   }
 }
@@ -1597,7 +1551,6 @@ function init(){
     updateHourNav();
     subscribeHoraDoc();
     subscribeTodayDocs();
-    subscribeTolerancias();
     mnlApplySub();
     mnlCargarDesdeDB();
   } else {
