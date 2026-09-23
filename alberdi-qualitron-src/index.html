@@ -284,9 +284,8 @@
   <div class="section-title">Producto en curso</div>
   <div class="row">
     <div class="field"><label>Producto</label><input id="inpProducto" list="dlProductos" autocomplete="off" placeholder="Ej: Porcelanato 60x60"></div>
-    <div class="field"><label>Formato</label><input id="inpFormato" list="dlFormatos" autocomplete="off" placeholder="Ej: 60x60"></div>
+    <div class="field"><label>Formato</label><select id="inpFormato"><option value="">Seleccionar…</option></select></div>
     <datalist id="dlProductos"></datalist>
-    <datalist id="dlFormatos"></datalist>
     <div class="field" style="max-width:150px;"><label>Placas evaluadas (hora)</label><input id="inpEvaluadas" type="number" min="0" inputmode="numeric" placeholder="0"></div>
   </div>
 
@@ -491,7 +490,6 @@ const firebaseConfig = {
 };
 const COL_HORAS = 'qualitron_horas';
 const COL_PRODUCTOS = 'qualitron_productos';
-const COL_FORMATOS = 'qualitron_formatos';
 
 const OPERADOR_EMAIL = 'operador@qualitron.app';
 
@@ -524,6 +522,8 @@ function plantaOfLinea(lineaId){
   var p = PLANTAS.find(function(pl){ return pl.lineas.indexOf(lineaId)!==-1; });
   return p ? p.id : null;
 }
+
+const FORMATOS = ['60x60','60x120','20x120','80x80','80x160','120x120','20x80','30x60','120x240'];
 
 const CATEGORIAS = [
   { nombre:'Prensa', fallas:['Pegado de Prensa','Suciedad de Prensa','Grumo reprensado','Empastado','Bordes Agrietados','Despunte crudo'] },
@@ -691,7 +691,7 @@ function upsertCatalogValue(col, datalistId, value){
   document.getElementById(id).addEventListener('change', function(){
     lsSet(id==='inpProducto' ? 'qtr_producto_'+state.linea : 'qtr_formato_'+state.linea, this.value);
     saveHoraMeta();
-    upsertCatalogValue(id==='inpProducto'?COL_PRODUCTOS:COL_FORMATOS, id==='inpProducto'?'dlProductos':'dlFormatos', this.value);
+    if(id==='inpProducto') upsertCatalogValue(COL_PRODUCTOS, 'dlProductos', this.value);
   });
 });
 document.getElementById('inpEvaluadas').addEventListener('change', function(){
@@ -903,7 +903,6 @@ function refreshPanel(){
     .get().then(function(snap){
       state.panelDocs = snap.docs.map(function(d){ return d.data(); });
       fillProductoSelect();
-      fillFormatoSelect();
       renderPanel();
     }).catch(function(err){ console.error(err); toast('Error al leer datos del panel'); });
 }
@@ -915,14 +914,6 @@ function fillProductoSelect(){
   sel.innerHTML = '<option value="">Todos</option>' + productos.map(function(p){ return '<option value="'+esc(p)+'">'+esc(p)+'</option>'; }).join('');
   if(productos.indexOf(actual)!==-1) sel.value = actual;
 }
-function fillFormatoSelect(){
-  var sel = document.getElementById('selFormato');
-  var actual = sel.value;
-  var formatos = Array.from(new Set(state.panelDocs.map(function(d){ return (d.formato||'').trim(); }).filter(Boolean))).sort();
-  sel.innerHTML = '<option value="">Todos</option>' + formatos.map(function(f){ return '<option value="'+esc(f)+'">'+esc(f)+'</option>'; }).join('');
-  if(formatos.indexOf(actual)!==-1) sel.value = actual;
-}
-
 function filteredPanelDocs(){
   var planta = document.getElementById('selPlanta').value;
   var linea = document.getElementById('selLinea').value;
@@ -1029,6 +1020,13 @@ function upsertChart(instance, canvasId, cfg){
 function fillLineaSelects(){
   var selLinea = document.getElementById('selLinea');
   LINEAS.forEach(function(l){ selLinea.insertAdjacentHTML('beforeend','<option value="'+l.id+'">'+esc(l.label)+'</option>'); });
+  var selFormato = document.getElementById('selFormato');
+  var inpFormato = document.getElementById('inpFormato');
+  FORMATOS.forEach(function(f){
+    var opt = '<option value="'+esc(f)+'">'+esc(f)+'</option>';
+    selFormato.insertAdjacentHTML('beforeend', opt);
+    inpFormato.insertAdjacentHTML('beforeend', opt);
+  });
 }
 
 document.getElementById('btnExport').addEventListener('click', function(){
@@ -1620,7 +1618,6 @@ function init(){
     subscribeHoraDoc();
     subscribeTodayDocs();
     loadCatalogo(COL_PRODUCTOS, 'dlProductos');
-    loadCatalogo(COL_FORMATOS, 'dlFormatos');
     mnlApplySub();
     mnlCargarDesdeDB();
   } else {
