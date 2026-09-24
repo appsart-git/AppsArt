@@ -96,6 +96,9 @@
   .falla-group{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden;}
   .falla-group-head{padding:12px 14px; font-size:13px; font-weight:800; color:var(--text); background:var(--surface-2); display:flex; justify-content:space-between; align-items:center;}
   .falla-group-head .sub{font-size:11px; color:var(--text-muted); font-weight:600;}
+  .falla-otro{display:flex; align-items:flex-end; gap:10px; margin-top:12px; padding:12px 14px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);}
+  .falla-otro .field{min-width:0;}
+  .falla-otro .btn-primary{width:auto; flex:0 0 auto; padding-left:22px; padding-right:22px;}
   .falla-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:8px; padding:10px;}
   @media (min-width:640px){ .falla-grid{grid-template-columns:repeat(3,1fr);} }
   @media (min-width:1000px){ .falla-grid{grid-template-columns:repeat(4,1fr);} }
@@ -296,6 +299,14 @@
 
   <div class="section-title">Fallas — tocá para sumar 1</div>
   <div class="falla-groups" id="fallaGroups"></div>
+  <div class="falla-otro">
+    <div class="field">
+      <label for="inpFallaOtro">Otra falla (no está en el listado)</label>
+      <input type="text" id="inpFallaOtro" list="dlFallasOtro" maxlength="60" placeholder="Escribí la falla y tocá +1" autocomplete="off">
+      <datalist id="dlFallasOtro"></datalist>
+    </div>
+    <button class="btn-primary" id="btnFallaOtro">+1</button>
+  </div>
 
   <div class="section-title">Mediciones dimensionales — valor de la hora</div>
   <div class="card">
@@ -528,12 +539,14 @@ function plantaOfLinea(lineaId){
 
 const FORMATOS = ['60x60','60x120','20x120','80x80','80x160','120x120','20x80','30x60','120x240'];
 
+/* Los nombres de falla son la clave guardada en Firestore: no renombrarlos para no
+   romper el histórico (solo se pueden mover de grupo). */
 const CATEGORIAS = [
-  { nombre:'Prensa', fallas:['Pegado de Prensa','Suciedad de Prensa','Grumo reprensado','Empastado','Bordes Agrietados','Despunte crudo'] },
-  { nombre:'Esmalte', fallas:['Gota de Esmalte','Grieta de Esmalte','Grumo de Esmalte','Falta de Aplicación','Fuera de tono','Mancha de nano','Gota de cubierta','Raya de engobe / gota de engobe'] },
-  { nombre:'Impresión', fallas:['Mala impresión','Gota de Inkjet','Raya de Inkjet','Foliado','Punto Negro','Ojo de Buey'] },
-  { nombre:'Cocción', fallas:['Despunte Cocido','Grietas','Grieta Lateral','Cachado','Picado','Pinchazos','Desfasado'] },
-  { nombre:'Pulido / Superficie', fallas:['Raspado','Rugoso','Asperas','Raya de Espatula','Raya de Pulidora','Raya de campana','Suciedad pulida','Suciedad explotado','Suciedad Pegada','Borde Corrido'] },
+  { nombre:'Prensa y Compactadora', fallas:['Pegado de Prensa','Suciedad de Prensa','Grumo reprensado','Despunte crudo','Foliado','Grietas','Grieta Lateral','Gota de Aceite'] },
+  { nombre:'Esmalte', fallas:['Gota de Esmalte','Grieta de Esmalte','Grumo de Esmalte','Falta de Aplicación','Fuera de tono','Gota de cubierta','Raya de engobe / gota de engobe','Bordes Agrietados','Punto Negro','Ojo de Buey','Picado','Rugoso','Raya de campana'] },
+  { nombre:'Impresión', fallas:['Mala impresión','Gota de Inkjet','Raya de Inkjet','Desfasado','Borde Corrido'] },
+  { nombre:'Cocción', fallas:['Pinchazos','Asperas','Suciedad explotado','Suciedad Pegada'] },
+  { nombre:'Pulido y Rectificado', fallas:['Raspado','Raya de Pulidora','Suciedad pulida','Mancha de nano','Despunte Cocido','Cachado'] },
   { nombre:'Otros', fallas:['Placas Rotas','Tono'] }
 ];
 
@@ -541,7 +554,6 @@ const CATEGORIAS = [
    no como conteo de piezas — se cargan aparte y no suman al total de fallas / % calidad. */
 const FALLAS_MEDICION = ['Planar','Calibre'];
 const FALLAS_CONTEO = CATEGORIAS.flatMap(function(c){ return c.fallas; });
-const TODAS_FALLAS = FALLAS_CONTEO.concat(FALLAS_MEDICION);
 
 /* ===================== Utils ===================== */
 
@@ -550,9 +562,14 @@ function fechaStr(d){ return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d
 function bloqueFromHora(h){ if(h>=7 && h<=14) return 'B1'; if(h>=15 && h<=22) return 'B2'; return 'B3'; }
 function bloqueLabel(b){ return b==='B1'?'Bloque 1 (07-14h)': b==='B2'?'Bloque 2 (15-22h)':'Bloque 3 (23-06h)'; }
 function docId(linea, fecha, hora){ return linea+'_'+fecha+'_'+pad2(hora); }
+/* Fallas de conteo presentes en un doc: las del listado + las cargadas con "Otro"
+   (y fallas históricas que ya no están en el listado). */
+function fallasConteoKeys(fallasMap){
+  if(!fallasMap) return [];
+  return Object.keys(fallasMap).filter(function(k){ return FALLAS_MEDICION.indexOf(k)===-1; });
+}
 function sumFallas(fallasMap){
-  if(!fallasMap) return 0;
-  return FALLAS_CONTEO.reduce(function(a,f){ return a+(Number(fallasMap[f])||0); },0);
+  return fallasConteoKeys(fallasMap).reduce(function(a,f){ return a+(Number(fallasMap[f])||0); },0);
 }
 function calidadPct(evaluadas, fallasTotal){ if(!evaluadas) return null; var p=((evaluadas-fallasTotal)/evaluadas)*100; return Math.max(0, p); }
 function parseDecimalInput(str){
@@ -782,12 +799,14 @@ function subscribeHoraDoc(){
 function renderFallaGroups(){
   var el = document.getElementById('fallaGroups');
   var fallasMap = (state.horaDoc && state.horaDoc.fallas) || {};
+  var extras = fallasConteoKeys(fallasMap).filter(function(k){ return FALLAS_CONTEO.indexOf(k)===-1 && (Number(fallasMap[k])||0)>0; }).sort();
   el.innerHTML = CATEGORIAS.map(function(cat){
-    var total = cat.fallas.reduce(function(a,f){ return a+(fallasMap[f]||0); },0);
+    var lista = cat.nombre==='Otros' ? cat.fallas.concat(extras) : cat.fallas;
+    var total = lista.reduce(function(a,f){ return a+(fallasMap[f]||0); },0);
     return '<div class="falla-group">'+
       '<div class="falla-group-head"><span>'+esc(cat.nombre)+'</span><span class="sub">'+total+' esta hora</span></div>'+
       '<div class="falla-grid">'+
-        cat.fallas.map(function(f){
+        lista.map(function(f){
           var n = fallasMap[f]||0;
           return '<div class="falla-btn'+(n>0?' has-count':'')+'" data-falla="'+esc(f)+'">'+
             '<span class="fname">'+esc(f)+'</span>'+
@@ -804,6 +823,37 @@ document.getElementById('fallaGroups').addEventListener('click', function(e){
   if(minus){ tapFalla(minus.dataset.minus, -1); return; }
   var btn = e.target.closest('.falla-btn');
   if(btn){ tapFalla(btn.dataset.falla, 1); }
+});
+
+/* "Otro": falla tipeada que no está en el listado. Si coincide con una del listado
+   (sin importar mayúsculas/acentos) se suma a esa, para no duplicar. */
+function normFalla(s){ return String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim(); }
+function agregarFallaOtro(){
+  var inp = document.getElementById('inpFallaOtro');
+  var txt = inp.value.replace(/\s+/g,' ').trim();
+  if(!txt) return;
+  if(/^__.*__$/.test(txt) || txt.length>60){ toast('Nombre de falla inválido'); return; }
+  if(FALLAS_MEDICION.some(function(f){ return normFalla(f)===normFalla(txt); })){ toast(txt+' se carga en Mediciones'); return; }
+  var existentes = (state.horaDoc && state.horaDoc.fallas) ? Object.keys(state.horaDoc.fallas) : [];
+  var match = FALLAS_CONTEO.concat(existentes, otrasFallasUsadas()).find(function(f){ return normFalla(f)===normFalla(txt); });
+  tapFalla(match || txt, 1);
+  inp.value = '';
+  toast('+1 '+(match || txt));
+}
+/* Fallas "Otro" usadas hoy en esta línea, como sugerencias del campo. */
+function otrasFallasUsadas(){
+  var set = {};
+  Object.keys(state.todayDocs || {}).forEach(function(h){
+    fallasConteoKeys(state.todayDocs[h].fallas).forEach(function(k){ if(FALLAS_CONTEO.indexOf(k)===-1) set[k]=1; });
+  });
+  return Object.keys(set).sort();
+}
+function renderOtrasSugerencias(){
+  document.getElementById('dlFallasOtro').innerHTML = otrasFallasUsadas().map(function(f){ return '<option value="'+esc(f)+'">'; }).join('');
+}
+document.getElementById('btnFallaOtro').addEventListener('click', agregarFallaOtro);
+document.getElementById('inpFallaOtro').addEventListener('keydown', function(e){
+  if(e.key==='Enter'){ e.preventDefault(); agregarFallaOtro(); }
 });
 
 function renderMediciones(){
@@ -848,6 +898,7 @@ function subscribeTodayDocs(){
       snap.forEach(function(d){ map[d.data().hora] = d.data(); });
       state.todayDocs = map;
       renderTodayTable();
+      renderOtrasSugerencias();
     }, function(err){ console.error(err); });
 }
 function renderTodayTable(){
@@ -964,7 +1015,7 @@ function renderPanel(){
     porTurnoEval[d.turno] = (porTurnoEval[d.turno]||0) + ev;
     porLinea[d.linea] = (porLinea[d.linea]||0) + f;
     porLineaEval[d.linea] = (porLineaEval[d.linea]||0) + ev;
-    FALLAS_CONTEO.forEach(function(k){ if(d.fallas && d.fallas[k]) porFalla[k] = (porFalla[k]||0) + d.fallas[k]; });
+    fallasConteoKeys(d.fallas).forEach(function(k){ var n = Number(d.fallas[k])||0; if(n) porFalla[k] = (porFalla[k]||0) + n; });
 
     var key;
     var parts = d.fecha.split('-'); var y=parts[0], m=parseInt(parts[1],10);
@@ -1047,13 +1098,19 @@ document.getElementById('btnExport').addEventListener('click', function(){
   var docs = filteredPanelDocs();
   if(!docs.length){ toast('No hay datos para exportar'); return; }
   var rows = [];
+  var extras = [];
+  docs.forEach(function(d){
+    fallasConteoKeys(d.fallas).forEach(function(k){ if(FALLAS_CONTEO.indexOf(k)===-1 && extras.indexOf(k)===-1 && Number(d.fallas[k])) extras.push(k); });
+  });
+  extras.sort();
+  var columnasFallas = FALLAS_CONTEO.concat(extras, FALLAS_MEDICION);
   docs.forEach(function(d){
     var base = { Fecha:d.fecha, Hora:d.hora, Turno:d.turno, Linea:d.linea, Producto:d.producto||'', Formato:d.formato||'', Evaluadas:d.evaluadas||0 };
     var totalF = sumFallas(d.fallas);
     base['Fallas totales'] = totalF;
     var pct = calidadPct(d.evaluadas, totalF);
     base['% Calidad'] = pct==null?'':Number(pct.toFixed(1));
-    TODAS_FALLAS.forEach(function(f){ base[f] = (d.fallas && d.fallas[f]) || 0; });
+    columnasFallas.forEach(function(f){ base[f] = (d.fallas && d.fallas[f]) || 0; });
     rows.push(base);
   });
   var ws = XLSX.utils.json_to_sheet(rows);
