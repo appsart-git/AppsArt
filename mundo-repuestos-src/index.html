@@ -268,6 +268,40 @@ const LS_PREFIX = 'mundoRepuestos:';
 const RUBROS = ['Motor','Frenos','Suspensión','Eléctrico','Filtros','Correas y transmisión','Escape','Refrigeración','Carrocería','Accesorios','Otro'];
 const COLLECTIONS = ['productos','clientes','proveedores','ventas','compras','pagos'];
 
+// Mismo listado marca→modelos que usa Daytona/Lote 9 (buscador de vehículos), copiado acá para
+// que el picker de "Nueva venta" ofrezca las mismas opciones. Si un auto no está en la lista, el
+// selector cae a "Otro" y deja escribir la marca/modelo a mano.
+const MARCAS_MODELOS = {
+  "Audi": ["A3","A4","Q3"],
+  "BMW": ["Serie 3","X1","X3"],
+  "Chery": ["QQ","Tiggo"],
+  "Chevrolet": ["Agile","Astra","Camaro","Captiva","Celta","Classic","Cobalt","Corsa","Cruze","Equinox","Meriva","Onix","Prisma","S10","Silverado","Sonic","Spin","Tracker","Trailblazer","Vectra","Zafira"],
+  "Citroën": ["Berlingo","C3","C4","C4 Cactus"],
+  "DS": ["DS3"],
+  "Fiat": ["500","Argo","Cronos","Fiorino","Idea","Linea","Mobi","Palio","Punto","Siena","Strada","Toro","Uno"],
+  "Ford": ["EcoSport","Escape/Kuga","F-100/F-150","Fiesta","Focus","Fusion","Ka","Maverick","Mondeo","Mustang","Ranger","Territory"],
+  "Haval": ["H6"],
+  "Honda": ["City","Civic","CR-V","Fit","HR-V","WR-V"],
+  "Hyundai": ["Accent","Creta","Elantra","HB20","i10","Santa Fe","Tucson"],
+  "Isuzu": ["D-Max"],
+  "JAC": ["T40/T60"],
+  "Jeep": ["Compass","Grand Cherokee","Renegade"],
+  "Kia": ["Cerato","Picanto","Rio","Sorento","Soul","Sportage"],
+  "Mazda": ["2","3","CX-3","CX-5"],
+  "Mercedes-Benz": ["Clase A","Clase C","GLA"],
+  "Mitsubishi": ["ASX","L200","Lancer","Outlander"],
+  "Nissan": ["Frontier","Kicks","March","Np300","Sentra","Tiida","Versa","X-Trail"],
+  "Peugeot": ["2008","206","207","208","3008","301","307","308","408","5008","Partner"],
+  "RAM": ["1500","2500"],
+  "Renault": ["Alaskan","Captur","Clio","Duster","Fluence","Kangoo","Koleos","Kwid","Logan","Megane","Oroch","Sandero","Symbol"],
+  "Subaru": ["Forester","Impreza","XV"],
+  "Suzuki": ["Fun","Jimny","Swift","Vitara"],
+  "Toyota": ["Camry","Corolla","Corolla Cross","Etios","Hilux","RAV4","SW4/Fortuner","Yaris"],
+  "Volkswagen": ["Amarok","Bora","Fox","Gol","Golf","Jetta","Nivus","Passat","Polo","Suran","Taos","T-Cross","Tiguan","Up!","Vento","Voyage"]
+};
+const MARCAS_ORDEN = Object.keys(MARCAS_MODELOS).sort();
+const MARCA_OTRO = '__otro__';
+
 /* ===================== BACKEND MODE (Firestore or localStorage) ===================== */
 // Config real del proyecto Firebase de Mundo Repuestos: al dejarla acá, cualquier dispositivo
 // que abra este mismo archivo/link queda conectado a la base compartida sin pasos extra.
@@ -434,6 +468,18 @@ function fechaEnRango(fechaISO, rango){
 }
 function estadoMovPill(m){
   return m.anulada ? '<span class="pill pill-bad">Anulada</span>' : '<span class="pill pill-ok">Confirmada</span>';
+}
+// Marca/modelo es por línea de producto (una venta puede tener repuestos para más de un auto),
+// así que para mostrar "el vehículo" de una venta entera se juntan los autos distintos que
+// aparezcan en sus ítems. it.vehiculo es el campo de texto libre viejo (ventas de antes de este
+// cambio) — se usa como respaldo para esos casos.
+function ventaVehiculoResumen(venta){
+  const vistos = [];
+  (venta.items||[]).forEach(it => {
+    const combinado = [it.marca, it.modelo].filter(Boolean).join(' ').trim() || (it.vehiculo||'').trim();
+    if(combinado && !vistos.includes(combinado)) vistos.push(combinado);
+  });
+  return vistos.join(', ');
 }
 function toast(msg){
   const el = document.getElementById('toast');

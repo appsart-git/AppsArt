@@ -14,16 +14,14 @@ function estadoCuentaInnerHtml(cliente){
   const pagos = state.pagos
     .filter(p => p.tipo==='cliente' && p.entidadId===cliente.id && !p.anulada)
     .sort((a,b)=>a.createdAt-b.createdAt);
-  const ventasRows = ventasCuenta.map(v => {
-    const descPct = v.subtotal>0 ? (Number(v.descuentoTotal)||0)/v.subtotal*100 : 0;
-    return `<tr>
-      <td>${String(v.numero).padStart(5,'0')}</td>
+  const ventasRows = ventasCuenta.map(v => `<tr>
       <td>${esc(v.fecha)}</td>
+      <td>${String(v.numero).padStart(5,'0')}</td>
+      <td class="muted">${esc(ventaVehiculoResumen(v))||'—'}</td>
       <td class="num">${money(v.subtotal)}</td>
-      <td class="num">${descPct?descPct.toFixed(1)+'%':'—'}</td>
+      <td class="num">${money(v.descuentoTotal)}</td>
       <td class="num">${money(v.total)}</td>
-    </tr>`;
-  }).join('');
+    </tr>`).join('');
   const pagosRows = pagos.map(p => `
     <tr><td>${new Date(p.createdAt).toLocaleDateString('es-AR')}${p.nota?' — '+esc(p.nota):''}</td><td class="num">${money(p.monto)}</td></tr>`).join('');
   const n = state.negocio;
@@ -43,8 +41,8 @@ function estadoCuentaInnerHtml(cliente){
       </div>
       <h3 style="font-size:12px; margin:16px 0 6px; text-transform:uppercase; color:#888;">Ventas a cuenta corriente</h3>
       <table class="cp-table">
-        <thead><tr><th>N°</th><th>Fecha</th><th class="num">Subtotal</th><th class="num">Desc.</th><th class="num">Total</th></tr></thead>
-        <tbody>${ventasRows || `<tr><td colspan="5" style="text-align:center;color:#888;padding:10px 0;">Sin ventas a cuenta corriente.</td></tr>`}</tbody>
+        <thead><tr><th>Fecha</th><th>N°</th><th>Vehículo</th><th class="num">Total</th><th class="num">Descuento</th><th class="num">Valor c/desc.</th></tr></thead>
+        <tbody>${ventasRows || `<tr><td colspan="6" style="text-align:center;color:#888;padding:10px 0;">Sin ventas a cuenta corriente.</td></tr>`}</tbody>
       </table>
       ${pagosRows ? `<table class="cp-table" style="margin-top:14px;">
         <thead><tr><th>Pagos registrados</th><th class="num">Monto</th></tr></thead>
@@ -141,12 +139,14 @@ async function descargarTablaExcel(btn, filename, sheetName, headers, rows){
 function comprobanteInnerHtml(venta, cliente){
   const n = state.negocio;
   const items = venta.items.map(it => {
-    const sub = (Number(it.cantidad)||0)*(Number(it.precioUnitario)||0)*(1-(Number(it.descuentoPct)||0)/100);
+    const marca = it.marca || '';
+    const modelo = it.modelo || (!it.marca && it.vehiculo ? it.vehiculo : ''); // dato viejo sin marca/modelo separados
     return `<tr>
-      <td>${esc(it.descripcion)}${it.vehiculo?`<div style="font-size:10px;color:#888;">Vehículo: ${esc(it.vehiculo)}</div>`:''}${it.descuentoPct?`<div style="font-size:10px;color:#888;">Desc. ${it.descuentoPct}%</div>`:''}</td>
+      <td>${esc(it.descripcion)}</td>
+      <td>${esc(marca)}</td>
+      <td>${esc(modelo)}</td>
       <td class="num">${it.cantidad}</td>
       <td class="num">${money(it.precioUnitario)}</td>
-      <td class="num">${money(sub)}</td>
     </tr>`;
   }).join('');
   const pagoTxt = venta.formaPago==='contado' ? 'Contado' : venta.formaPago==='cuenta corriente' ? 'Cuenta corriente' : 'Pago parcial';
@@ -162,17 +162,14 @@ function comprobanteInnerHtml(venta, cliente){
         <div style="text-align:right;">Cliente:<br><b>${esc(venta.clienteNombre||'Consumidor final')}</b></div>
       </div>
       <table class="cp-table">
-        <thead><tr><th>Descripción</th><th class="num">Cant.</th><th class="num">Precio</th><th class="num">Subtotal</th></tr></thead>
+        <thead><tr><th>Descripción</th><th>Marca</th><th>Modelo</th><th class="num">Cant.</th><th class="num">Precio</th></tr></thead>
         <tbody>${items}</tbody>
       </table>
       <div class="cp-totals">
-        <div class="r"><span>Subtotal</span><span>${money(venta.subtotal)}</span></div>
-        <div class="r"><span>Descuentos</span><span>-${money(venta.descuentoTotal)}</span></div>
         <div class="r total"><span>Total</span><span>${money(venta.total)}</span></div>
       </div>
       <div class="cp-pago">
         Forma de pago: <b>${pagoTxt}</b>
-        ${venta.saldoPendiente>0 ? `<br>Abonado: ${money(venta.montoAbonado)} — Saldo pendiente: <b>${money(venta.saldoPendiente)}</b>` : ''}
       </div>
     </div>
     <div class="cp-foot">by <img src="./appsart-brand.png" alt="AppsArt"></div>`;

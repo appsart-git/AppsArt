@@ -92,8 +92,13 @@ function entidadDetailHtml(tipo, id){
     </div>
     <h3 style="font-size:14px; margin-top:16px;">${cfg.movLabel}</h3>
     <div class="table-wrap" style="max-height:220px; overflow-y:auto;">
+      ${tipo==='clientes' ? `
+      <table><thead><tr><th>Fecha</th><th>Vehículo</th><th>Total</th><th>Descuento</th><th>Valor con descuento</th></tr></thead>
+      <tbody>${movs.length ? movs.map(m=>`<tr${m.anulada?' style="opacity:.55;"':''}><td>${esc(m.fecha)}</td><td class="muted">${esc(ventaVehiculoResumen(m))||'—'}</td><td>${money(m.subtotal)}</td><td>${money(m.descuentoTotal)}</td><td>${money(m.total)}</td></tr>`).join('') : `<tr><td colspan="5" class="empty">Sin movimientos</td></tr>`}</tbody></table>
+      ` : `
       <table><thead><tr><th>Fecha</th><th>Total</th><th>Forma de pago</th><th>Saldo generado</th><th>Estado</th></tr></thead>
       <tbody>${movs.length ? movs.map(m=>`<tr${m.anulada?' style="opacity:.55;"':''}><td>${fmtDate(m.createdAt)}</td><td>${money(m.total)}</td><td class="muted">${esc(m.formaPago)}</td><td>${money(m.saldoPendiente)}</td><td>${estadoMovPill(m)}</td></tr>`).join('') : `<tr><td colspan="5" class="empty">Sin movimientos</td></tr>`}</tbody></table>
+      `}
     </div>
     <h3 style="font-size:14px; margin-top:16px;">Pagos registrados</h3>
     <div class="table-wrap" style="max-height:220px; overflow-y:auto;">

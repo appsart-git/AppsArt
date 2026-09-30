@@ -6,6 +6,38 @@ function cartSubtotal(){ return state.cart.reduce((s,l)=> s + (Number(l.cantidad
 function cartTotal(){ return state.cart.reduce((s,l)=> s + cartLineTotal(l), 0); }
 function cartDescuentoTotal(){ return cartSubtotal() - cartTotal(); }
 
+// Resuelve la marca/modelo final de una línea: si eligieron "Otra…" se usa lo que escribieron a mano.
+function resolverMarcaModelo(l){
+  return {
+    marca: l.marca===MARCA_OTRO ? (l.marcaOtro||'').trim() : (l.marca||''),
+    modelo: l.marca===MARCA_OTRO ? (l.modeloOtro||'').trim() : (l.modelo===MARCA_OTRO ? (l.modeloOtro||'').trim() : (l.modelo||''))
+  };
+}
+
+// Selector de marca/modelo en cascada (mismo patrón que Daytona/Lote 9): elegís marca de la lista,
+// se filtran los modelos de esa marca; "Otra marca…"/"Otro modelo…" caen a un campo de texto libre
+// para autos que no están en el catálogo.
+function marcaModeloPickerHtml(ns, i, l){
+  const marcaEsOtro = l.marca === MARCA_OTRO;
+  const modelos = !marcaEsOtro ? (MARCAS_MODELOS[l.marca]||[]) : [];
+  return `
+    <div class="row2" style="margin-top:5px; gap:5px;">
+      <select data-change="${ns}Marca" data-i="${i}" style="font-size:12px; padding:5px 6px;">
+        <option value="">Marca…</option>
+        ${MARCAS_ORDEN.map(m=>`<option value="${esc(m)}" ${l.marca===m?'selected':''}>${esc(m)}</option>`).join('')}
+        <option value="${MARCA_OTRO}" ${marcaEsOtro?'selected':''}>Otra marca…</option>
+      </select>
+      ${marcaEsOtro
+        ? `<input type="text" placeholder="Marca" value="${esc(l.marcaOtro||'')}" data-input="${ns}MarcaOtro" data-i="${i}" style="font-size:12px; padding:5px 6px;">`
+        : `<select data-change="${ns}Modelo" data-i="${i}" style="font-size:12px; padding:5px 6px;" ${!l.marca?'disabled':''}>
+            <option value="">Modelo…</option>
+            ${modelos.map(m=>`<option value="${esc(m)}" ${l.modelo===m?'selected':''}>${esc(m)}</option>`).join('')}
+            <option value="${MARCA_OTRO}" ${l.modelo===MARCA_OTRO?'selected':''}>Otro modelo…</option>
+          </select>`}
+    </div>
+    ${(marcaEsOtro || l.modelo===MARCA_OTRO) ? `<input type="text" placeholder="Modelo" value="${esc(l.modeloOtro||'')}" data-input="${ns}ModeloOtro" data-i="${i}" style="margin-top:5px; font-size:12px; padding:5px 6px;">` : ''}`;
+}
+
 function renderVentas(){
   document.getElementById('main').innerHTML = `
     <div class="section-head"><h1>Ventas</h1></div>
@@ -39,7 +71,7 @@ function renderVentaNueva(){
                           <input type="checkbox" data-action="ventaToggleSinStock" data-i="${i}" ${l.sinStock?'checked':''} style="width:auto;">
                           Venta sin stock
                         </label>`}
-                    <input type="text" placeholder="Vehículo (marca y modelo)" value="${esc(l.vehiculo||'')}" data-input="ventaVehiculo" data-i="${i}" style="margin-top:5px; font-size:12px; padding:5px 8px;">
+                    ${marcaModeloPickerHtml('venta', i, l)}
                   </td>
                   <td><input class="cart-line-input" type="number" min="1" step="1" value="${l.cantidad}" data-change="ventaCantidad" data-i="${i}"></td>
                   <td><input class="cart-line-input" type="number" min="0" step="0.01" value="${l.precioUnitario}" data-change="ventaPrecio" data-i="${i}"></td>
@@ -100,7 +132,7 @@ function renderVentaNueva(){
     state.cart.push({
       productoId:p.id, codigoInterno:p.codigoInterno, descripcion:p.descripcion, cantidad:1,
       precioUnitario:Number(p.precioVenta)||0, costoUnitario:Number(p.costoUltimo)||0, descuentoPct:0, stockDisponible:Number(p.stock)||0,
-      vehiculo:'',
+      marca:'', modelo:'', marcaOtro:'', modeloOtro:'',
       sinStock:false, sinStockProveedorId:null, sinStockProveedorNombre:'', sinStockCosto:0, sinStockFormaPago:'contado'
     });
     renderVentas();
@@ -155,7 +187,19 @@ function ventaNuevoProductoFormHtml(){
       <div class="field"><label>Código proveedor/fabricante (opcional)</label><input id="np_codigo"></div>
       <div class="field"><label>Rubro</label><select id="np_rubro">${RUBROS.map(r=>`<option>${r}</option>`).join('')}</select></div>
     </div>
-    <div class="field"><label>Vehículo (opcional)</label><input id="np_vehiculo" placeholder="Ej: Fiat Cronos 2020 — dejalo vacío si es un insumo genérico"></div>
+    <div class="field">
+      <label>Vehículo (opcional — dejalo vacío si es un insumo genérico)</label>
+      <div class="row2">
+        <select id="np_marca">
+          <option value="">Marca…</option>
+          ${MARCAS_ORDEN.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('')}
+          <option value="${MARCA_OTRO}">Otra marca…</option>
+        </select>
+        <select id="np_modelo" disabled><option value="">Modelo…</option></select>
+      </div>
+      <input id="np_marcaOtro" type="text" placeholder="Marca" style="display:none; margin-top:8px;">
+      <input id="np_modeloOtro" type="text" placeholder="Modelo" style="display:none; margin-top:8px;">
+    </div>
     <div class="row2">
       <div class="field"><label>Cantidad</label><input id="np_cantidad" type="number" min="1" step="1" value="1"></div>
       <div class="field"><label>Precio de venta (al cliente)</label><input id="np_precioVenta" type="number" min="0" step="0.01" value="0"></div>
@@ -179,6 +223,44 @@ function ventaNuevoProductoFormHtml(){
       <button class="btn" data-action="closeModal">Cancelar</button>
       <button class="btn btn-primary" data-action="agregarVentaProductoNuevoSinStock">Agregar a la venta</button>
     </div>`;
+}
+
+// Wiring vanilla (sin pasar por state.cart) para el par marca/modelo de un formulario estático
+// como el modal de "producto nuevo": arma el mismo comportamiento en cascada de marcaModeloPickerHtml
+// pero manipulando el DOM directo, porque acá no hay un índice de carrito al que engancharse.
+function wireMarcaModeloEstatico(prefix){
+  const marcaSel = document.getElementById(prefix+'_marca');
+  const modeloSel = document.getElementById(prefix+'_modelo');
+  const marcaOtro = document.getElementById(prefix+'_marcaOtro');
+  const modeloOtro = document.getElementById(prefix+'_modeloOtro');
+  function refrescarModelos(){
+    const esOtro = marcaSel.value === MARCA_OTRO;
+    marcaOtro.style.display = esOtro ? '' : 'none';
+    modeloSel.style.display = esOtro ? 'none' : '';
+    modeloSel.disabled = !marcaSel.value || esOtro;
+    const modelos = !esOtro ? (MARCAS_MODELOS[marcaSel.value]||[]) : [];
+    modeloSel.innerHTML = '<option value="">Modelo…</option>' + modelos.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join('') + `<option value="${MARCA_OTRO}">Otro modelo…</option>`;
+    refrescarModeloOtro();
+  }
+  function refrescarModeloOtro(){
+    modeloOtro.style.display = (marcaSel.value===MARCA_OTRO || modeloSel.value===MARCA_OTRO) ? '' : 'none';
+  }
+  marcaSel.addEventListener('change', refrescarModelos);
+  modeloSel.addEventListener('change', refrescarModeloOtro);
+  refrescarModelos();
+}
+
+// Lee el resultado del picker de marca/modelo de un formulario estático (ver wireMarcaModeloEstatico).
+function leerMarcaModeloEstatico(prefix){
+  const marcaSel = document.getElementById(prefix+'_marca');
+  const modeloSel = document.getElementById(prefix+'_modelo');
+  const marcaOtro = document.getElementById(prefix+'_marcaOtro').value.trim();
+  const modeloOtro = document.getElementById(prefix+'_modeloOtro').value.trim();
+  const esOtroMarca = marcaSel.value === MARCA_OTRO;
+  return {
+    marca: esOtroMarca ? marcaOtro : marcaSel.value,
+    modelo: esOtroMarca ? modeloOtro : (modeloSel.value===MARCA_OTRO ? modeloOtro : modeloSel.value)
+  };
 }
 
 function ventasFiltradas(){
@@ -253,11 +335,24 @@ async function editarVentaEjecutar(id){
 
   const cart = (v.items||[]).map(it => {
     const p = it.productoId ? findProducto(it.productoId) : null;
+    // Reconstruye el estado del picker marca/modelo: si la marca guardada está en el catálogo
+    // conocido se selecciona tal cual; si no (marca vieja "Otro", o un item de antes de este
+    // cambio que solo tenía el campo de texto libre "vehiculo"), cae al modo "Otra marca…".
+    let marca = '', modelo = '', marcaOtro = '', modeloOtro = '';
+    if(it.marca && MARCAS_MODELOS[it.marca]){
+      marca = it.marca;
+      if(it.modelo && MARCAS_MODELOS[it.marca].includes(it.modelo)) modelo = it.modelo;
+      else if(it.modelo){ modelo = MARCA_OTRO; modeloOtro = it.modelo; }
+    } else if(it.marca || it.modelo){
+      marca = MARCA_OTRO; marcaOtro = it.marca || ''; modeloOtro = it.modelo || '';
+    } else if(it.vehiculo){
+      marca = MARCA_OTRO; marcaOtro = it.vehiculo; // dato viejo, previo al picker de marca/modelo
+    }
     const line = {
       productoId: it.productoId, codigoInterno: p?p.codigoInterno:'', descripcion: it.descripcion,
       cantidad: Number(it.cantidad), precioUnitario: Number(it.precioUnitario),
       costoUnitario: Number(it.costoUnitario)||0, descuentoPct: Number(it.descuentoPct)||0,
-      stockDisponible: p?Number(p.stock)||0:0, vehiculo: it.vehiculo||'',
+      stockDisponible: p?Number(p.stock)||0:0, marca, modelo, marcaOtro, modeloOtro,
       sinStock: !!it.sinStock, sinStockProveedorId:null, sinStockProveedorNombre:'',
       sinStockCosto: Number(it.costoUnitario)||0, sinStockFormaPago:'contado'
     };
@@ -354,9 +449,19 @@ Object.assign(actions, {
     l.sinStockProveedorId = null; l.sinStockProveedorNombre = '';
     renderVentaNueva();
   },
+  ventaMarca(el){
+    const l = state.cart[Number(el.dataset.i)];
+    l.marca = el.value; l.modelo = ''; l.modeloOtro = '';
+    renderVentaNueva();
+  },
+  ventaModelo(el){
+    state.cart[Number(el.dataset.i)].modelo = el.value;
+    renderVentaNueva();
+  },
   ventaNuevoProductoSinStock(){
     if(!state.proveedores.length){ toast('Primero cargá al menos un proveedor (sección Proveedores).'); return; }
     openModal(ventaNuevoProductoFormHtml());
+    wireMarcaModeloEstatico('np');
   },
   agregarVentaProductoNuevoSinStock(){
     const descripcion = document.getElementById('np_descripcion').value.trim();
@@ -368,13 +473,14 @@ Object.assign(actions, {
     if(!proveedorId){ toast('Elegí el proveedor.'); return; }
     if(!(costo > 0)){ toast('Cargá el costo unitario.'); return; }
     const proveedor = findProveedor(proveedorId);
+    const vehiculo = leerMarcaModeloEstatico('np');
     state.cart.push({
       productoId:null, esNuevo:true,
       codigoProveedor: document.getElementById('np_codigo').value.trim(),
       rubro: document.getElementById('np_rubro').value,
       codigoInterno:'', descripcion, cantidad,
       precioUnitario: precioVenta, costoUnitario: costo, descuentoPct:0, stockDisponible:0,
-      vehiculo: document.getElementById('np_vehiculo').value.trim(),
+      marca: vehiculo.marca, modelo: vehiculo.modelo, marcaOtro:'', modeloOtro:'',
       sinStock:true, sinStockProveedorId:proveedor.id, sinStockProveedorNombre:proveedor.nombre,
       sinStockCosto:costo, sinStockFormaPago: document.getElementById('np_formaPago').value
     });
@@ -432,14 +538,17 @@ Object.assign(actions, {
         numero, fecha: todayISO(),
         clienteId: cliente ? cliente.id : null,
         clienteNombre: cliente ? cliente.nombre : 'Consumidor final',
-        items: state.cart.map((l,i) => ({
-          productoId: resolvedProductoIds[i], descripcion:l.descripcion, cantidad:Number(l.cantidad),
-          precioUnitario:Number(l.precioUnitario),
-          costoUnitario: l.sinStock ? Number(l.sinStockCosto)||0 : Number(l.costoUnitario)||0,
-          descuentoPct:Number(l.descuentoPct),
-          vehiculo: (l.vehiculo||'').trim(),
-          sinStock: !!l.sinStock
-        })),
+        items: state.cart.map((l,i) => {
+          const vh = resolverMarcaModelo(l);
+          return {
+            productoId: resolvedProductoIds[i], descripcion:l.descripcion, cantidad:Number(l.cantidad),
+            precioUnitario:Number(l.precioUnitario),
+            costoUnitario: l.sinStock ? Number(l.sinStockCosto)||0 : Number(l.costoUnitario)||0,
+            descuentoPct:Number(l.descuentoPct),
+            marca: vh.marca, modelo: vh.modelo,
+            sinStock: !!l.sinStock
+          };
+        }),
         subtotal, descuentoTotal, total, formaPago: state.ventaFormaPago, montoAbonado, saldoPendiente,
         anulada:false, createdAt: Date.now()
       };
@@ -469,7 +578,7 @@ Object.assign(actions, {
         const compraId = collectionRef('compras').newId();
         b.set('compras', compraId, {
           fecha: todayISO(), proveedorId: proveedor.id, proveedorNombre: proveedor.nombre,
-          items: [{productoId:resolvedProductoIds[i], descripcion:l.descripcion, cantidad:Number(l.cantidad), costoUnitario:Number(l.sinStockCosto), vehiculo:(l.vehiculo||'').trim()}],
+          items: [Object.assign({productoId:resolvedProductoIds[i], descripcion:l.descripcion, cantidad:Number(l.cantidad), costoUnitario:Number(l.sinStockCosto)}, resolverMarcaModelo(l))],
           total: compraTotal, formaPago: l.sinStockFormaPago, montoAbonado: compraMontoAbonado, saldoPendiente: compraSaldoPendiente,
           origenOCR:false, sinStock:true, ventaVinculadaId: ventaId, nroFacturaProveedor:'',
           anulada:false, createdAt: Date.now()
@@ -496,6 +605,7 @@ inputActions.ventaFormaPago = (el) => { state.ventaFormaPago = el.value; renderV
 inputActions.ventaMontoAbonado = (el) => { state.ventaMontoAbonado = Number(el.value)||0; };
 inputActions.ventasHistBusqueda = (el) => { state.ventasHistBusqueda = el.value; renderVentasHistorial(); };
 inputActions.ventasHistRango = (el) => { state.reporteRango = el.value; renderVentasHistorial(); };
-inputActions.ventaVehiculo = (el) => { state.cart[Number(el.dataset.i)].vehiculo = el.value; };
+inputActions.ventaMarcaOtro = (el) => { state.cart[Number(el.dataset.i)].marcaOtro = el.value; };
+inputActions.ventaModeloOtro = (el) => { state.cart[Number(el.dataset.i)].modeloOtro = el.value; };
 inputActions.ventaSinStockCosto = (el) => { state.cart[Number(el.dataset.i)].sinStockCosto = Math.max(0, Number(el.value)||0); };
 inputActions.ventaSinStockFormaPago = (el) => { state.cart[Number(el.dataset.i)].sinStockFormaPago = el.value; };
