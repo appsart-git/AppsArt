@@ -14,14 +14,17 @@ function estadoCuentaInnerHtml(cliente){
   const pagos = state.pagos
     .filter(p => p.tipo==='cliente' && p.entidadId===cliente.id && !p.anulada)
     .sort((a,b)=>a.createdAt-b.createdAt);
-  const ventasRows = ventasCuenta.map(v => `<tr>
+  const ventasRows = ventasCuenta.map(v => {
+    const descPct = v.subtotal>0 ? (Number(v.descuentoTotal)||0)/v.subtotal*100 : 0;
+    return `<tr>
       <td>${esc(v.fecha)}</td>
       <td>${String(v.numero).padStart(5,'0')}</td>
       <td class="muted">${esc(ventaVehiculoResumen(v))||'—'}</td>
       <td class="num">${money(v.subtotal)}</td>
-      <td class="num">${money(v.descuentoTotal)}</td>
+      <td class="num">${descPct?descPct.toFixed(1).replace(/\.0$/,'')+'%':'—'}</td>
       <td class="num">${money(v.total)}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
   const pagosRows = pagos.map(p => `
     <tr><td>${new Date(p.createdAt).toLocaleDateString('es-AR')}${p.nota?' — '+esc(p.nota):''}</td><td class="num">${money(p.monto)}</td></tr>`).join('');
   const n = state.negocio;
