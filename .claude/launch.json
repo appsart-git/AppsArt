@@ -40,6 +40,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "AppsArt/union-industrial-src", "run", "web"],
       "port": 8081
+    },
+    {
+      "name": "mundo-repuestos",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["mundo-repuestos-src/_serve.js"],
+      "port": 8902
     }
   ]
 }

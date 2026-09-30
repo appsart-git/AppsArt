@@ -449,15 +449,6 @@ Object.assign(actions, {
     l.sinStockProveedorId = null; l.sinStockProveedorNombre = '';
     renderVentaNueva();
   },
-  ventaMarca(el){
-    const l = state.cart[Number(el.dataset.i)];
-    l.marca = el.value; l.modelo = ''; l.modeloOtro = '';
-    renderVentaNueva();
-  },
-  ventaModelo(el){
-    state.cart[Number(el.dataset.i)].modelo = el.value;
-    renderVentaNueva();
-  },
   ventaNuevoProductoSinStock(){
     if(!state.proveedores.length){ toast('Primero cargá al menos un proveedor (sección Proveedores).'); return; }
     openModal(ventaNuevoProductoFormHtml());
@@ -605,6 +596,15 @@ inputActions.ventaFormaPago = (el) => { state.ventaFormaPago = el.value; renderV
 inputActions.ventaMontoAbonado = (el) => { state.ventaMontoAbonado = Number(el.value)||0; };
 inputActions.ventasHistBusqueda = (el) => { state.ventasHistBusqueda = el.value; renderVentasHistorial(); };
 inputActions.ventasHistRango = (el) => { state.reporteRango = el.value; renderVentasHistorial(); };
+inputActions.ventaMarca = (el) => {
+  const l = state.cart[Number(el.dataset.i)];
+  l.marca = el.value; l.modelo = ''; l.modeloOtro = '';
+  renderVentaNueva();
+};
+inputActions.ventaModelo = (el) => {
+  state.cart[Number(el.dataset.i)].modelo = el.value;
+  renderVentaNueva();
+};
 inputActions.ventaMarcaOtro = (el) => { state.cart[Number(el.dataset.i)].marcaOtro = el.value; };
 inputActions.ventaModeloOtro = (el) => { state.cart[Number(el.dataset.i)].modeloOtro = el.value; };
 inputActions.ventaSinStockCosto = (el) => { state.cart[Number(el.dataset.i)].sinStockCosto = Math.max(0, Number(el.value)||0); };

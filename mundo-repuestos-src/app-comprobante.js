@@ -41,7 +41,14 @@ function estadoCuentaInnerHtml(cliente){
       </div>
       <h3 style="font-size:12px; margin:16px 0 6px; text-transform:uppercase; color:#888;">Ventas a cuenta corriente</h3>
       <table class="cp-table">
-        <thead><tr><th>Fecha</th><th>N°</th><th>Vehículo</th><th class="num">Total</th><th class="num">Descuento</th><th class="num">Valor c/desc.</th></tr></thead>
+        <thead><tr>
+          <th style="width:15%;">Fecha</th>
+          <th style="width:9%;">N°</th>
+          <th style="width:27%;">Vehículo</th>
+          <th class="num" style="width:16%;">Total</th>
+          <th class="num" style="width:16%;">Desc.</th>
+          <th class="num" style="width:17%;">C/ Desc.</th>
+        </tr></thead>
         <tbody>${ventasRows || `<tr><td colspan="6" style="text-align:center;color:#888;padding:10px 0;">Sin ventas a cuenta corriente.</td></tr>`}</tbody>
       </table>
       ${pagosRows ? `<table class="cp-table" style="margin-top:14px;">
