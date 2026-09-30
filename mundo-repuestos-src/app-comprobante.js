@@ -176,10 +176,10 @@ function comprobanteInnerHtml(venta, cliente){
         <tbody>${items}</tbody>
       </table>
       <div class="cp-totals">
-        <div class="r total"><span>Total</span><span>${money(venta.total)}</span></div>
+        <div class="r total"><span>Total</span><span>${money(venta.subtotal)}</span></div>
       </div>
       <div class="cp-pago">
-        Forma de pago: <b>${pagoTxt}</b>
+        Forma de pago: <b>${pagoTxt}</b><br>Abonado: ${money(venta.montoAbonado)}
       </div>
     </div>
     <div class="cp-foot">by <img src="./appsart-brand.png" alt="AppsArt"></div>`;
