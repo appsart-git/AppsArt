@@ -1,0 +1,368 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Tu Taller reel</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&display=block" rel="stylesheet">
+<style>html,body{margin:0;background:#000}canvas{display:block;width:540px;height:960px}</style>
+</head><body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script>
+const W = 1080, H = 1920, FPS = 30, DURATION = 31;
+const DARK = '#17120F', CREAM = '#F5F4F2', OR = '#C2683C', RED = '#E2222D';
+const cv = document.getElementById('c'), x = cv.getContext('2d');
+const P = new URLSearchParams(location.search);
+
+const SRC = {
+  inicio: 'shots/tall-inicio.png', recompra: 'shots/tall-fidelizacion.png',
+  seguimiento: 'shots/tall-seguimiento.png', vista: 'shots/vista-cliente.png',
+  report: 'shots/informe-report.png', icono: 'shots/appsart-icono-transparente.png',
+  logo: 'shots/appsart-logo-color-principal-transparente.png'
+};
+const IMG = {};
+function loadAll(){
+  return Promise.all(Object.entries(SRC).map(([k, s]) => new Promise((res, rej) => {
+    const i = new Image(); i.onload = () => { IMG[k] = i; res(); }; i.onerror = rej; i.src = s;
+  })));
+}
+
+/* ---------- helpers ---------- */
+const clamp = (v, a=0, b=1) => Math.max(a, Math.min(b, v));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const eo = p => 1 - Math.pow(1 - p, 3);              // ease out
+const eio = p => p < .5 ? 4*p*p*p : 1 - Math.pow(-2*p + 2, 3) / 2;
+const back = p => { const c1 = 1.5, c3 = c1 + 1; return 1 + c3*Math.pow(p-1,3) + c1*Math.pow(p-1,2); };
+const lerp = (a, b, p) => a + (b - a) * p;
+
+function rr(X, Y, w, h, r){ x.beginPath(); x.roundRect(X, Y, w, h, r); }
+function font(sz, wt=800){ x.font = `${wt} ${sz}px Poppins, "Segoe UI", sans-serif`; }
+function wrap(text, maxW){
+  const words = text.split(' '), lines = []; let line = '';
+  for(const w of words){
+    const test = line ? line + ' ' + w : w;
+    if(x.measureText(test).width > maxW && line){ lines.push(line); line = w; } else line = test;
+  }
+  if(line) lines.push(line); return lines;
+}
+// Texto centrado multilínea; devuelve la Y final
+function textBlock(text, cx, y, sz, wt, color, maxW, lh, alpha=1, dy=0){
+  font(sz, wt); x.fillStyle = color; x.textAlign = 'center'; x.textBaseline = 'top';
+  x.globalAlpha = alpha;
+  const lines = wrap(text, maxW);
+  lines.forEach((l, i) => x.fillText(l, cx, y + dy + i * sz * lh));
+  x.globalAlpha = 1;
+  return y + lines.length * sz * lh;
+}
+
+/* ---------- marca AppsArt: badge + dot-trail ---------- */
+function badge(dark){
+  rr(64, 70, 104, 104, 26); x.fillStyle = '#fff'; x.fill();
+  if(!dark){ x.strokeStyle = 'rgba(0,0,0,.08)'; x.lineWidth = 2; x.stroke(); }
+  x.drawImage(IMG.icono, 72, 78, 88, 88);
+}
+function dotTrail(t){
+  const n = 7;
+  for(let i = 0; i < n; i++){
+    const p = i / (n - 1);
+    const px = 830 + p * 170, py = 210 - p * 140;
+    const r = 4 + p * 13 + Math.sin(t * 2.4 - i * .7) * 1.2;
+    x.globalAlpha = .35 + p * .65;
+    x.beginPath(); x.arc(px, py, r, 0, Math.PI*2); x.fillStyle = OR; x.fill();
+  }
+  x.globalAlpha = 1;
+}
+function darkBg(t){
+  x.fillStyle = DARK; x.fillRect(0, 0, W, H);
+  const g = x.createRadialGradient(W*.5, H*.62, 50, W*.5, H*.62, 900);
+  g.addColorStop(0, 'rgba(194,104,60,.20)'); g.addColorStop(1, 'rgba(194,104,60,0)');
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+}
+
+/* ---------- teléfono ---------- */
+const PH = { x: 222, y: 540, w: 636, sw: 600 };
+PH.sh = Math.round(PH.sw * 1688 / 780);   // pantalla con proporción 390x844
+PH.h = PH.sh + 36;
+const K = PH.sw / 780;                      // escala capturas (780px de ancho) -> pantalla
+const TOPBAR = 100;                         // alto de la barra superior de la app en las capturas (px)
+
+function phoneFrame(oy, alpha, drawScreen){
+  x.save(); x.globalAlpha = alpha; x.translate(0, oy);
+  x.shadowColor = 'rgba(0,0,0,.55)'; x.shadowBlur = 80; x.shadowOffsetY = 30;
+  rr(PH.x, PH.y, PH.w, PH.h, 78); x.fillStyle = '#0b0b0b'; x.fill();
+  x.shadowColor = 'transparent';
+  x.strokeStyle = '#2b2622'; x.lineWidth = 4; x.stroke();
+  x.save(); rr(PH.x + 18, PH.y + 18, PH.sw, PH.sh, 60); x.clip();
+  x.fillStyle = '#eceef0'; x.fillRect(PH.x + 18, PH.y + 18, PH.sw, PH.sh);
+  drawScreen(PH.x + 18, PH.y + 18);
+  x.restore();
+  rr(PH.x + PH.w/2 - 70, PH.y + 30, 140, 30, 15); x.fillStyle = '#0b0b0b'; x.fill();
+  x.restore();
+}
+// Pantalla con barra superior fija + contenido scrolleado (scroll en px de la captura)
+function scrolled(img, scroll){
+  return (sx, sy) => {
+    const contentH = PH.sh / K - TOPBAR;
+    x.drawImage(img, 0, TOPBAR + scroll, 780, contentH, sx, sy + TOPBAR*K, PH.sw, contentH*K);
+    x.drawImage(img, 0, 0, 780, TOPBAR, sx, sy, PH.sw, TOPBAR*K);
+  };
+}
+function fullScreen(img){
+  return (sx, sy) => x.drawImage(img, 0, 0, 780, 1688, sx, sy, PH.sw, PH.sh);
+}
+// punto de la captura -> coordenadas de canvas
+function pt(px, py, scroll, oy=0){ return [PH.x + 18 + px*K, PH.y + 18 + (py - scroll)*K + oy]; }
+
+function tapRipple(cx, cy, p){
+  if(p <= 0 || p >= 1) return;
+  x.beginPath(); x.arc(cx, cy, 30 + p*70, 0, Math.PI*2);
+  x.strokeStyle = `rgba(255,255,255,${.9*(1-p)})`; x.lineWidth = 8; x.stroke();
+  x.beginPath(); x.arc(cx, cy, 34, 0, Math.PI*2);
+  x.fillStyle = `rgba(255,255,255,${.55*(1-p)})`; x.fill();
+}
+function highlight(cx, cy, w, h, p){
+  if(p <= 0) return;
+  x.save(); x.globalAlpha = clamp(p*2) * (p > .85 ? (1-p)/.15 : 1);
+  rr(cx - w/2 - 12, cy - h/2 - 12, w + 24, h + 24, 26);
+  x.strokeStyle = OR; x.lineWidth = 7; x.stroke(); x.restore();
+}
+
+/* ---------- caption arriba del teléfono ---------- */
+function caption(head, sub, p, out=0){
+  const a = eo(p) * (1 - out), dy = (1 - eo(p)) * 40 - out*30;
+  const y2 = textBlock(head, W/2, 236, 66, 800, '#fff', 940, 1.13, a, dy);
+  if(sub) textBlock(sub, W/2, y2 + 18, 40, 600, OR, 940, 1.2, a, dy);
+}
+
+/* ---------- chat de WhatsApp (genérico, sin logo) ---------- */
+const MSG = 'Hola Roberto! Te escribimos de Tu Taller. Según nuestros registros a tu Fiat Cronos ya le tocaría el próximo service. ¿Te reservamos un turno?';
+function chatCard(t0, t, out=0){
+  const p = prog(t, t0, t0 + .45); if(p <= 0 || out >= 1) return;
+  const s = .6 + .4*back(p);
+  const cx = W/2, cy = 1370, w = 900, h = 640;
+  x.save(); x.globalAlpha = clamp(p*1.6) * (1 - out);
+  x.translate(cx, cy + out*80); x.scale(s, s); x.translate(-w/2, -h/2);
+  x.shadowColor = 'rgba(0,0,0,.5)'; x.shadowBlur = 70; x.shadowOffsetY = 24;
+  rr(0, 0, w, h, 40); x.fillStyle = '#EFEAE2'; x.fill(); x.shadowColor = 'transparent';
+  x.save(); rr(0, 0, w, h, 40); x.clip();
+  x.fillStyle = '#008069'; x.fillRect(0, 0, w, 130);
+  x.beginPath(); x.arc(78, 65, 38, 0, Math.PI*2); x.fillStyle = '#d4d0cb'; x.fill();
+  font(34, 700); x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('R', 78, 67);
+  x.textAlign = 'left'; font(36, 600); x.fillText('Roberto Sánchez', 134, 50);
+  font(26, 500); x.fillStyle = 'rgba(255,255,255,.8)'; x.fillText('en línea', 134, 92);
+  // burbuja
+  const bp = eo(prog(t, t0 + .55, t0 + .95));
+  font(33, 500); const lines = wrap(MSG, 640);
+  const bh = lines.length * 46 + 80, bw = 720, bx = w - bw - 30, by = 170 + (1-bp)*60;
+  x.globalAlpha = bp * (1 - out);
+  rr(bx, by, bw, bh, 22); x.fillStyle = '#D9FDD3'; x.fill();
+  x.fillStyle = '#111b21'; x.textBaseline = 'top';
+  lines.forEach((l, i) => x.fillText(l, bx + 30, by + 24 + i*46));
+  font(24, 500); x.fillStyle = '#667781'; x.textAlign = 'right';
+  x.fillText('09:41', bx + bw - 90, by + bh - 44);
+  const read = t > t0 + 1.8;
+  x.fillStyle = read ? '#53bdeb' : '#8696a0'; font(28, 700); x.fillText('✓✓', bx + bw - 28, by + bh - 48);
+  x.globalAlpha = clamp(p*1.6) * (1 - out); x.textAlign = 'left';
+  // barra de escritura
+  rr(26, h - 104, w - 150, 80, 40); x.fillStyle = '#fff'; x.fill();
+  font(30, 500); x.fillStyle = '#8696a0'; x.textBaseline = 'middle'; x.fillText('Mensaje', 70, h - 63);
+  x.beginPath(); x.arc(w - 66, h - 64, 42, 0, Math.PI*2); x.fillStyle = '#00a884'; x.fill();
+  x.fillStyle = '#fff'; x.beginPath(); x.moveTo(w - 84, h - 86); x.lineTo(w - 42, h - 64); x.lineTo(w - 84, h - 42); x.lineTo(w - 78, h - 64); x.closePath(); x.fill();
+  x.restore(); x.restore();
+}
+
+/* ===================== ESCENAS ===================== */
+function sceneHook(t){
+  darkBg(t); badge(true); dotTrail(t);
+  const L = [
+    ['¿Cuántos clientes', '#fff', .15],
+    ['no volvieron', OR, .55],
+    ['porque nadie', '#fff', .95],
+    ['les avisó?', '#fff', 1.25]
+  ];
+  L.forEach(([s, c, d], i) => {
+    const p = eo(prog(t, d, d + .5));
+    textBlock(s, W/2, 640 + i*128, 104, 800, c, 1000, 1, p, (1-p)*50);
+  });
+  const p2 = eo(prog(t, 2.0, 2.5));
+  textBlock('Una app que se acuerda por vos', W/2, 1240, 42, 600, 'rgba(255,255,255,.75)', 900, 1.25, p2);
+}
+
+function sceneApp(t){
+  darkBg(t); badge(true); dotTrail(t);
+  // entrada del teléfono
+  const enter = eo(prog(t, 3.6, 4.4));
+  const leave = eio(prog(t, 20.9, 21.5));
+  const oy = (1 - enter) * 900 + leave * 1100;
+  const alpha = enter * (1 - leave);
+
+  // --- qué se ve en la pantalla
+  let draw, scrollNow = 0, cross = null;
+  if(t < 8.4){
+    scrollNow = lerp(1950, 2560, eio(prog(t, 4.6, 8.2)));
+    draw = scrolled(IMG.inicio, scrollNow);
+  } else if(t < 15.4){
+    scrollNow = lerp(60, 640, eio(prog(t, 8.6, 10.4)));
+    draw = scrolled(IMG.recompra, scrollNow);
+    if(t < 8.8) cross = [scrolled(IMG.inicio, 2560), 1 - prog(t, 8.4, 8.8)];
+  } else if(t < 18.2){
+    scrollNow = lerp(0, 560, eio(prog(t, 15.8, 17.1)));
+    draw = scrolled(IMG.seguimiento, scrollNow);
+    if(t < 15.8) cross = [scrolled(IMG.recompra, 640), 1 - prog(t, 15.4, 15.8)];
+  } else {
+    draw = fullScreen(IMG.vista);
+    if(t < 18.6) cross = [scrolled(IMG.seguimiento, 560), 1 - prog(t, 18.2, 18.6)];
+  }
+  phoneFrame(oy, alpha, (sx, sy) => {
+    draw(sx, sy);
+    if(cross){ x.globalAlpha = cross[1]; cross[0](sx, sy); x.globalAlpha = 1; }
+  });
+
+  // --- tap en "Recordar service" de Roberto (captura: x≈495, y≈1494)
+  if(t > 10.4 && t < 11.8){
+    const [bx, by] = pt(497, 1500, 640);
+    highlight(bx, by, 240, 62, prog(t, 10.4, 11.8));
+    tapRipple(bx, by, prog(t, 11.0, 11.6));
+  }
+  // --- tap en "Vista del cliente" de Marcela (captura: x≈438, y≈1898)
+  if(t > 17.2 && t < 18.2){
+    const [bx, by] = pt(438, 1898, 560);
+    highlight(bx, by, 210, 62, prog(t, 17.2, 18.2));
+    tapRipple(bx, by, prog(t, 17.6, 18.1));
+  }
+  chatCard(11.5, t, eio(prog(t, 15.0, 15.4)));
+
+  // --- captions
+  const C = [
+    [3.8, 8.2, 'Todo tu taller en el celular', 'Clientes, autos, trabajos y caja'],
+    [8.5, 11.4, 'Te dice quién tiene que volver al service', 'Vencidos, por vencer y al día'],
+    [11.5, 15.3, 'Y le mandás el WhatsApp con un toque', 'El mensaje ya sale armado'],
+    [15.5, 18.1, 'Seguí cada auto que entra al taller', 'Recibido → Diagnóstico → Listo'],
+    [18.2, 20.9, 'Tu cliente ve cómo va su auto', 'Sin llamarte para preguntar']
+  ];
+  for(const [a, b, h, s] of C){
+    if(t >= a && t < b + .3) caption(h, s, prog(t, a, a + .45), prog(t, b, b + .3));
+  }
+}
+
+function sceneInforme(t){
+  darkBg(t); badge(true); dotTrail(t);
+  const p = back(prog(t, 21.3, 21.9));
+  const out = prog(t, 25.4, 25.8);
+  caption('Informe profesional en PDF', 'Listo para mandar por WhatsApp', prog(t, 21.4, 21.9), out);
+  const img = IMG.report, sw = 1072, sh = 1522, w = 820, h = w * sh / sw;
+  x.save();
+  x.globalAlpha = clamp(p) * (1 - out);
+  x.translate(W/2, 560 + h/2 + (1 - clamp(p))*500);
+  x.rotate((-2.2 + Math.sin(t*1.2)*.25) * Math.PI/180);
+  x.scale(.9 + .1*p + prog(t, 21.9, 25.4)*.03, .9 + .1*p + prog(t, 21.9, 25.4)*.03);
+  x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 80; x.shadowOffsetY = 30;
+  rr(-w/2 - 14, -h/2 - 14, w + 28, h + 28, 22); x.fillStyle = '#fff'; x.fill();
+  x.shadowColor = 'transparent';
+  x.save(); rr(-w/2, -h/2, w, h, 12); x.clip();
+  x.drawImage(img, 0, 0, sw, sh, -w/2, -h/2, w, h); x.restore();
+  x.restore();
+}
+
+function sceneCta(t){
+  x.fillStyle = CREAM; x.fillRect(0, 0, W, H);
+  badge(false); dotTrail(t);
+  const a = s => eo(prog(t, s, s + .5));
+  // logo AppsArt
+  const lw = 560, lh = lw * 744 / 1800;
+  x.globalAlpha = a(26.0);
+  x.drawImage(IMG.logo, (W - lw)/2, 330 + (1-a(26.0))*30, lw, lh);
+  x.globalAlpha = 1;
+  const y1 = textBlock('Una app hecha a medida para tu taller', W/2, 690, 80, 800, '#17120F', 940, 1.12, a(26.4), (1-a(26.4))*40);
+  const y2 = textBlock('Para que tus clientes vuelvan solos', W/2, y1 + 34, 46, 600, OR, 940, 1.2, a(26.9), (1-a(26.9))*30);
+  textBlock('Recompra · WhatsApp · Estado de autos · Informes · Caja', W/2, y2 + 40, 34, 500, '#6b625c', 900, 1.35, a(27.3));
+  // pill CTA
+  const pp = back(prog(t, 27.8, 28.4)), pulse = 1 + Math.sin(Math.max(0, t - 28.6) * 4) * .025 * (t > 28.6);
+  const bw = 760, bh = 140, by = 1380;
+  x.save(); x.translate(W/2, by + bh/2); x.scale(pp*pulse, pp*pulse);
+  x.shadowColor = 'rgba(194,104,60,.45)'; x.shadowBlur = 50; x.shadowOffsetY = 16;
+  rr(-bw/2, -bh/2, bw, bh, bh/2); x.fillStyle = OR; x.fill(); x.shadowColor = 'transparent';
+  font(48, 700); x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText('Pedí tu demo gratis →', 0, 4); x.restore();
+  textBlock('Escribinos y te la mostramos funcionando', W/2, by + bh + 44, 34, 500, '#6b625c', 900, 1.3, a(28.4));
+}
+
+function frame(t){
+  x.save();
+  if(t < 3.6) sceneHook(t);
+  else if(t < 21.3) sceneApp(t);
+  else if(t < 25.8) sceneInforme(t);
+  else sceneCta(t);
+  // transiciones
+  if(t > 3.3 && t < 3.9){ const p = 1 - Math.abs(t - 3.6) / .3; x.fillStyle = `rgba(23,18,15,${p})`; x.fillRect(0,0,W,H); }
+  if(t > 25.5 && t < 26.1){
+    const p = eio(prog(t, 25.5, 26.0));
+    if(t < 25.8){ x.beginPath(); x.arc(W/2, H/2, p * 1300, 0, Math.PI*2); x.fillStyle = CREAM; x.fill(); }
+  }
+  if(t > DURATION - .5){ x.fillStyle = `rgba(245,244,242,${prog(t, DURATION - .5, DURATION) * 0})`; x.fillRect(0,0,W,H); }
+  x.restore();
+}
+
+/* ===================== ARRANQUE ===================== */
+async function main(){
+  await loadAll();
+  await document.fonts.load('800 60px Poppins'); await document.fonts.load('600 40px Poppins');
+  await document.fonts.load('500 30px Poppins'); await document.fonts.load('700 40px Poppins');
+  if(P.has('t')){ frame(parseFloat(P.get('t'))); document.title = 'READY'; return; }
+  if(P.has('enc')){ // render cuadro a cuadro -> H.264 -> MP4 (no depende del tiempo real)
+    try{
+      const { Muxer, ArrayBufferTarget } = await import('https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/+esm');
+      const codecs = ['avc1.640028', 'avc1.4d0028', 'avc1.42002a'];
+      let cfg = null;
+      for(const codec of codecs){
+        const c = { codec, width: W, height: H, bitrate: 10_000_000, framerate: FPS };
+        if((await VideoEncoder.isConfigSupported(c)).supported){ cfg = c; break; }
+      }
+      if(!cfg) throw new Error('sin encoder H.264');
+      const muxer = new Muxer({ target: new ArrayBufferTarget(), video: { codec: 'avc', width: W, height: H, frameRate: FPS }, fastStart: 'in-memory' });
+      let err = null;
+      const enc = new VideoEncoder({ output: (ch, meta) => muxer.addVideoChunk(ch, meta), error: e => err = e });
+      enc.configure(cfg);
+      const N = DURATION * FPS;
+      for(let i = 0; i < N; i++){
+        frame(i / FPS);
+        const vf = new VideoFrame(cv, { timestamp: Math.round(i * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
+        enc.encode(vf, { keyFrame: i % (FPS * 2) === 0 }); vf.close();
+        while(enc.encodeQueueSize > 8) await new Promise(r => setTimeout(r, 5));
+        if(err) throw err;
+        if(i % 30 === 0) document.title = 'ENC ' + i + '/' + N;
+      }
+      await enc.flush(); muxer.finalize();
+      const buf = muxer.target.buffer;
+      await fetch('/save/tutaller-reel.mp4', { method: 'POST', body: buf });
+      document.title = 'DONE ' + cfg.codec + ' ' + buf.byteLength;
+    }catch(e){
+      await fetch('/save/error.txt', { method: 'POST', body: String(e && e.stack || e) });
+    }
+    return;
+  }
+  if(!P.has('rec')){ // preview en loop
+    const t0 = performance.now();
+    const loop = () => { frame(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(loop); };
+    loop(); return;
+  }
+  // grabación
+  const types = ['video/mp4;codecs=avc1.640028', 'video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+  const mime = types.find(m => MediaRecorder.isTypeSupported(m));
+  const stream = cv.captureStream(FPS);
+  const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 12_000_000 });
+  const chunks = []; rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+  rec.onstop = async () => {
+    const blob = new Blob(chunks, { type: mime });
+    const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+    await fetch('/save/tutaller-reel.' + ext, { method: 'POST', body: blob });
+    document.title = 'DONE ' + mime + ' ' + blob.size;
+  };
+  frame(0); rec.start(1000);
+  const t0 = performance.now();
+  const tick = () => {
+    const t = (performance.now() - t0) / 1000;
+    frame(Math.min(t, DURATION));
+    if(t < DURATION) setTimeout(tick, 1000 / 60); else rec.stop();
+  };
+  tick();
+}
+main();
+</script>
+</body></html>
