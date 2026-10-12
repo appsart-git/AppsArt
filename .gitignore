@@ -4,3 +4,6 @@ DE-R-13*.xlsx
 Registro de Recalmos SAC.xlsx
 
 marketing/*.mp4
+
+# Cache local de Firebase CLI
+.firebase/
