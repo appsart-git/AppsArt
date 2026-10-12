@@ -86,24 +86,120 @@ function seedDemoDataIfEmpty(){
       [{nombre:'Filtro de aceite', marca:'Mann', costo:7000},{nombre:'Aceite 10w40 x4L', marca:'Elaion', costo:32000}], 45000)
   ];
 
+  // Volumen de un taller real (15 a 25 trabajos por mes, en crecimiento) para que Inicio muestre un
+  // taller que gana plata y crece. Se genera con una semilla fija, así la demo se ve igual siempre.
+  // Los clientes generados tienen su último trabajo en los últimos 140 días (quedan "al día" y no
+  // tapan los vencidos de arriba); los trabajos más viejos son de clientes que volvieron, así que
+  // también suben la tasa de recompra.
+  let semilla = 20261010;
+  function rnd(){ semilla = (semilla + 0x6D2B79F5) | 0; let t = Math.imul(semilla ^ (semilla >>> 15), 1 | semilla); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
+  function elegir(arr){ return arr[Math.floor(rnd() * arr.length)]; }
+  function entre(min, max, paso){ return Math.round((min + rnd() * (max - min)) / paso) * paso; }
+
+  const hoy = new Date(todayISO() + 'T00:00:00Z');
+  function diasAtrasDe(anio, mes, dia){ return Math.round((hoy - Date.UTC(anio, mes, dia)) / 86400000); }
+  function mesDesplazado(delta){ const d = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth() + delta, 1)); return {anio: d.getUTCFullYear(), mes: d.getUTCMonth()}; }
+  function diasDelMes(m){ return new Date(Date.UTC(m.anio, m.mes + 1, 0)).getUTCDate(); }
+  function mesStrDe(m){ return m.anio + '-' + String(m.mes + 1).padStart(2,'0'); }
+
+  const TIPOS_TRABAJO = [
+    {t:['Service completo','Cambio de aceite y filtros'], r:[{nombre:'Filtro de aceite', marca:'Mann', costo:7500},{nombre:'Aceite 10w40 x4L', marca:'Elaion', costo:34000}], mo:[45000, 70000]},
+    {t:['Cambio de pastillas de freno delanteras'], r:[{nombre:'Pastillas de freno', marca:'Frasle', costo:42000}], mo:[35000, 55000]},
+    {t:['Cambio de correa de distribución y bomba de agua'], r:[{nombre:'Kit distribución + bomba', marca:'Dayco', costo:110000}], mo:[110000, 160000]},
+    {t:['Cambio de embrague completo'], r:[{nombre:'Kit de embrague', marca:'Luk', costo:150000}], mo:[150000, 200000]},
+    {t:['Cambio de amortiguadores delanteros'], r:[{nombre:'Amortiguadores (par)', marca:'Sadar', costo:85000}], mo:[60000, 90000]},
+    {t:['Diagnóstico con escáner','Cambio de bujías'], r:[{nombre:'Bujías (juego)', marca:'NGK', costo:28000}], mo:[40000, 60000]},
+    {t:['Cambio de batería','Revisión de alternador'], r:[{nombre:'Batería 12x65', marca:'Moura', costo:98000}], mo:[25000, 40000]},
+    {t:['Tren delantero: bujes y rótulas','Alineación y balanceo'], r:[{nombre:'Kit bujes y rótulas', marca:'Vauper', costo:65000}], mo:[80000, 120000]},
+    {t:['Reparación de pérdida de aceite - junta de tapa de válvulas'], r:[{nombre:'Junta tapa de válvulas', marca:'Ajusa', costo:18000}], mo:[55000, 80000]},
+    {t:['Service de caja automática'], r:[{nombre:'Aceite ATF x6L', marca:'Elaion', costo:72000}], mo:[70000, 95000]}
+  ];
+  const NOMBRES = ['Martín','Lucía','Gustavo','Carolina','Sergio','Valeria','Hernán','Natalia','Claudio','Romina','Federico','Silvina','Matías','Gabriela','Daniel','Andrea','Javier','Paula','Ricardo','Verónica','Esteban','Mariela','Gonzalo','Lorena'];
+  const APELLIDOS = ['López','Martínez','García','Rodríguez','Pérez','Romero','Sosa','Torres','Álvarez','Ruiz','Ramírez','Flores','Acosta','Benítez','Medina','Suárez','Molina','Ortiz','Silva','Rojas','Luna','Cabrera','Ríos','Vega'];
+  const AUTOS = [['Volkswagen','Gol'],['Volkswagen','Amarok'],['Fiat','Cronos'],['Fiat','Palio'],['Chevrolet','Onix'],['Chevrolet','Corsa'],['Ford','Ranger'],['Ford','EcoSport'],['Toyota','Etios'],['Toyota','Corolla'],['Renault','Kangoo'],['Renault','Logan'],['Peugeot','208'],['Peugeot','Partner'],['Citroën','C3']];
+  const LETRAS = 'ABCDEFGHJKLMNPRSTUVWXYZ';
+  const nombresUsados = new Set(clientes.map(c => c.nombre));
+
+  function nuevoClienteGenerado(){
+    let nombre;
+    do { nombre = elegir(NOMBRES) + ' ' + elegir(APELLIDOS); } while(nombresUsados.has(nombre));
+    nombresUsados.add(nombre);
+    const c = {id: genLocalId(), nombre, telefono: '2914' + entre(100000, 999999, 1), direccion: '', createdAt: Date.now() - clientes.length};
+    const [marca, modelo] = elegir(AUTOS);
+    const patente = 'A' + elegir('ABCDEFG') + entre(100, 999, 1) + elegir(LETRAS) + elegir(LETRAS);
+    const v = {id: genLocalId(), clienteId: c.id, patente, marca, modelo, anio: String(entre(2012, 2023, 1)), createdAt: c.createdAt};
+    clientes.push(c); vehiculos.push(v);
+    return {c, v, masViejo: Infinity};
+  }
+
+  // Clientes que vinieron una vez y no volvieron: son los que llenan "Recompra" (vencidos y por
+  // vencer), que es lo que se vende en la llamada. Van antes del volumen mensual para que sus
+  // trabajos cuenten dentro del objetivo de cada mes.
+  [195, 205, 214, 226, 238, 247, 259, 268, 156, 163, 171, 178].forEach(diasAtras => {
+    const g = nuevoClienteGenerado();
+    const tipo = elegir(TIPOS_TRABAJO);
+    trabajos.push(trabajo(g.c.id, g.v.id, diasAtras, tipo.t, tipo.r, entre(tipo.mo[0], tipo.mo[1], 5000)));
+  });
+
+  // Mano de obra objetivo por mes, del más viejo (hace 5 meses) al anterior al actual: crece mes a mes.
+  const OBJETIVO_MO = [1150000, 1280000, 1390000, 1520000, 1680000];
+  const nuevos = [];
+  for(let k = 0; k <= 5; k++){
+    const m = mesDesplazado(-k);
+    const esActual = k === 0;
+    const ultimoDia = esActual ? hoy.getUTCDate() : diasDelMes(m);
+    // El mes en curso va prorrateado a los días que pasaron, pero siempre bien por encima del alquiler.
+    const objetivo = esActual ? Math.max(1800000 * ultimoDia / diasDelMes(m), 900000) : OBJETIVO_MO[5 - k];
+    let acumulado = trabajos.filter(t => t.fecha.slice(0,7) === mesStrDe(m)).reduce((s,t)=>s+t.manoObra, 0);
+    while(acumulado < objetivo){
+      let tipo = elegir(TIPOS_TRABAJO);
+      let manoObra = entre(tipo.mo[0], tipo.mo[1], 5000);
+      // Último trabajo del mes: uno chico que cierre cerca del objetivo, así la curva no salta.
+      const resto = objetivo - acumulado;
+      if(manoObra > resto + 20000){ tipo = TIPOS_TRABAJO[6]; manoObra = Math.max(25000, Math.ceil(resto / 5000) * 5000); }
+      nuevos.push({diasAtras: diasAtrasDe(m.anio, m.mes, 1 + Math.floor(rnd() * ultimoDia)), tipo, manoObra});
+      acumulado += manoObra;
+    }
+  }
+  // Del más nuevo al más viejo: los recientes pueden ser clientes nuevos; los de hace más de 140 días
+  // siempre son de alguien que después volvió (al menos 45 días más tarde).
+  const generados = [];
+  nuevos.sort((a,b) => a.diasAtras - b.diasAtras).forEach(f => {
+    const candidatos = generados.filter(g => g.masViejo - f.diasAtras <= -45);
+    let g = null;
+    if(candidatos.length && (f.diasAtras > 140 || rnd() < 0.5)) g = elegir(candidatos);
+    if(!g){
+      if(f.diasAtras > 140) g = generados[0];
+      else { g = nuevoClienteGenerado(); generados.push(g); }
+    }
+    g.masViejo = Math.max(g.masViejo === Infinity ? 0 : g.masViejo, f.diasAtras);
+    trabajos.push(trabajo(g.c.id, g.v.id, f.diasAtras, f.tipo.t, f.tipo.r, f.manoObra));
+  });
+
   const ordenes = [
     {id:genLocalId(), clienteId:c5, vehiculoId:v5, estado:'recibido', fechaIngreso: isoOffset(0), nota:'Se apaga en marcha lenta, revisar ralentí.', createdAt: Date.now()-100},
     {id:genLocalId(), clienteId:c6, vehiculoId:v6, estado:'esperando_repuesto', fechaIngreso: isoOffset(-2), nota:'Esperando cubre-cadena de distribución.', createdAt: Date.now()-200},
     {id:genLocalId(), clienteId:c4, vehiculoId:v4, estado:'diagnostico', fechaIngreso: isoOffset(-1), nota:'Ruido en la suspensión delantera.', createdAt: Date.now()-150}
   ];
 
-  const gastos = [
-    {id:genLocalId(), fecha: isoOffset(0), descripcion:'Alquiler del local', monto:250000, createdAt: Date.now()-10},
-    {id:genLocalId(), fecha: isoOffset(-5), descripcion:'Luz', monto:45000, createdAt: Date.now()-11},
-    {id:genLocalId(), fecha: isoOffset(-10), descripcion:'Insumos de taller (trapos, limpiador de frenos, etc.)', monto:38000, createdAt: Date.now()-12},
-    // Gastos fijos de meses anteriores (un total por mes, sin desglosar) — solo para que el
-    // gráfico de "Economía del taller" en Inicio tenga con qué comparar los últimos 6 meses.
-    {id:genLocalId(), fecha: isoOffset(-37), descripcion:'Alquiler y servicios', monto:292000, createdAt: Date.now()-37},
-    {id:genLocalId(), fecha: isoOffset(-68), descripcion:'Alquiler y servicios', monto:285000, createdAt: Date.now()-68},
-    {id:genLocalId(), fecha: isoOffset(-98), descripcion:'Alquiler y servicios', monto:278000, createdAt: Date.now()-98},
-    {id:genLocalId(), fecha: isoOffset(-129), descripcion:'Alquiler y servicios', monto:270000, createdAt: Date.now()-129},
-    {id:genLocalId(), fecha: isoOffset(-155), descripcion:'Alquiler y servicios', monto:265000, createdAt: Date.now()-155}
+  // Gastos fijos de cada mes (alquiler, servicios, insumos), fechados dentro de su mes. En el mes en
+  // curso solo aparecen los que ya vencieron a la fecha de hoy.
+  const gastos = [];
+  const GASTOS_MES = [
+    {dia:1, descripcion:'Alquiler del local', monto:420000},
+    {dia:5, descripcion:'Insumos de taller (trapos, limpiador de frenos, etc.)', monto:55000},
+    {dia:8, descripcion:'Luz', monto:68000},
+    {dia:10, descripcion:'Internet y teléfono', monto:28000},
+    {dia:12, descripcion:'Gas', monto:29000}
   ];
+  for(let k = 0; k <= 5; k++){
+    const m = mesDesplazado(-k);
+    GASTOS_MES.forEach(g => {
+      if(k === 0 && g.dia > hoy.getUTCDate()) return;
+      const diasAtras = diasAtrasDe(m.anio, m.mes, g.dia);
+      gastos.push({id: genLocalId(), fecha: isoOffset(-diasAtras), descripcion: g.descripcion, monto: g.monto, createdAt: Date.now() - diasAtras});
+    });
+  }
 
   const contactos = [
     {id:genLocalId(), clienteId:c2, vehiculoId:v2, tipo:'recordatorio', fecha: isoOffset(-20), createdAt: Date.now()-20},

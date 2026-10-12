@@ -4,7 +4,12 @@
     {
       "name": "app-enfermeros",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "app-enfermeros", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "app-enfermeros",
+        "run",
+        "dev"
+      ],
       "port": 3000
     },
     {
@@ -13,38 +18,58 @@
     },
     {
       "name": "tutaller-demo",
-      "runtimeExecutable": "powershell",
-      "runtimeArgs": ["-ExecutionPolicy", "Bypass", "-File", ".claude/serve-static.ps1", "demo-tutaller-src", "8791"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "demo-tutaller-src/_serve.js"
+      ],
       "port": 8791
     },
     {
       "name": "repuestospro-demo",
       "runtimeExecutable": "powershell",
-      "runtimeArgs": ["-ExecutionPolicy", "Bypass", "-File", ".claude/serve-static.ps1", "demo-repuestospro-src", "8792"],
+      "runtimeArgs": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        ".claude/serve-static.ps1",
+        "demo-repuestospro-src",
+        "8792"
+      ],
       "port": 8792
     },
     {
       "name": "remates-el-cruce",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["remates-el-cruce-src/_serve.js"],
+      "runtimeArgs": [
+        "remates-el-cruce-src/_serve.js"
+      ],
       "port": 8900
     },
     {
       "name": "qualitron",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["alberdi-qualitron-src/_serve.js"],
+      "runtimeArgs": [
+        "alberdi-qualitron-src/_serve.js"
+      ],
       "port": 8901
     },
     {
       "name": "union-industrial",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "AppsArt/union-industrial-src", "run", "web"],
+      "runtimeArgs": [
+        "--prefix",
+        "AppsArt/union-industrial-src",
+        "run",
+        "web"
+      ],
       "port": 8081
     },
     {
       "name": "mundo-repuestos",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["mundo-repuestos-src/_serve.js"],
+      "runtimeArgs": [
+        "mundo-repuestos-src/_serve.js"
+      ],
       "port": 8902
     }
   ]
