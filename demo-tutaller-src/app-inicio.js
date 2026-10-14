@@ -76,7 +76,7 @@ function renderInicio(){
     <div class="section-head"><h1>Inicio</h1></div>
 
     <div class="promise-banner">
-      <div class="txt">Ayudamos a que tus clientes <b>vuelvan solos</b>, con un sistema a medida funcionando en menos de 30 días, sin tener que llamar a nadie.</div>
+      <div class="txt">Ayudamos a que tus clientes <b>vuelvan solos</b>, con un sistema a medida funcionando en 15 días, sin tener que llamar a nadie.</div>
       <button class="btn btn-primary" data-action="nav" data-id="fidelizacion">Ver quién tengo que contactar →</button>
     </div>
 
