@@ -125,6 +125,14 @@
   .today-table th{color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:.02em; font-weight:700;}
   .today-table tr.cur td{background:var(--accent-soft);}
 
+  .estados-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px;}
+  @media (min-width:640px){ .estados-grid{grid-template-columns:repeat(3,1fr);} }
+  @media (min-width:1000px){ .estados-grid{grid-template-columns:repeat(5,1fr);} }
+  .estados-grid .field{min-width:0;}
+  .estados-grid .field label .dot{display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; vertical-align:middle;}
+  .estados-foot{display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; margin-top:12px;}
+  .estados-resumen{font-size:13px; font-weight:700; color:var(--text-muted);}
+  .estados-resumen.ok{color:var(--green);} .estados-resumen.over{color:var(--red);}
   .chart-grid{display:grid; grid-template-columns:1fr; gap:14px; margin:14px 0 20px;}
   @media (min-width:900px){ .chart-grid{grid-template-columns:repeat(2,1fr);} }
   .chart-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px;}
@@ -308,6 +316,22 @@
     <button class="btn-primary" id="btnFallaOtro">+1</button>
   </div>
 
+  <div class="section-title">Eficiencia — estado de la línea (% de la hora)</div>
+  <div class="card">
+    <div class="estados-grid" id="estadosRow"></div>
+    <div class="estados-foot">
+      <span id="estadosResumen" class="estados-resumen"></span>
+      <button class="btn-ghost sm" id="btnEstadosCompletar">Completar con Pleno Régimen</button>
+    </div>
+  </div>
+
+  <div class="section-title">Productividad (m²)</div>
+  <div class="card">
+    <div class="row">
+      <div class="field"><label>Prod (m²) — acumulado del día, como en el pizarrón</label><input type="text" inputmode="decimal" id="inpProdM2" placeholder="0,0"></div>
+    </div>
+  </div>
+
   <div class="section-title">Mediciones dimensionales — valor de la hora</div>
   <div class="card">
     <div class="row" id="medicionesRow"></div>
@@ -363,6 +387,8 @@
     <div class="chart-card"><h3>% Calidad en el tiempo</h3><canvas id="chartCalidad"></canvas></div>
     <div class="chart-card"><h3>% Calidad por turno</h3><canvas id="chartTurno"></canvas></div>
     <div class="chart-card"><h3>% Calidad por línea</h3><canvas id="chartLinea"></canvas></div>
+    <div class="chart-card"><h3>Eficiencia — estado de la línea (% promedio)</h3><canvas id="chartEstados"></canvas></div>
+    <div class="chart-card"><h3>Productividad (m²)</h3><canvas id="chartProd"></canvas></div>
   </div>
 
   <div class="row" style="margin:6px 0 20px;">
@@ -554,6 +580,20 @@ const CATEGORIAS = [
    no como conteo de piezas — se cargan aparte y no suman al total de fallas / % calidad. */
 const FALLAS_MEDICION = ['Planar','Calibre'];
 const FALLAS_CONTEO = CATEGORIAS.flatMap(function(c){ return c.fallas; });
+
+/* Estado de la línea (pizarrón de eficiencia): minutos de la hora en cada estado.
+   Se guarda en el doc de la hora como estados:{id:minutos}; el id es la clave, no renombrar. */
+const ESTADOS_LINEA = [
+  { id:'pleno',        label:'Pleno Régimen',       color:'#4C8B5A' },
+  { id:'noAlimentada', label:'No Alimentada',       color:'#E8A33D' },
+  { id:'saturacion',   label:'En Saturación',       color:'#5B8DEF' },
+  { id:'paradaBanco',  label:'Parada Banco Selec.', color:'#E15252' },
+  { id:'paradaMag',    label:'Parada Mag.',         color:'#9B6BD1' }
+];
+function sumEstados(est){
+  if(!est) return 0;
+  return ESTADOS_LINEA.reduce(function(a,e){ return a+(Number(est[e.id])||0); },0);
+}
 
 /* ===================== Utils ===================== */
 
@@ -779,6 +819,7 @@ function subscribeHoraDoc(){
   state.horaDoc = null;
   renderFallaGroups();
   renderMediciones();
+  renderEstados();
   renderKpiCarga();
   if(!db) return;
   var id = docId(state.linea, state.fechaCarga, state.horaCarga);
@@ -786,6 +827,7 @@ function subscribeHoraDoc(){
     state.horaDoc = snap.exists ? snap.data() : null;
     renderFallaGroups();
     renderMediciones();
+    renderEstados();
     renderKpiCarga();
     var ev = state.horaDoc && state.horaDoc.evaluadas;
     document.getElementById('inpEvaluadas').value = (ev==null? '' : ev);
@@ -854,6 +896,56 @@ function renderOtrasSugerencias(){
 document.getElementById('btnFallaOtro').addEventListener('click', agregarFallaOtro);
 document.getElementById('inpFallaOtro').addEventListener('keydown', function(e){
   if(e.key==='Enter'){ e.preventDefault(); agregarFallaOtro(); }
+});
+
+/* Eficiencia: % de la hora en cada estado de línea (suman 100). Inputs fijos; en cada
+   snapshot solo se actualizan los valores, sin pisar el que se está tipeando. */
+function round1(n){ return Math.round(n*10)/10; }
+function buildEstadosInputs(){
+  document.getElementById('estadosRow').innerHTML = ESTADOS_LINEA.map(function(e){
+    return '<div class="field"><label><span class="dot" style="background:'+e.color+'"></span>'+esc(e.label)+'</label>'+
+      '<input type="text" inputmode="decimal" data-estado="'+e.id+'" placeholder="0,0 %"></div>';
+  }).join('');
+}
+buildEstadosInputs();
+function setIfNotFocused(inp, v){ if(inp && document.activeElement!==inp) inp.value = (v==null ? '' : formatDecimalDisplay(v)); }
+function renderEstados(){
+  var est = (state.horaDoc && state.horaDoc.estados) || {};
+  document.querySelectorAll('#estadosRow [data-estado]').forEach(function(inp){ setIfNotFocused(inp, est[inp.dataset.estado]); });
+  var total = round1(sumEstados(est));
+  var el = document.getElementById('estadosResumen');
+  el.textContent = formatDecimalDisplay(total)+'% de 100%' + (total===0 ? '' : total<99.5 ? ' · falta '+formatDecimalDisplay(round1(100-total))+'%' : total>100.5 ? ' · se pasa '+formatDecimalDisplay(round1(total-100))+'%' : ' ✓');
+  el.className = 'estados-resumen'+(total>=99.5 && total<=100.5?' ok':total>100.5?' over':'');
+  setIfNotFocused(document.getElementById('inpProdM2'), state.horaDoc && state.horaDoc.prodM2);
+}
+function setEstado(id, valor){
+  var v = parseDecimalInput(valor);
+  if(v!=null) v = Math.max(0, round1(v));
+  var est = Object.assign({}, (state.horaDoc && state.horaDoc.estados) || {});
+  est[id] = v || 0;
+  if(sumEstados(est) > 100.5){
+    toast('Los estados suman más de 100%');
+    var prev = (state.horaDoc && state.horaDoc.estados) ? state.horaDoc.estados[id] : null;
+    document.querySelector('#estadosRow [data-estado="'+id+'"]').value = prev==null ? '' : formatDecimalDisplay(prev);
+    return;
+  }
+  var patch = {}; patch[id] = v;
+  writeHoraDoc({ estados: patch });
+}
+document.getElementById('estadosRow').addEventListener('change', function(e){
+  var inp = e.target.closest('[data-estado]'); if(!inp) return;
+  setEstado(inp.dataset.estado, inp.value);
+});
+document.getElementById('btnEstadosCompletar').addEventListener('click', function(){
+  var est = (state.horaDoc && state.horaDoc.estados) || {};
+  var otros = sumEstados(est) - (Number(est.pleno)||0);
+  if(otros >= 100){ toast('Los otros estados ya suman 100%'); return; }
+  writeHoraDoc({ estados: { pleno: round1(100 - otros) } });
+});
+document.getElementById('inpProdM2').addEventListener('change', function(){
+  var v = parseDecimalInput(this.value);
+  if(v!=null) v = Math.max(0, v);
+  writeHoraDoc({ prodM2: v });
 });
 
 function renderMediciones(){
@@ -995,7 +1087,30 @@ function filteredPanelDocs(){
   });
 }
 
-let chartPareto=null, chartCalidad=null, chartTurno=null, chartLinea=null;
+let chartPareto=null, chartCalidad=null, chartTurno=null, chartLinea=null, chartEstados=null, chartProd=null;
+
+function bucketKey(fecha, hora, gran){
+  var parts = fecha.split('-'); var y=parts[0], m=parseInt(parts[1],10);
+  if(gran==='hora') return fecha+' '+pad2(hora)+'h';
+  if(gran==='dia') return fecha;
+  if(gran==='mes') return y+'-'+pad2(m);
+  if(gran==='trimestre') return y+' T'+trimestreOf(m);
+  return y;
+}
+
+/* Prod (m²) se anota acumulado en el día, como en el pizarrón: la producción de un
+   día y línea es el mayor valor cargado ese día. */
+function produccionPorDia(docs){
+  var dias = {};
+  docs.forEach(function(d){
+    var m2 = Number(d.prodM2);
+    if(!(m2>0)) return;
+    var k = d.linea+'|'+d.fecha;
+    if(!dias[k]) dias[k] = { linea:d.linea, fecha:d.fecha, m2:0 };
+    if(m2>dias[k].m2) dias[k].m2 = m2;
+  });
+  return Object.keys(dias).map(function(k){ return dias[k]; });
+}
 const PALETTE = ['#E8A33D','#4C8B5A','#5B8DEF','#E15252','#9B6BD1','#4FB6C4','#D48FD8','#8FA33D','#E86A8E','#6AB0E8'];
 
 function renderPanel(){
@@ -1005,6 +1120,7 @@ function renderPanel(){
   var porTurno = { A:0, B:0, C:0, D:0 }; var porTurnoEval = { A:0, B:0, C:0, D:0 };
   var porLinea = {}; var porLineaEval = {};
   var buckets = {};
+  var estBuckets = {}, estTot = {}, estN = 0;
   var gran = document.getElementById('selGranularidad').value;
 
   docs.forEach(function(d){
@@ -1017,16 +1133,30 @@ function renderPanel(){
     porLineaEval[d.linea] = (porLineaEval[d.linea]||0) + ev;
     fallasConteoKeys(d.fallas).forEach(function(k){ var n = Number(d.fallas[k])||0; if(n) porFalla[k] = (porFalla[k]||0) + n; });
 
-    var key;
-    var parts = d.fecha.split('-'); var y=parts[0], m=parseInt(parts[1],10);
-    if(gran==='hora') key = d.fecha+' '+pad2(d.hora)+'h';
-    else if(gran==='dia') key = d.fecha;
-    else if(gran==='mes') key = y+'-'+pad2(m);
-    else if(gran==='trimestre') key = y+' T'+trimestreOf(m);
-    else key = y;
+    var key = bucketKey(d.fecha, d.hora, gran);
     if(!buckets[key]) buckets[key] = { ev:0, f:0 };
     buckets[key].ev += ev; buckets[key].f += f;
+
+    // Eficiencia: promedio de % por estado sobre las horas que tienen estados cargados
+    if(sumEstados(d.estados) > 0){
+      if(!estBuckets[key]) estBuckets[key] = { n:0 };
+      estBuckets[key].n++; estN++;
+      ESTADOS_LINEA.forEach(function(e){
+        var v = Number(d.estados[e.id])||0;
+        estBuckets[key][e.id] = (estBuckets[key][e.id]||0) + v;
+        estTot[e.id] = (estTot[e.id]||0) + v;
+      });
+    }
   });
+
+  var prodDias = produccionPorDia(docs);
+  var prodTotal = prodDias.reduce(function(a,p){ return a+p.m2; },0);
+  var prodBuckets = {};
+  prodDias.forEach(function(p){
+    var k = bucketKey(p.fecha, 0, gran==='hora' ? 'dia' : gran);
+    prodBuckets[k] = (prodBuckets[k]||0) + p.m2;
+  });
+  var plenoProm = estN ? (estTot.pleno||0)/estN : null;
 
   var pctGlobal = calidadPct(totalEval, totalFallas);
   var topFalla = Object.entries(porFalla).sort(function(a,b){ return b[1]-a[1]; })[0];
@@ -1034,7 +1164,26 @@ function renderPanel(){
     kpi(pctGlobal==null?'—':pctGlobal.toFixed(1)+'%', '% Calidad', pctGlobal==null?'':(pctGlobal>=95?'good':pctGlobal<85?'warn':'')) +
     kpi(totalEval, 'Placas evaluadas', '') +
     kpi(totalFallas, 'Fallas totales', totalFallas>0?'warn':'') +
-    kpi(topFalla? topFalla[0]:'—', 'Falla más frecuente', 'accent');
+    kpi(topFalla? topFalla[0]:'—', 'Falla más frecuente', 'accent') +
+    kpi(plenoProm==null?'—':formatDecimalDisplay(plenoProm.toFixed(1))+'%', '% Pleno Régimen (prom.)', plenoProm==null?'':(plenoProm>=85?'good':plenoProm<60?'warn':'')) +
+    kpi(prodDias.length ? Math.round(prodTotal).toLocaleString('es-AR')+' m²' : '—', 'Productividad', '');
+
+  var estKeys = Object.keys(estBuckets).sort();
+  chartEstados = upsertChart(chartEstados, 'chartEstados', {
+    type:'bar',
+    data:{ labels:estKeys, datasets: ESTADOS_LINEA.map(function(e){
+      return { label:e.label, backgroundColor:e.color, data: estKeys.map(function(k){ return Number(((estBuckets[k][e.id]||0)/estBuckets[k].n).toFixed(1)); }) };
+    }) },
+    options:{ plugins:{ legend:{ display:true, labels:{ color:'#8B92A0', boxWidth:12 } } },
+      scales:(function(){ var s = chartScales({min:0,max:100}); s.x.stacked = true; s.y.stacked = true; return s; })() }
+  });
+
+  var prodKeys = Object.keys(prodBuckets).sort();
+  chartProd = upsertChart(chartProd, 'chartProd', {
+    type:'bar',
+    data:{ labels:prodKeys, datasets:[{ label:'m²', data:prodKeys.map(function(k){ return Math.round(prodBuckets[k]*10)/10; }), backgroundColor:'#5B8DEF' }] },
+    options:{ plugins:{legend:{display:false}}, scales:chartScales() }
+  });
 
   var paretoEntries = Object.entries(porFalla).sort(function(a,b){ return b[1]-a[1]; });
   var top = paretoEntries.slice(0,12);
@@ -1111,6 +1260,8 @@ document.getElementById('btnExport').addEventListener('click', function(){
     var pct = calidadPct(d.evaluadas, totalF);
     base['% Calidad'] = pct==null?'':Number(pct.toFixed(1));
     columnasFallas.forEach(function(f){ base[f] = (d.fallas && d.fallas[f]) || 0; });
+    ESTADOS_LINEA.forEach(function(e){ var v = d.estados && d.estados[e.id]; base[e.label+' (%)'] = v==null ? '' : v; });
+    base['Prod (m²) acumulado'] = d.prodM2==null ? '' : d.prodM2;
     rows.push(base);
   });
   var ws = XLSX.utils.json_to_sheet(rows);
