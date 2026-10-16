@@ -608,7 +608,7 @@ function plantaOfLinea(lineaId){
   return p ? p.id : null;
 }
 
-const FORMATOS = ['60x60','60x120','20x120','80x80','80x160','120x120','20x80','30x60','120x240'];
+const FORMATOS = ['60x60','60x120','20x120','80x80','80x160','120x120','20x80','30x60','120x240','40x80','51x51','36x36','61x61','20x160','34x51','61x122','46x93'];
 
 /* Los nombres de falla son la clave guardada en Firestore: no renombrarlos para no
    romper el histórico (solo se pueden mover de grupo). */
@@ -787,19 +787,48 @@ function loadProductoFormato(){
 }
 /* ===================== Catálogo de productos/formatos (autocompletar) ===================== */
 
-/* La lista de Producto arranca con los nombres del catálogo de Alberdi (productos-data.js) y suma
-   los que los operadores fueron cargando a mano (Firestore), sin duplicar. */
+/* La lista de Producto arranca con los productos del catálogo de Alberdi (productos-data.js), cada uno
+   como "Nombre · formato" porque un mismo nombre puede existir en varios formatos; al elegirlo se carga
+   el nombre en Producto y el formato en Formato. Suma además los nombres que los operadores fueron
+   cargando a mano (Firestore), sin duplicar. */
+const SEP_PF = ' · ';
+const productosPares = {};
+function nombreBase(v){ var i = v.lastIndexOf(SEP_PF); return i>=0 ? v.slice(0,i) : v; }
 function fillProductosCatalogo(){
   var el = document.getElementById('dlProductos');
   if(typeof PRODUCTOS_CATALOGO === 'undefined') return;
-  el.innerHTML = PRODUCTOS_CATALOGO.map(function(n){ return '<option value="'+esc(n)+'">'; }).join('');
+  el.innerHTML = PRODUCTOS_CATALOGO.map(function(p){
+    var v = p[0]+SEP_PF+p[1];
+    productosPares[v] = true;
+    return '<option value="'+esc(v)+'">';
+  }).join('');
+}
+function setFormato(f){
+  var sel = document.getElementById('inpFormato');
+  if(f && !Array.prototype.some.call(sel.options, function(o){ return o.value===f; })){
+    sel.insertAdjacentHTML('beforeend', '<option value="'+esc(f)+'">'+esc(f)+'</option>');
+  }
+  sel.value = f || '';
+}
+function resolverProductoCatalogo(){
+  var inp = document.getElementById('inpProducto');
+  var v = (inp.value||'').trim();
+  var i = v.lastIndexOf(SEP_PF);
+  if(i>=0){
+    inp.value = v.slice(0,i).trim();
+    setFormato(v.slice(i+SEP_PF.length).trim());
+    return;
+  }
+  if(typeof PRODUCTOS_CATALOGO === 'undefined') return;
+  var cands = PRODUCTOS_CATALOGO.filter(function(p){ return p[0].toLowerCase()===v.toLowerCase(); });
+  if(cands.length===1) setFormato(cands[0][1]);
 }
 function loadCatalogo(col, datalistId){
   if(!db) return;
   db.collection(col).get().then(function(snap){
     var el = document.getElementById(datalistId);
     var existentes = {};
-    Array.prototype.forEach.call(el.options, function(o){ existentes[o.value.toLowerCase()] = true; });
+    Array.prototype.forEach.call(el.options, function(o){ existentes[nombreBase(o.value).toLowerCase()] = true; });
     var nuevas = snap.docs.map(function(d){ return d.data().nombre; }).filter(function(n){ return n && !existentes[n.toLowerCase()]; });
     el.insertAdjacentHTML('beforeend', nuevas.map(function(n){ return '<option value="'+esc(n)+'">'; }).join(''));
   }).catch(function(e){ console.error(e); });
@@ -808,7 +837,7 @@ function upsertCatalogValue(col, datalistId, value){
   var v = (value||'').trim(); if(!v) return;
   var id = slugify(v); if(!id) return;
   var dl = document.getElementById(datalistId);
-  if(dl && !Array.prototype.some.call(dl.options, function(o){ return o.value===v; })){
+  if(dl && !Array.prototype.some.call(dl.options, function(o){ return nombreBase(o.value).toLowerCase()===v.toLowerCase(); })){
     dl.insertAdjacentHTML('beforeend', '<option value="'+esc(v)+'">');
   }
   if(!db) return;
@@ -817,10 +846,19 @@ function upsertCatalogValue(col, datalistId, value){
 
 ['inpProducto','inpFormato'].forEach(function(id){
   document.getElementById(id).addEventListener('change', function(){
-    lsSet(id==='inpProducto' ? 'qtr_producto_'+state.linea : 'qtr_formato_'+state.linea, this.value);
+    if(id==='inpProducto') resolverProductoCatalogo();
+    lsSet('qtr_producto_'+state.linea, document.getElementById('inpProducto').value);
+    lsSet('qtr_formato_'+state.linea, document.getElementById('inpFormato').value);
     saveHoraMeta();
-    if(id==='inpProducto') upsertCatalogValue(COL_PRODUCTOS, 'dlProductos', this.value);
+    if(id==='inpProducto'){
+      var pn = document.getElementById('inpProducto').value.trim().toLowerCase();
+      var delCatalogo = typeof PRODUCTOS_CATALOGO !== 'undefined' && PRODUCTOS_CATALOGO.some(function(p){ return p[0].toLowerCase()===pn; });
+      if(!delCatalogo) upsertCatalogValue(COL_PRODUCTOS, 'dlProductos', document.getElementById('inpProducto').value);
+    }
   });
+});
+document.getElementById('inpProducto').addEventListener('input', function(){
+  if(productosPares[this.value]) this.dispatchEvent(new Event('change'));
 });
 
 /* ===================== Carga: escritura Firestore ===================== */
