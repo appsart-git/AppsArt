@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Qualitron · Clasificación - Alberdi</title>
 <meta name="theme-color" content="#14171A">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" type="image/png" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Qualitron">
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
@@ -12,6 +19,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="./manuales-data.js"></script>
+<script src="./productos-data.js"></script>
 <style>
   :root{
     --bg:#14171A; --surface:#1D2126; --surface-2:#262B32; --border:#2E343C;
@@ -217,6 +225,44 @@
   .role-btn:active{border-color:var(--accent);}
   .login-error{color:var(--red); font-size:12.5px; margin-top:8px;}
   .login-back{background:none; border:none; color:var(--text-muted); font-size:12.5px; text-decoration:underline; cursor:pointer; padding:6px 0; margin-top:4px;}
+
+  /* ---------- Formato app (instalada) y tablet ---------- */
+  html{-webkit-text-size-adjust:100%;}
+  body{overscroll-behavior-y:none; -webkit-tap-highlight-color:transparent; -webkit-user-select:none; user-select:none;}
+  input, select, textarea{-webkit-user-select:text; user-select:text;}
+  .topbar{padding-top:calc(12px + env(safe-area-inset-top));}
+  .sel-row{display:flex; flex-wrap:wrap; gap:0 24px;}
+  .sel-row .section-title{margin:12px 2px 6px;}
+  .carga-side .kpi-grid{margin:10px 0 4px;}
+  @media (min-width:900px){
+    .carga-layout{display:grid; grid-template-columns:minmax(340px,400px) 1fr; gap:22px; align-items:start;}
+    .carga-side{position:sticky; top:150px; max-height:calc(100vh - 162px); overflow-y:auto; padding-bottom:12px;}
+    .carga-side .kpi-grid{grid-template-columns:repeat(2,1fr);}
+    .falla-grid{grid-template-columns:repeat(3,1fr);}
+  }
+  @media (min-width:1300px){ .falla-grid{grid-template-columns:repeat(4,1fr);} }
+  @media (min-width:700px) and (pointer:coarse){
+    main{max-width:1500px;}
+    .tab-chip{font-size:16px; padding:12px 22px;}
+    .brand-logo .marca-main{font-size:25px;}
+    .section-title{font-size:13.5px;}
+    .chip-toggle button{font-size:16.5px; padding:13px 22px;}
+    .field label{font-size:12.5px;}
+    .field input, .field select{font-size:17px; padding:14px 14px;}
+    .hour-nav button{width:50px; height:50px; font-size:20px;}
+    .hour-nav .hnv .h{font-size:21px;}
+    .hour-nav .hnv .t{font-size:13px;}
+    .kpi-card .v{font-size:27px;}
+    .kpi-card .l{font-size:13px;}
+    .falla-group-head{font-size:15.5px; padding:14px 16px;}
+    .falla-btn{padding:17px 14px;}
+    .falla-btn .fname{font-size:16px;}
+    .falla-btn .fcount{font-size:18px; min-width:36px; padding:6px 9px;}
+    .falla-minus{width:36px; height:36px; font-size:18px;}
+    .btn-primary{font-size:16px; padding:14px 24px;}
+    .btn-ghost, .btn-danger{font-size:15px; padding:12px 18px;}
+    .today-table{font-size:15px;}
+  }
 </style>
 </head>
 <body>
@@ -274,12 +320,11 @@
 <main>
 
 <!-- ===================== CARGA ===================== -->
-<section id="viewCarga">
-  <div class="section-title">Línea de selección</div>
-  <div class="chip-toggle" id="lineaToggle"></div>
-
-  <div class="section-title">Turno (cuadrilla)</div>
-  <div class="chip-toggle" id="turnoToggle"></div>
+<section id="viewCarga"><div class="carga-layout"><div class="carga-side">
+  <div class="sel-row">
+    <div><div class="section-title">Línea</div><div class="chip-toggle" id="lineaToggle"></div></div>
+    <div><div class="section-title">Turno</div><div class="chip-toggle" id="turnoToggle"></div></div>
+  </div>
 
   <div class="section-title">Hora en curso</div>
   <div class="hour-nav">
@@ -300,10 +345,10 @@
     <div class="field"><label>Producto</label><input id="inpProducto" list="dlProductos" autocomplete="off" placeholder="Ej: Porcelanato 60x60"></div>
     <div class="field"><label>Formato</label><select id="inpFormato"><option value="">Seleccionar…</option></select></div>
     <datalist id="dlProductos"></datalist>
-    <div class="field" style="max-width:150px;"><label>Placas evaluadas (hora)</label><input id="inpEvaluadas" type="number" min="0" inputmode="numeric" placeholder="0"></div>
   </div>
 
   <div class="kpi-grid" id="kpiCarga"></div>
+  </div><div class="carga-main">
 
   <div class="section-title">Fallas — tocá para sumar 1</div>
   <div class="falla-groups" id="fallaGroups"></div>
@@ -321,14 +366,13 @@
     <div class="estados-grid" id="estadosRow"></div>
     <div class="estados-foot">
       <span id="estadosResumen" class="estados-resumen"></span>
-      <button class="btn-ghost sm" id="btnEstadosCompletar">Completar con Pleno Régimen</button>
     </div>
   </div>
 
   <div class="section-title">Productividad (m²)</div>
   <div class="card">
     <div class="row">
-      <div class="field"><label>Prod (m²) — acumulado del día, como en el pizarrón</label><input type="text" inputmode="decimal" id="inpProdM2" placeholder="0,0"></div>
+      <div class="field"><label>Prod (m²) — acumulado del día</label><input type="text" inputmode="decimal" id="inpProdM2" placeholder="0,0"></div>
     </div>
   </div>
 
@@ -344,6 +388,7 @@
       <tbody id="todayTableBody"></tbody>
     </table>
   </div>
+  </div></div>
 </section>
 
 <!-- ===================== PANEL ===================== -->
@@ -588,7 +633,7 @@ const ESTADOS_LINEA = [
   { id:'noAlimentada', label:'No Alimentada',       color:'#E8A33D' },
   { id:'saturacion',   label:'En Saturación',       color:'#5B8DEF' },
   { id:'paradaBanco',  label:'Parada Banco Selec.', color:'#E15252' },
-  { id:'paradaMag',    label:'Parada Mag.',         color:'#9B6BD1' }
+  { id:'paradaMag',    label:'Parada Máquina',      color:'#9B6BD1' }
 ];
 function sumEstados(est){
   if(!est) return 0;
@@ -611,6 +656,8 @@ function fallasConteoKeys(fallasMap){
 function sumFallas(fallasMap){
   return fallasConteoKeys(fallasMap).reduce(function(a,f){ return a+(Number(fallasMap[f])||0); },0);
 }
+/* Cada hora cargada evalúa siempre 100 placas (valor fijo, ya no se carga a mano). */
+const PLACAS_POR_HORA = 100;
 function calidadPct(evaluadas, fallasTotal){ if(!evaluadas) return null; var p=((evaluadas-fallasTotal)/evaluadas)*100; return Math.max(0, p); }
 function parseDecimalInput(str){
   if(str==null) return null;
@@ -740,11 +787,21 @@ function loadProductoFormato(){
 }
 /* ===================== Catálogo de productos/formatos (autocompletar) ===================== */
 
+/* La lista de Producto arranca con los nombres del catálogo de Alberdi (productos-data.js) y suma
+   los que los operadores fueron cargando a mano (Firestore), sin duplicar. */
+function fillProductosCatalogo(){
+  var el = document.getElementById('dlProductos');
+  if(typeof PRODUCTOS_CATALOGO === 'undefined') return;
+  el.innerHTML = PRODUCTOS_CATALOGO.map(function(n){ return '<option value="'+esc(n)+'">'; }).join('');
+}
 function loadCatalogo(col, datalistId){
   if(!db) return;
   db.collection(col).get().then(function(snap){
     var el = document.getElementById(datalistId);
-    el.innerHTML = snap.docs.map(function(d){ return '<option value="'+esc(d.data().nombre)+'">'; }).join('');
+    var existentes = {};
+    Array.prototype.forEach.call(el.options, function(o){ existentes[o.value.toLowerCase()] = true; });
+    var nuevas = snap.docs.map(function(d){ return d.data().nombre; }).filter(function(n){ return n && !existentes[n.toLowerCase()]; });
+    el.insertAdjacentHTML('beforeend', nuevas.map(function(n){ return '<option value="'+esc(n)+'">'; }).join(''));
   }).catch(function(e){ console.error(e); });
 }
 function upsertCatalogValue(col, datalistId, value){
@@ -765,11 +822,6 @@ function upsertCatalogValue(col, datalistId, value){
     if(id==='inpProducto') upsertCatalogValue(COL_PRODUCTOS, 'dlProductos', this.value);
   });
 });
-document.getElementById('inpEvaluadas').addEventListener('change', function(){
-  var v = Math.max(0, parseInt(this.value,10)||0);
-  this.value = v;
-  writeHoraDoc({ evaluadas: v });
-});
 
 /* ===================== Carga: escritura Firestore ===================== */
 
@@ -781,6 +833,7 @@ function writeHoraDoc(partial){
     bloque: bloqueFromHora(state.horaCarga), turno: state.turno,
     producto: document.getElementById('inpProducto').value || '',
     formato: document.getElementById('inpFormato').value || '',
+    evaluadas: PLACAS_POR_HORA,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
   Object.assign(base, partial);
@@ -799,6 +852,7 @@ function tapFalla(falla, delta){
     linea: state.linea, fecha: state.fechaCarga, hora: state.horaCarga,
     bloque: bloqueFromHora(state.horaCarga), turno: state.turno,
     fallas: fallasPatch,
+    evaluadas: PLACAS_POR_HORA,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
   db.collection(COL_HORAS).doc(id).set(base, { merge:true }).catch(function(e){ console.error(e); toast('Error al guardar'); });
@@ -829,8 +883,6 @@ function subscribeHoraDoc(){
     renderMediciones();
     renderEstados();
     renderKpiCarga();
-    var ev = state.horaDoc && state.horaDoc.evaluadas;
-    document.getElementById('inpEvaluadas').value = (ev==null? '' : ev);
     if(state.horaDoc && (state.horaDoc.producto || state.horaDoc.formato)){
       if(document.activeElement.id!=='inpProducto') document.getElementById('inpProducto').value = state.horaDoc.producto || document.getElementById('inpProducto').value;
       if(document.activeElement.id!=='inpFormato') document.getElementById('inpFormato').value = state.horaDoc.formato || document.getElementById('inpFormato').value;
@@ -936,12 +988,6 @@ document.getElementById('estadosRow').addEventListener('change', function(e){
   var inp = e.target.closest('[data-estado]'); if(!inp) return;
   setEstado(inp.dataset.estado, inp.value);
 });
-document.getElementById('btnEstadosCompletar').addEventListener('click', function(){
-  var est = (state.horaDoc && state.horaDoc.estados) || {};
-  var otros = sumEstados(est) - (Number(est.pleno)||0);
-  if(otros >= 100){ toast('Los otros estados ya suman 100%'); return; }
-  writeHoraDoc({ estados: { pleno: round1(100 - otros) } });
-});
 document.getElementById('inpProdM2').addEventListener('change', function(){
   var v = parseDecimalInput(this.value);
   if(v!=null) v = Math.max(0, v);
@@ -964,11 +1010,10 @@ document.getElementById('medicionesRow').addEventListener('change', function(e){
 function renderKpiCarga(){
   var fallasMap = (state.horaDoc && state.horaDoc.fallas) || {};
   var totalFallas = sumFallas(fallasMap);
-  var evaluadas = state.horaDoc && state.horaDoc.evaluadas;
-  var pct = calidadPct(evaluadas, totalFallas);
+  var pct = state.horaDoc ? calidadPct(PLACAS_POR_HORA, totalFallas) : null;
   document.getElementById('kpiCarga').innerHTML =
     kpi(totalFallas, 'Fallas esta hora', totalFallas>0?'warn':'') +
-    kpi(evaluadas==null?'—':evaluadas, 'Placas evaluadas', '') +
+    kpi(PLACAS_POR_HORA, 'Placas evaluadas (fijas)', '') +
     kpi(pct==null?'—':pct.toFixed(1)+'%', '% Calidad estimado', pct==null?'':(pct>=95?'good':pct<85?'warn':'')) +
     kpi(state.turno, 'Turno · '+bloqueFromHora(state.horaCarga), 'accent');
 }
@@ -1000,8 +1045,8 @@ function renderTodayTable(){
     var d = state.todayDocs[h];
     if(!d) continue;
     var totalF = sumFallas(d.fallas);
-    var pct = calidadPct(d.evaluadas, totalF);
-    rows.push({ h:h, ev:d.evaluadas==null?'—':d.evaluadas, f:totalF, pct: pct==null?'—':pct.toFixed(1)+'%', cur: h===state.horaCarga });
+    var pct = calidadPct(PLACAS_POR_HORA, totalF);
+    rows.push({ h:h, ev:PLACAS_POR_HORA, f:totalF, pct: pct==null?'—':pct.toFixed(1)+'%', cur: h===state.horaCarga });
   }
   rows.sort(function(a,b){ return a.h-b.h; });
   body.innerHTML = rows.length ? rows.map(function(r){
@@ -1124,7 +1169,7 @@ function renderPanel(){
   var gran = document.getElementById('selGranularidad').value;
 
   docs.forEach(function(d){
-    var ev = Number(d.evaluadas)||0;
+    var ev = PLACAS_POR_HORA;
     var f = sumFallas(d.fallas);
     totalEval += ev; totalFallas += f;
     porTurno[d.turno] = (porTurno[d.turno]||0) + f;
@@ -1254,10 +1299,10 @@ document.getElementById('btnExport').addEventListener('click', function(){
   extras.sort();
   var columnasFallas = FALLAS_CONTEO.concat(extras, FALLAS_MEDICION);
   docs.forEach(function(d){
-    var base = { Fecha:d.fecha, Hora:d.hora, Turno:d.turno, Linea:d.linea, Producto:d.producto||'', Formato:d.formato||'', Evaluadas:d.evaluadas||0 };
+    var base = { Fecha:d.fecha, Hora:d.hora, Turno:d.turno, Linea:d.linea, Producto:d.producto||'', Formato:d.formato||'', Evaluadas:PLACAS_POR_HORA };
     var totalF = sumFallas(d.fallas);
     base['Fallas totales'] = totalF;
-    var pct = calidadPct(d.evaluadas, totalF);
+    var pct = calidadPct(PLACAS_POR_HORA, totalF);
     base['% Calidad'] = pct==null?'':Number(pct.toFixed(1));
     columnasFallas.forEach(function(f){ base[f] = (d.fallas && d.fallas[f]) || 0; });
     ESTADOS_LINEA.forEach(function(e){ var v = d.estados && d.estados[e.id]; base[e.label+' (%)'] = v==null ? '' : v; });
@@ -1839,6 +1884,13 @@ function init(){
     updateHourNav();
     subscribeHoraDoc();
     subscribeTodayDocs();
+    setTimeout(function(){
+      var g = document.getElementById('fallaGroups');
+      if(g.children.length) return;
+      try { renderFallaGroups(); }
+      catch(e){ console.error(e); g.innerHTML = '<div class="card" style="color:var(--red)">No se pudo mostrar el listado de fallas ('+esc(e.message)+'). Recargá la página.</div>'; }
+    }, 2500);
+    fillProductosCatalogo();
     loadCatalogo(COL_PRODUCTOS, 'dlProductos');
     mnlApplySub();
     mnlCargarDesdeDB();
@@ -1849,6 +1901,10 @@ function init(){
     var now = new Date();
     if(fechaStr(now)===state.fechaCarga && now.getHours()===state.horaCarga) updateHourNav();
   }, 30000);
+}
+
+if('serviceWorker' in navigator && (location.protocol==='https:' || location.hostname==='localhost')){
+  navigator.serviceWorker.register('./sw.js').catch(function(e){ console.warn('Service worker no disponible:', e); });
 }
 
 let appStarted = false;
