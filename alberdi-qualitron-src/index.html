@@ -443,14 +443,11 @@
 
 <!-- ===================== MANUALES ===================== -->
 <section id="viewManuales" class="hidden">
-  <div class="row" style="justify-content:space-between; margin-top:14px;">
-    <div class="chip-toggle" id="mnlSubTabs">
-      <button data-sub="cargar" class="active">Cargar manuales</button>
-      <button data-sub="preguntar">Preguntar</button>
-    </div>
-  </div>
+  <div class="section-title">Consultar manuales — Planta 4 y Planta 5</div>
 
-  <div id="mnlViewCargar" style="margin-top:14px;">
+  <!-- Carga de manuales: oculta a propósito (los manuales ya vienen precargados, ver manuales-data.js).
+       Si hay que sumar o reemplazar uno, se hace desde Claude usando este mismo panel. -->
+  <div id="mnlViewCargar" class="hidden" style="margin-top:14px;">
     <div class="card planta-card" data-planta="planta4">
       <div class="head">
         <h3>Planta 4</h3>
@@ -531,7 +528,7 @@
     </p>
   </div>
 
-  <div id="mnlViewPreguntar" class="hidden" style="margin-top:14px;">
+  <div id="mnlViewPreguntar" style="margin-top:14px;">
     <div id="mnlChatEmpty" class="card">
       <p class="muted" style="margin:0">
         Escribí tu pregunta en lenguaje natural. Si mencionás "planta 4" / "P4" o "planta 5" / "P5" busca solo en ese
@@ -1575,7 +1572,6 @@ function mnlDetectPlantas(q){
 
 /* ---------------- Estado de manuales cargados ---------------- */
 const mnlManuales = { planta4:null, planta5:null };
-let mnlActiveSub = 'cargar';
 
 async function mnlCargarDesdeDB(){
   for(var i=0;i<2;i++){
@@ -1702,17 +1698,10 @@ document.querySelectorAll('.planta-card').forEach(function(card){
   });
 });
 
-/* ---------------- Sub-tabs ---------------- */
 function mnlApplySub(){
-  document.querySelectorAll('#mnlSubTabs button').forEach(function(b){ b.classList.toggle('active', b.dataset.sub===mnlActiveSub); });
-  document.getElementById('mnlViewCargar').classList.toggle('hidden', mnlActiveSub!=='cargar');
-  document.getElementById('mnlViewPreguntar').classList.toggle('hidden', mnlActiveSub!=='preguntar');
+  document.getElementById('mnlViewCargar').classList.add('hidden');
+  document.getElementById('mnlViewPreguntar').classList.remove('hidden');
 }
-document.getElementById('mnlSubTabs').addEventListener('click', function(e){
-  var btn = e.target.closest('button'); if(!btn) return;
-  mnlActiveSub = btn.dataset.sub;
-  mnlApplySub();
-});
 
 /* ---------------- Preguntar ---------------- */
 function mnlActualizarScopeNote(){
@@ -1800,7 +1789,7 @@ document.getElementById('mnlBtnPreguntar').addEventListener('click', async funct
 
   if(!chunksConPlanta.length){
     pendiente.className = 'msg msg-a error';
-    pendiente.textContent = 'No hay manuales cargados para buscar (revisá "Cargar manuales").';
+    pendiente.textContent = 'Los manuales no están disponibles en este dispositivo. Recargá la página; si sigue igual, avisá a quien administra la app.';
     return;
   }
   try {
