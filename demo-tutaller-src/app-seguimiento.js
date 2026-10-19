@@ -67,6 +67,7 @@ function ordenCardHtml(o){
       <div class="orden-actions">
         ${next ? `<button class="btn btn-sm btn-primary" data-action="avanzarOrden" data-id="${o.id}">Pasar a "${esc(next.label)}"</button>` : ''}
         <button class="btn btn-sm btn-ghost" data-action="vistaClienteOrden" data-id="${o.id}">👁️ Vista del cliente</button>
+        ${o.ingresoId && state.ingresos.some(i=>i.id===o.ingresoId) ? `<button class="btn btn-sm btn-ghost" data-action="verActa" data-id="${o.ingresoId}">📋 Acta de ingreso</button>` : ''}
         ${c && c.telefono
           ? `<a class="btn btn-sm btn-wa" href="${waLink(c.telefono, msgEstado)}" target="_blank" rel="noopener" data-action="avisarEstadoOrden" data-id="${o.id}">💬 Avisar por WhatsApp</a>`
           : `<span class="small muted" style="align-self:center;">Sin teléfono para avisar</span>`}
@@ -214,7 +215,7 @@ Object.assign(actions, {
   generarInformeDesdeOrden(el){
     const o = state.ordenes.find(x=>x.id===el.dataset.id);
     if(!o) return;
-    cargarClienteVehiculoComoInforme(o.clienteId, o.vehiculoId);
+    if(!(o.ingresoId && cargarIngresoEnInforme(o.ingresoId))) cargarClienteVehiculoComoInforme(o.clienteId, o.vehiculoId);
     collectionRef('ordenes').remove(o.id);
     goSection('informe');
     toast('Completá el informe con lo que se hizo — el auto ya salió del seguimiento.');

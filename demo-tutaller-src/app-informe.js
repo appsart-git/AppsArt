@@ -37,6 +37,7 @@ function blankInforme(){
     obs: [''],
     clienteId: null,
     vehiculoId: null,
+    ingresoId: null,
     fields: {fecha: todayISO(), manoobra:'0'}
   };
 }
@@ -118,6 +119,8 @@ function informeMarkup(){
   </div>
   <div class="layout">
     <div class="form-col">
+
+      <div class="panel" id="ingresoVinculado">${ingresoVinculadoHtml()}</div>
 
       <div class="panel">
         <h2>Datos del vehículo</h2>
@@ -470,6 +473,8 @@ function renderReport(){
   if(fV('transmision')) specsHtml += specRow('🔀', 'Transmisión', fV('transmision'));
   if(fV('km')) specsHtml += specRow('📊', 'Kilometraje', fV('km'));
   if(fV('patente')) specsHtml += specRow('🔖', 'Patente', fV('patente').toUpperCase());
+  const ingV = state.informe.ingresoId && state.ingresos.find(x=>x.id===state.informe.ingresoId);
+  if(ingV) specsHtml += specRow('📋', 'Acta de ingreso', ingresoNumero(ingV));
   document.getElementById('r_specs').innerHTML = specsHtml;
 
   document.getElementById('r_trabajos').innerHTML = state.informe.trabajos.filter(t=>t&&t.trim()).map(t => `
@@ -574,9 +579,15 @@ async function guardarTrabajo(){
       manoObra,
       observaciones: state.informe.obs.filter(o=>o&&o.trim()),
       total: totalRepuestos + manoObra,
+      ingresoId: state.informe.ingresoId || null,
       createdAt: Date.now()
     };
-    await collectionRef('trabajos').add(trabajoData);
+    const trabajoId = await collectionRef('trabajos').add(trabajoData);
+    if(state.informe.ingresoId){
+      // El auto se entrega: el acta pasa a "Entregado" y sale de Estado autos.
+      await collectionRef('ingresos').update(state.informe.ingresoId, {estado:'entregado', entregadoAt:Date.now(), trabajoId});
+      await Promise.all(state.ordenes.filter(o => o.ingresoId === state.informe.ingresoId).map(o => collectionRef('ordenes').remove(o.id)));
+    }
     doneSaving();
     toast('Trabajo guardado. Próximo service recalculado.');
   }catch(e){ saveError(e); }
@@ -632,6 +643,7 @@ function cargarTrabajoComoInforme(id){
   const inf = blankInforme();
   inf.clienteId = t.clienteId || null;
   inf.vehiculoId = t.vehiculoId || null;
+  inf.ingresoId = t.ingresoId || null;
   inf.trabajos = (t.trabajosRealizados && t.trabajosRealizados.length) ? t.trabajosRealizados.slice() : [''];
   inf.repuestos = (t.repuestos && t.repuestos.length) ? t.repuestos.map(r=>Object.assign({},r)) : [{nombre:'',marca:'',costo:0}];
   inf.obs = (t.observaciones && t.observaciones.length) ? t.observaciones.slice() : [''];
@@ -682,3 +694,28 @@ function loadInformeDraft(){
   }catch(e){ /* sin borrador */ }
 }
 loadInformeDraft();
+
+/* ---------- ingreso vinculado: el informe sabe de qué acta viene el auto ---------- */
+function ingresoVinculadoHtml(){
+  const i = state.informe.ingresoId && state.ingresos.find(x=>x.id===state.informe.ingresoId);
+  if(i){
+    const v = state.vehiculos.find(x=>x.id===i.vehiculoId);
+    return `<h2>Acta de ingreso vinculada</h2>
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+        <div><b>${ingresoNumero(i)}</b> · ${esc(v ? vehiculoLabel(v) : '')}<div class="small muted">Ingresó ${fmtFechaHora(i.createdAt)} · ${fmtKm(i.km)}</div></div>
+        <div style="display:flex; gap:8px;"><button class="btn btn-sm btn-ghost" data-action="verActa" data-id="${i.id}">Ver acta</button><button class="btn-danger" data-action="desvincularIngresoInforme">Quitar</button></div>
+      </div>`;
+  }
+  const enTaller = ingresosEnTaller();
+  return `<h2>¿De qué auto del taller es?</h2>
+    ${enTaller.length ? `<div class="field" style="margin-bottom:6px;"><select data-change="informe_ingreso_select"><option value="">Elegir auto en el taller…</option>${enTaller.map(x => { const v = state.vehiculos.find(y=>y.id===x.vehiculoId); return `<option value="${x.id}">${ingresoNumero(x)} · ${esc(v ? vehiculoLabel(v) : 'Vehículo')}</option>`; }).join('')}</select></div>
+      <p class="small muted" style="margin:0;">Trae cliente, vehículo, km y la foto del acta, y al guardar el trabajo el auto pasa a "Entregado".</p>`
+      : '<p class="small muted" style="margin:0;">No hay autos en el taller con acta de ingreso. Podés hacer el informe igual.</p>'}`;
+}
+inputActions.informe_ingreso_select = (el) => {
+  if(!el.value) return;
+  cargarIngresoEnInforme(el.value);
+  renderInforme();
+  toast('Acta vinculada: cliente, vehículo, km y foto cargados.');
+};
+actions.desvincularIngresoInforme = () => { state.informe.ingresoId = null; renderInforme(); };

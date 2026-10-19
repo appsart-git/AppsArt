@@ -71,6 +71,7 @@
   .btn-wa{background:#1fa855; color:#fff;}
   .btn-wa:hover{opacity:.92;}
   .btn-sm{padding:7px 11px; font-size:12.5px;}
+  .btn-lg{padding:15px 22px; font-size:15.5px;}
   .btn-icon{padding:7px 9px;}
   .btn[disabled]{opacity:.6; cursor:default; transform:none !important;}
   .btn-block{width:100%; justify-content:center;}
@@ -245,6 +246,7 @@
     }
     .sd-item .ico{font-size:16px;}
     .sd-item.active{background:var(--red-600); color:#fff;}
+    .sd-item.cta:not(.active){border:1px solid rgba(255,255,255,.28); color:#fff;}
     .sd-item:hover:not(.active){background:rgba(255,255,255,.08);}
     .sidebar-nav-items{display:flex; flex-direction:column; gap:3px;}
     .brand-footer{display:flex; align-items:center; gap:8px; margin-top:auto; padding-top:14px; border-top:1px solid rgba(255,255,255,.12); opacity:.65;}
@@ -274,6 +276,101 @@
   .client-view .cv-logo{height:30px; margin:0 auto 18px; display:block;}
   .client-view h3{font-size:17px; margin:14px 0 4px;}
   .client-view p{color:rgba(255,255,255,.6); font-size:13px; margin:0 0 18px;}
+
+  /* ---------- INGRESO: checklist con fotos ---------- */
+  .ingreso-hero{background:var(--black-950); color:#fff; border-radius:16px; padding:18px 20px; margin-bottom:16px; display:flex; gap:16px; align-items:center; justify-content:space-between; flex-wrap:wrap;}
+  .ingreso-hero p{margin:0; color:rgba(255,255,255,.75); font-size:14px; line-height:1.5; max-width:560px;}
+  .ingreso-hero .btn-primary{background:#fff; color:var(--black-950);}
+  .step-num{display:inline-flex; width:24px; height:24px; border-radius:50%; background:var(--black-950); color:#fff; font-size:12px; font-weight:700; align-items:center; justify-content:center; margin-right:8px; font-family:'Oswald',sans-serif; letter-spacing:0;}
+  .panel h2 .ttl{display:flex; align-items:center;}
+  .ingreso-form{max-width:760px;}
+  .foto-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .foto-slot{position:relative; border:1.5px dashed #c9c6c0; border-radius:12px; background:var(--panel2); aspect-ratio:4/3; overflow:hidden; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:4px;}
+  .foto-slot.has{border-style:solid; border-color:var(--black-900);}
+  .foto-slot img.ph{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;}
+  .foto-slot .guide{width:70%; max-width:150px; opacity:.55;}
+  .foto-slot .lbl{font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-600);}
+  .foto-slot .tag{position:absolute; left:8px; bottom:8px; background:rgba(10,10,10,.78); color:#fff; font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:6px; letter-spacing:.06em; text-transform:uppercase;}
+  .foto-slot .ok{position:absolute; right:8px; top:8px; width:22px; height:22px; border-radius:50%; background:#fff; color:var(--black-950); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800;}
+  .danio-wrap{display:grid; grid-template-columns:220px 1fr; gap:18px; align-items:start;}
+  @media(max-width:560px){ .danio-wrap{grid-template-columns:1fr;} .danio-wrap svg{max-width:220px; margin:0 auto; display:block;} }
+  .danio-svg .zona{cursor:pointer; transition:filter .1s;}
+  .danio-svg .zona:hover{filter:brightness(.93);}
+  .danio-tools{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;}
+  .danio-tool{border:1.5px solid var(--line); background:#fff; border-radius:9px; padding:8px 10px; font-size:12.5px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:7px; font-family:inherit;}
+  .danio-tool.on{border-color:var(--black-950); background:var(--black-950); color:#fff;}
+  .danio-tool .sw{width:16px; height:16px; border-radius:4px; border:1px solid #888; display:inline-block;}
+  .danio-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; font-size:13px;}
+  .danio-list li{display:flex; justify-content:space-between; gap:8px; background:var(--panel2); border-radius:8px; padding:7px 10px;}
+  .fuel{display:flex; gap:6px;}
+  .fuel button{flex:1; border:1.5px solid var(--line); background:#fff; border-radius:9px; padding:10px 4px; font-weight:700; font-size:13px; cursor:pointer; font-family:inherit; color:var(--ink-600);}
+  .fuel button.fill{background:var(--black-900); color:#fff; border-color:var(--black-900);}
+  .chk-grid{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  @media(max-width:420px){ .chk-grid{grid-template-columns:1fr;} }
+  .chk{display:flex; align-items:center; gap:10px; border:1.5px solid var(--line); border-radius:10px; padding:10px 12px; cursor:pointer; font-size:14px; background:#fff; user-select:none;}
+  .chk .box{width:20px; height:20px; border-radius:6px; border:1.5px solid #bdbab4; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:13px; font-weight:800; color:#fff;}
+  .chk.on{border-color:var(--black-900);}
+  .chk.on .box{background:var(--black-900); border-color:var(--black-900);}
+  .chk.warn.on{border-color:var(--amber);}
+  .chk.warn.on .box{background:var(--amber); border-color:var(--amber);}
+  .firma-pad{border:1.5px dashed #c9c6c0; border-radius:12px; background:#fff; position:relative; touch-action:none;}
+  .firma-pad canvas{display:block; width:100%; height:170px; border-radius:12px;}
+  .firma-pad .ph-txt{position:absolute; left:0; right:0; bottom:38px; text-align:center; font-size:12px; color:#aaa; pointer-events:none; border-top:1px solid #ddd; margin:0 30px; padding-top:6px;}
+  .ingreso-actions{position:sticky; bottom:76px; background:#fff; border-top:1px solid var(--line); padding:12px 14px; display:flex; gap:10px; margin-top:16px; border-radius:14px; box-shadow:0 -6px 18px rgba(15,15,15,.06);}
+  @media(min-width:860px){ .ingreso-actions{bottom:0;} }
+  .ingreso-card{background:#fff; border-radius:14px; padding:14px; box-shadow:0 1px 2px rgba(15,15,15,.06), 0 8px 24px -12px rgba(15,15,15,.1); margin-bottom:12px; display:grid; grid-template-columns:88px 1fr; gap:14px;}
+  .ingreso-card .thumb{width:88px; height:66px; border-radius:9px; background:var(--panel2); overflow:hidden; display:flex; align-items:center; justify-content:center;}
+  .ingreso-card .thumb img{width:100%; height:100%; object-fit:cover;}
+  .ingreso-card .top{display:flex; justify-content:space-between; gap:8px; align-items:flex-start;}
+  .ingreso-card .acts{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;}
+  .ingreso-card .facts{display:flex; gap:12px; flex-wrap:wrap; font-size:12.5px; color:var(--ink-600); margin-top:4px;}
+  @media(max-width:520px){ .ingreso-card{grid-template-columns:1fr;} .ingreso-card .thumb{width:100%; height:140px;} }
+
+  /* ---------- ACTA DE INGRESO (documento que se manda al cliente) ---------- */
+  .acta-wrap{background:#c9c7c3; border-radius:16px; padding:18px; overflow:hidden;}
+  #acta{width:820px; background:#fff; color:#141414; transform-origin:top left; box-shadow:0 20px 50px -20px rgba(10,10,10,.4); font-family:'Inter',sans-serif;}
+  .a-head{background:#000; color:#fff; display:grid; grid-template-columns:300px 1fr; align-items:center;}
+  .a-head img{width:100%; display:block; padding:22px 0 22px 26px; box-sizing:border-box;}
+  .a-head .meta{padding:22px 26px; text-align:right;}
+  .a-head .meta .eb{font-family:'Oswald',sans-serif; letter-spacing:.28em; font-size:12px; color:#bdbdbd; font-weight:600;}
+  .a-head .meta .tt{font-family:'Oswald',sans-serif; font-size:30px; font-weight:800; letter-spacing:.06em; margin:6px 0 10px;}
+  .a-head .meta .nro{display:inline-block; border:1px solid #555; border-radius:6px; padding:4px 10px; font-size:13px; letter-spacing:.08em;}
+  .a-head .meta .fh{font-size:13px; color:#bdbdbd; margin-top:8px;}
+  .a-sec{padding:16px 26px 0;}
+  .a-sec:last-of-type{padding-bottom:18px;}
+  .a-h{font-family:'Oswald',sans-serif; font-size:11.5px; letter-spacing:.2em; text-transform:uppercase; font-weight:700; color:#141414; border-bottom:2px solid #141414; padding-bottom:6px; margin-bottom:10px; display:flex; justify-content:space-between;}
+  .a-grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;}
+  .a-grid2{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+  .a-box{border:1px solid #dcdad5; border-radius:10px; padding:12px 14px;}
+  .a-box .k{font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:#777; font-weight:700;}
+  .a-box .v{font-size:16px; font-weight:700; margin-top:3px;}
+  .a-box .s{font-size:12.5px; color:#555; margin-top:2px;}
+  .a-fuel{display:flex; gap:4px; margin-top:6px;}
+  .a-fuel span{flex:1; height:10px; border-radius:3px; background:#e4e2de;}
+  .a-fuel span.f{background:#141414;}
+  .a-fotos{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .a-foto{position:relative; aspect-ratio:4/3; border-radius:8px; overflow:hidden; background:#efeeeb; display:flex; align-items:center; justify-content:center;}
+  .a-foto img.ph{position:absolute; inset:0; width:100%; height:100%; object-fit:cover;}
+  .a-foto img.guide{width:55%; opacity:.5;}
+  .a-foto .tag{position:absolute; left:8px; top:8px; background:#000; color:#fff; font-size:10.5px; font-weight:700; letter-spacing:.1em; padding:3px 8px; border-radius:5px; text-transform:uppercase;}
+  .a-danios{display:grid; grid-template-columns:200px 1fr; gap:18px; align-items:start;}
+  .a-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; font-size:13px;}
+  .a-list li{display:flex; justify-content:space-between; gap:10px; border-bottom:1px dashed #ddd; padding-bottom:5px;}
+  .a-checks{display:grid; grid-template-columns:1fr 1fr; gap:5px 14px; font-size:13px;}
+  .a-checks div{display:flex; gap:8px; align-items:center;}
+  .a-checks .b{width:15px; height:15px; border:1.5px solid #141414; border-radius:3px; display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:800;}
+  .a-checks .b.on{background:#141414; color:#fff;}
+  .a-text{font-size:13.5px; line-height:1.5; color:#222;}
+  .a-firma{display:grid; grid-template-columns:1.3fr 1fr; gap:22px; align-items:end;}
+  .a-firma .legal{font-size:11.5px; line-height:1.5; color:#555;}
+  .a-firma .sig{text-align:center;}
+  .a-firma .sig img{height:80px; max-width:100%; display:block; margin:0 auto;}
+  .a-firma .sig .line{border-top:1px solid #141414; margin-top:4px; padding-top:5px; font-size:12px; color:#333;}
+  .a-foot{background:#000; color:#fff; padding:14px 26px; display:flex; justify-content:space-between; align-items:center; margin-top:18px;}
+  .a-foot b{font-family:'Oswald',sans-serif; letter-spacing:.24em; font-size:12px;}
+  .a-foot span{font-size:11.5px; color:#aaa;}
+  .a-foot .made-by{display:flex; align-items:center; gap:6px; font-size:10px; color:rgba(255,255,255,.4);}
+  .a-foot .made-by img{height:13px;}
 
   /* ---------- fidelizacion ---------- */
   .recontacto-row{background:#fff; border-radius:12px; padding:14px; display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; box-shadow:0 1px 2px rgba(15,15,15,.06), 0 8px 24px -12px rgba(15,15,15,.1); flex-wrap:wrap;}
@@ -527,21 +624,23 @@ function onFirestoreError(err){
 }
 
 /* ===================== ESTADO GLOBAL ===================== */
-const COLLECTIONS = ['clientes','vehiculos','trabajos','gastos','ordenes','contactos'];
+const COLLECTIONS = ['clientes','vehiculos','trabajos','gastos','ordenes','ingresos','contactos'];
 let state = {
   section: 'inicio',
-  clientes: [], vehiculos: [], trabajos: [], gastos: [], ordenes: [], contactos: [],
+  clientes: [], vehiculos: [], trabajos: [], gastos: [], ordenes: [], ingresos: [], contactos: [],
   loaded: {},
   negocio: {
     nombre:'TU TALLER', direccion:'', telefono:'',
     intervaloServicioMeses: 6,
     mensajeRecordatorio: 'Hola {nombre}! Te escribimos de {taller} 🔧 Según nuestros registros a tu {vehiculo} ya le tocaría el próximo service. ¿Te reservamos un turno?',
     mensajePromo: 'Hola {nombre}! Desde {taller} te contamos que este mes tenemos una promo especial para vos. Escribinos si querés que te contemos 🚗',
-    mensajeEstado: 'Hola {nombre}! Te escribimos de {taller} 🚗 Tu {vehiculo} ahora está: {estado}. Te avisamos apenas cambie de etapa.'
+    mensajeEstado: 'Hola {nombre}! Te escribimos de {taller} 🚗 Tu {vehiculo} ahora está: {estado}. Te avisamos apenas cambie de etapa.',
+    mensajeIngreso: 'Hola {nombre}! Te escribimos de {taller}. Registramos el ingreso de tu {vehiculo} el {fecha}, con {km} km y {combustible} de combustible. Te mandamos el acta con las fotos de cómo lo recibimos. Cualquier duda, escribinos.'
   },
   gastosMes: todayISO().slice(0,7),
   filtro: {clientes:''},
   filtroTrabajos: {query:'', desde:'', hasta:''},
+  filtroIngresos: 'en_taller',
   filtroFidelizacion: 'vencidos',
   saving:false
 };
@@ -659,6 +758,7 @@ function fillTemplate(tpl, vars){
 /* ===================== NAVEGACIÓN ===================== */
 const NAV_ITEMS = [
   {id:'inicio', label:'Inicio', ico:'🏠'},
+  {id:'ingreso', label:'Ingreso', cta:true, ico:'📝'},
   {id:'informe', label:'Nuevo informe', ico:'🧾'},
   {id:'seguimiento', label:'Estado autos', ico:'🛠️'},
   {id:'fidelizacion', label:'Recompra', ico:'💬'},
@@ -675,7 +775,7 @@ function renderNav(){
       <span class="ico">${it.ico}</span>${it.label}
     </div>`).join('');
   document.getElementById('sidebarNav').innerHTML = NAV_ITEMS.map(it => `
-    <div class="sd-item ${state.section===it.id?'active':''}" data-action="nav" data-id="${it.id}" role="button" tabindex="0" aria-current="${state.section===it.id?'page':'false'}">
+    <div class="sd-item ${state.section===it.id?'active':''} ${it.cta?'cta':''}" data-action="nav" data-id="${it.id}" role="button" tabindex="0" aria-current="${state.section===it.id?'page':'false'}">
       <span class="ico">${it.ico}</span>${it.label}
     </div>`).join('');
 }
@@ -688,7 +788,7 @@ function render(){
     return;
   }
   const renderers = {
-    inicio: renderInicio, informe: renderInforme, seguimiento: renderSeguimiento,
+    inicio: renderInicio, ingreso: renderIngreso, informe: renderInforme, seguimiento: renderSeguimiento,
     fidelizacion: renderFidelizacion, clientes: renderClientes, trabajos: renderTrabajos,
     gastos: renderGastos, config: renderConfig
   };
@@ -742,6 +842,7 @@ function startApp(){
 <script src="./app-gastos.js"></script>
 <script src="./app-fidelizacion.js"></script>
 <script src="./app-seguimiento.js"></script>
+<script src="./app-ingreso.js"></script>
 <script src="./app-inicio.js"></script>
 <script>
 if('serviceWorker' in navigator){

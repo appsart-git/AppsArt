@@ -23,6 +23,7 @@ function renderConfig(){
       <div class="field"><label>Mensaje de recordatorio de service</label><textarea id="cfg_msgRecordatorio" rows="3">${esc(n.mensajeRecordatorio||'')}</textarea></div>
       <div class="field"><label>Mensaje de promoción mensual</label><textarea id="cfg_msgPromo" rows="3">${esc(n.mensajePromo||'')}</textarea></div>
       <div class="field"><label>Mensaje de aviso de estado (Estado autos)</label><textarea id="cfg_msgEstado" rows="3">${esc(n.mensajeEstado||'')}</textarea></div>
+      <div class="field"><label>Mensaje del acta de ingreso</label><textarea id="cfg_msgIngreso" rows="3">${esc(n.mensajeIngreso||'')}</textarea></div>
       <p class="small muted" style="margin-top:-6px;">Podés usar <code>{nombre}</code>, <code>{vehiculo}</code>, <code>{taller}</code> y, en el aviso de estado, <code>{estado}</code> — se completan solos al generar cada mensaje.</p>
       <button class="btn btn-primary" data-action="guardarNegocio">Guardar datos</button>
     </div>
@@ -52,7 +53,8 @@ Object.assign(actions, {
       intervaloServicioMeses: parseInt(document.getElementById('cfg_intervalo').value, 10) || 6,
       mensajeRecordatorio: document.getElementById('cfg_msgRecordatorio').value,
       mensajePromo: document.getElementById('cfg_msgPromo').value,
-      mensajeEstado: document.getElementById('cfg_msgEstado').value
+      mensajeEstado: document.getElementById('cfg_msgEstado').value,
+      mensajeIngreso: document.getElementById('cfg_msgIngreso').value
     });
     markSaving();
     configSet(state.negocio).then(doneSaving).catch(saveError);
@@ -70,6 +72,7 @@ Object.assign(actions, {
       COLLECTIONS.forEach(c => localStorage.removeItem(lsKey(c)));
       localStorage.removeItem(lsKey('config_negocio'));
       localStorage.removeItem(lsKey('seeded'));
+      localStorage.removeItem(lsKey('ingreso_borrador'));
       location.reload();
     });
   }

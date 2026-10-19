@@ -176,10 +176,36 @@ function seedDemoDataIfEmpty(){
     trabajos.push(trabajo(g.c.id, g.v.id, f.diasAtras, f.tipo.t, f.tipo.r, f.manoObra));
   });
 
+  // Actas de ingreso: los tres autos que están en Estado autos entraron con su acta, y dos
+  // trabajos recientes ya entregados también la tienen (así se ve el historial).
+  function firmaDemo(nombre){
+    const ini = (nombre||'').split(' ').map(p=>p[0]).join('');
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="100" viewBox="0 0 300 100"><path d="M18 70 C40 20, 62 20, 58 62 S 90 90, 104 48 C112 26, 126 30, 120 58 C116 76, 140 74, 150 52 C158 36, 170 40, 172 58 C174 72, 196 70, 206 50 S 240 40, 282 56" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round"/><text x="226" y="88" font-family="Brush Script MT, cursive" font-size="22" fill="#111">${ini}</text></svg>`;
+    return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  }
+  const ingresos = [];
+  function ingreso(clienteId, vehiculoId, horasAtras, extra){
+    const c = clientes.find(x => x.id === clienteId);
+    const reg = Object.assign({
+      id: genLocalId(), numero: 0, clienteId, vehiculoId, estado: 'en_taller', demo: true,
+      fotos: {}, extras: [], llaves: '1', testigos: {}, observaciones: '', danios: {},
+      elementos: {auxilio:true, gato:true, documentacion:true, tapa:true, alfombras:true},
+      firma: firmaDemo(c.nombre), aclaracion: c.nombre, createdAt: Date.now() - horasAtras*3600000
+    }, extra);
+    ingresos.push(reg);
+    return reg.id;
+  }
+  ingreso(c7, v7, 9*24+5, {estado:'entregado', km:'98.450', combustible:2, motivo:'Pierde aceite y tira humo azul', danios:{parag_del:'rayon'}});
+  ingreso(c9, v9, 3*24+4, {estado:'entregado', km:'121.300', combustible:1, motivo:'Cambio de aceite y filtro', danios:{puerta_tras_der:'abolladura'}});
+  const ingC5 = ingreso(c5, v5, 3, {km:'38.120', combustible:0, motivo:'Se apaga en marcha lenta', danios:{baul:'rayon'}, testigos:{motor:true}, observaciones:'Entra con reserva de combustible.'});
+  const ingC6 = ingreso(c6, v6, 2*24+2, {km:'64.870', combustible:2, motivo:'Ruido en la distribución', danios:{parag_tras:'roto', luneta:'rayon'}, llaves:'2'});
+  const ingC4 = ingreso(c4, v4, 24+3, {km:'142.015', combustible:3, motivo:'Ruido en la suspensión delantera', danios:{parag_del:'rayon', guarda_del_izq:'abolladura', puerta_del_izq:'rayon'}, observaciones:'Cubiertas delanteras gastadas. Deja anteojos en la guantera.'});
+  ingresos.sort((a,b)=>a.createdAt-b.createdAt).forEach((x, j) => { x.numero = 231 + j; });
+
   const ordenes = [
-    {id:genLocalId(), clienteId:c5, vehiculoId:v5, estado:'recibido', fechaIngreso: isoOffset(0), nota:'Se apaga en marcha lenta, revisar ralentí.', createdAt: Date.now()-100},
-    {id:genLocalId(), clienteId:c6, vehiculoId:v6, estado:'esperando_repuesto', fechaIngreso: isoOffset(-2), nota:'Esperando cubre-cadena de distribución.', createdAt: Date.now()-200},
-    {id:genLocalId(), clienteId:c4, vehiculoId:v4, estado:'diagnostico', fechaIngreso: isoOffset(-1), nota:'Ruido en la suspensión delantera.', createdAt: Date.now()-150}
+    {id:genLocalId(), clienteId:c5, vehiculoId:v5, ingresoId:ingC5, estado:'recibido', fechaIngreso: isoOffset(0), nota:'Se apaga en marcha lenta, revisar ralentí.', createdAt: Date.now()-100},
+    {id:genLocalId(), clienteId:c6, vehiculoId:v6, ingresoId:ingC6, estado:'esperando_repuesto', fechaIngreso: isoOffset(-2), nota:'Esperando cubre-cadena de distribución.', createdAt: Date.now()-200},
+    {id:genLocalId(), clienteId:c4, vehiculoId:v4, ingresoId:ingC4, estado:'diagnostico', fechaIngreso: isoOffset(-1), nota:'Ruido en la suspensión delantera.', createdAt: Date.now()-150}
   ];
 
   // Gastos fijos de cada mes (alquiler, servicios, insumos), fechados dentro de su mes. En el mes en
@@ -210,6 +236,7 @@ function seedDemoDataIfEmpty(){
   lsWriteAll('vehiculos', vehiculos);
   lsWriteAll('trabajos', trabajos);
   lsWriteAll('ordenes', ordenes);
+  lsWriteAll('ingresos', ingresos);
   lsWriteAll('gastos', gastos);
   lsWriteAll('contactos', contactos);
   localStorage.setItem(lsKey('seeded'), '1');

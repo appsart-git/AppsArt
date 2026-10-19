@@ -14,6 +14,7 @@ const APP_SHELL = [
   './app-gastos.js',
   './app-fidelizacion.js',
   './app-seguimiento.js',
+  './app-ingreso.js',
   './app-inicio.js',
   './icon-192.png',
   './icon-512.png',
