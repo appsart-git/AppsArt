@@ -1,0 +1,32 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>verify</title></head><body>
+<script>
+// verify.html?f=appsart-talleres-vertical.mp4 -> out/verify-<f>.png (12 cuadros decodificados) + .txt (datos)
+(async () => {
+  const f = new URLSearchParams(location.search).get('f');
+  const log = [];
+  try{
+    const blob = await (await fetch('out/' + f)).blob();   // el servidor no soporta Range: se carga como blob
+    const v = document.createElement('video'); v.muted = true; v.src = URL.createObjectURL(blob);
+    await new Promise((r, j) => { v.onloadedmetadata = r; v.onerror = () => j(new Error('no carga')); });
+    log.push(`archivo=${f} MB=${(blob.size/1048576).toFixed(2)} dur=${v.duration.toFixed(2)} ${v.videoWidth}x${v.videoHeight}`);
+    await v.play(); await new Promise(r => setTimeout(r, 1500)); v.pause();
+    log.push(`audioDecodedBytes=${v.webkitAudioDecodedByteCount} videoDecodedBytes=${v.webkitVideoDecodedByteCount}`);
+    const N = 12, tw = 270, th = 480, c = document.createElement('canvas'); c.width = N/2 * tw; c.height = 2 * th;
+    const x = c.getContext('2d');
+    for(let i = 0; i < N; i++){
+      v.currentTime = (i + .5) * v.duration / N;
+      await new Promise(r => v.onseeked = r); await new Promise(r => { setTimeout(r, 400); if(v.requestVideoFrameCallback) v.requestVideoFrameCallback(r); });
+      x.drawImage(v, (i % (N/2)) * tw, Math.floor(i / (N/2)) * th, tw, th);
+    }
+    // un cuadro a tamaño real (t=?full) para revisar nitidez
+    const ft = +(new URLSearchParams(location.search).get('full') || 13);
+    v.currentTime = ft; await new Promise(r => v.onseeked = r); await new Promise(r => setTimeout(r, 300));
+    const c2 = document.createElement('canvas'); c2.width = 1080; c2.height = 1920; c2.getContext('2d').drawImage(v, 0, 0);
+    await fetch('/save/verify-full-' + f + '.png', { method: 'POST', body: await new Promise(r => c2.toBlob(r, 'image/png')) });
+    const png = await new Promise(r => c.toBlob(r, 'image/png'));
+    await fetch('/save/verify-' + f + '.png', { method: 'POST', body: png });
+  }catch(e){ log.push('ERROR ' + e); }
+  await fetch('/save/verify-' + f + '.txt', { method: 'POST', body: log.join('\n') });
+})();
+</script></body></html>

@@ -38,6 +38,17 @@
       "port": 8792
     },
     {
+      "name": "faatra-videos",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "marketing/faatra-videos/serve.ps1"
+      ],
+      "port": 8796
+    },
+    {
       "name": "remates-el-cruce",
       "runtimeExecutable": "node",
       "runtimeArgs": [

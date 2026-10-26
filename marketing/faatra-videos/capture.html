@@ -1,0 +1,66 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>capture</title>
+<style>html,body{margin:0;background:#fff;overflow:hidden}iframe{border:0;display:block;position:absolute;left:0;top:0}
+#tap{position:absolute;pointer-events:none;border-radius:50%;background:rgba(194,96,48,.35);border:3px solid rgba(194,96,48,.9);display:none}</style>
+</head><body>
+<script src="scenes.js"></script>
+<script>
+// Guion de clics: capture.html?scene=<id>&step=<n>
+// Carga la demo en un iframe (mismo origen), ejecuta los pasos 0..n del guion de la escena
+// y deja la pantalla quieta para que Edge headless saque la captura. Guarda en out/shots/<id>-<n>.json
+// el rectángulo del elemento que se toca en ese paso (para dibujar el círculo de toque en el montaje).
+const P = new URLSearchParams(location.search);
+const S = SCENES[P.get('scene')], N = +P.get('step') || 0;
+const f = document.createElement('iframe');
+f.width = S.vw; f.height = S.vh;
+f.src = '/' + S.app + '/index.html';
+document.body.appendChild(f);
+const wait = ms => new Promise(r => setTimeout(r, ms));
+f.onload = async () => {
+  const w = f.contentWindow, d = w.document;
+  const c = {
+    w, d, wait,
+    // 'text=Guardar' busca por texto visible; si no, selector CSS
+    q(sel, root){
+      root = root || d;
+      if(sel.startsWith('text=')){
+        const t = sel.slice(5).toLowerCase();
+        const all = [...root.querySelectorAll('button,a,[data-action],td,tr,.tab,label,h2,h3,div,span')]
+          .filter(e => e.offsetParent !== null && (e.textContent || '').trim().toLowerCase().includes(t));
+        // el más chico que contiene el texto
+        all.sort((a, b) => a.textContent.length - b.textContent.length);
+        return all[0];
+      }
+      return root.querySelector(sel);
+    },
+    click(sel){ const e = typeof sel === 'string' ? c.q(sel) : sel; if(!e) throw new Error('no encontrado: ' + sel); e.click(); return e; },
+    type(sel, text){
+      const e = typeof sel === 'string' ? c.q(sel) : sel; if(!e) throw new Error('no encontrado: ' + sel);
+      e.focus(); e.value = text;
+      e.dispatchEvent(new w.Event('input', {bubbles: true})); e.dispatchEvent(new w.Event('change', {bubbles: true}));
+      return e;
+    },
+    scroll(y){ w.scrollTo(0, y); const m = c.q('.modal, .modal-body, .modal-card'); },
+    into(sel, off = 120){ const e = c.q(sel); if(!e) throw new Error('no encontrado: ' + sel); const r = e.getBoundingClientRect(); w.scrollBy(0, r.top - off); },
+  };
+  let meta = { scene: P.get('scene'), step: N, last: N >= S.steps.length - 1, vw: S.vw, vh: S.vh };
+  try{
+    await wait(1500);
+    if(S.prep) await S.prep(c);
+    for(let i = 0; i <= N; i++){ if(S.steps[i].do) await S.steps[i].do(c); await wait(350); }
+    const st = S.steps[N];
+    if(st.tap){
+      const e = c.q(st.tap); if(!e) throw new Error('tap no encontrado: ' + st.tap);
+      let r = e.getBoundingClientRect();
+      if(r.top < 60 || r.bottom > S.vh - 70){ e.scrollIntoView({block: 'center'}); await wait(300); r = e.getBoundingClientRect(); }
+      meta.tap = { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width, h: r.height };
+      if(P.has('show')){ const t = document.getElementById('tap'); Object.assign(t.style, {display:'block', left:(meta.tap.x-22)+'px', top:(meta.tap.y-22)+'px', width:'44px', height:'44px'}); }
+    }
+    meta.text = d.body.innerText;
+  }catch(e){ meta.error = String(e && e.stack || e); }
+  await fetch('/save/shots/' + P.get('scene') + '-' + N + '.json', { method: 'POST', body: JSON.stringify(meta) });
+  document.title = 'READY';
+};
+</script>
+<div id="tap"></div>
+</body></html>

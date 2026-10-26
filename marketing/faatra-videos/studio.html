@@ -1,0 +1,418 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Estudio videos FAATRA</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600;700;800&display=block" rel="stylesheet">
+<style>html,body{margin:0;background:#000;color:#ccc;font:14px system-ui}canvas{display:block;width:540px;height:960px}</style>
+</head><body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script src="scenes.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script>
+/*
+  Montaje de los videos verticales FAATRA (sin ffmpeg/Remotion: canvas + WebCodecs + mp4-muxer).
+  studio.html?v=1            preview en loop del video 1 (talleres); v=2 repuestos
+  studio.html?v=1&t=12.5     un cuadro quieto (para revisar con Edge headless --screenshot)
+  studio.html?v=1&enc=1      render cuadro a cuadro -> out/appsart-talleres-vertical.mp4 (render.ps1)
+  studio.html?v=1&qr=1       decodifica el QR del cuadro final con jsQR y guarda out/qr-check-<v>.txt
+
+  TEXTOS: cada escena tiene un solo titular; *entre asteriscos* = palabras en terracota.
+  Si se suma voz, la locución tiene que decir exactamente ese texto.
+*/
+const W = 1080, H = 1920, FPS = 30;
+const BG = '#15100D', BONE = '#FAF8F6', TERRA = '#C26030', DIM = '#B8AEA4';
+const WA_URL = 'https://wa.me/5491133663820?text=Hola%2C%20vi%20el%20video%20de%20AppsArt%20en%20la%20jornada%20de%20FAATRA';
+const cv = document.getElementById('c'), x = cv.getContext('2d');
+const P = new URLSearchParams(location.search);
+const V = P.get('v') || '1';
+
+/* ===================== GUION DE CADA VIDEO ===================== */
+// kind: hook | demo | reportcar | appsart | contact
+// demo: shots = [[escena, paso, segundos?], ...]; pdf = segundos de la hoja PDF al final
+const STEP = 2.4;
+const VIDEOS = {
+  '1': { file: 'appsart-talleres-vertical.mp4', scenes: [
+    { kind: 'hook', text: '¿Tu taller todavía anota todo en *papel*?', bg: ['v1s5', 0], dur: 4 },
+    { kind: 'demo', text: 'Cargá la orden de trabajo desde el *celular:* cliente, patente y vehículo.',
+      shots: [['v1s2', 0], ['v1s2', 1], ['v1s2', 2], ['v1s2', 3], ['v1s2', 4, 2.6]] },
+    { kind: 'demo', text: 'Buscá la *patente* y tenés todo el *historial* del auto.',
+      shots: [['v1s3', 0], ['v1s3', 1], ['v1s3', 2, 2.8], ['v1s3', 3, 2.6]] },
+    { kind: 'demo', text: 'Armá el informe del trabajo y mandalo en *PDF* por *WhatsApp.*',
+      shots: [['v1s4', 0, 2.2], ['v1s4', 1, 2.0]], pdf: 4.6 },
+    { kind: 'demo', text: 'Seguí cada auto: recibido, diagnóstico, esperando repuesto y *listo.*',
+      shots: [['v1s5', 0], ['v1s5', 1], ['v1s5', 2, 2.8]] },
+    { kind: 'reportcar', text: 'Esto es *ReportCar,* nuestro sistema para talleres.', dur: 5 },
+    { kind: 'appsart', text: 'En AppsArt desarrollamos sistemas *a medida* para industria, comercio, pymes y profesionales.', dur: 6.2 },
+    { kind: 'contact', text: 'Escribinos por *WhatsApp.*', dur: 6 },
+  ]},
+  '2': { file: 'appsart-repuestos-vertical.mp4', scenes: [
+    { kind: 'hook', text: '¿Cuánto tardás en encontrar el *repuesto justo?*', bg: ['v2s2', 0], dur: 4 },
+    { kind: 'demo', text: 'Buscá por *vehículo* y encontrá el repuesto *compatible.*',
+      shots: [['v2s2', 0, 2.6], ['v2s2', 1, 2.8], ['v2s2', 2, 3.2]] },
+    { kind: 'demo', text: 'Controlá el *stock* desde la compu o el celular.',
+      shots: [['v2s3', 0, 3.4], ['v2s3', 1, 3.4]] },
+    { kind: 'demo', text: 'Registrá las compras y sabé cuánto le debés a cada *proveedor.*',
+      shots: [['v2s4', 0, 2.6], ['v2s4', 1], ['v2s4', 2], ['v2s4', 3, 3.0]] },
+    { kind: 'demo', text: 'Emití *comprobantes de venta* y llevá la *cuenta corriente* de cada cliente.',
+      shots: [['v2s5', 0, 2.0], ['v2s5', 1, 2.0], ['v2s5', 2, 2.2], ['v2s5', 3, 2.2], ['v2s5', 4, 3.2], ['v2s5', 5, 3.0]] },
+    { kind: 'appsart', text: 'Esto es un *ejemplo.*', text2: 'En AppsArt desarrollamos sistemas *a medida* para industria, comercio, pymes y profesionales.', split: 2.4, dur: 8.6 },
+    { kind: 'contact', text: 'Escribinos por *WhatsApp.*', dur: 6, reportcarLine: true },
+  ]},
+};
+const VID = VIDEOS[V];
+
+/* ===================== CARGA ===================== */
+const IMG = {}, META = {};
+const load = (k, src) => new Promise((res, rej) => { const i = new Image(); i.onload = () => { IMG[k] = i; res(); }; i.onerror = () => rej(new Error('img ' + src)); i.src = src; });
+async function loadAll(){
+  const jobs = [load('logo', 'assets/appsart-logo.png'), load('rc', 'assets/reportcar-lockup.png')];
+  const shots = new Set();
+  for(const s of VID.scenes){
+    if(s.shots) s.shots.forEach(([id, n]) => shots.add(id + '-' + n));
+    if(s.bg) shots.add(s.bg[0] + '-' + s.bg[1]);
+    if(s.pdf) shots.add('v1s4pdf-0');
+  }
+  for(const k of shots){
+    jobs.push(load(k, 'out/shots/' + k + '.png'));
+    jobs.push(fetch('out/shots/' + k + '.json').then(r => r.json()).then(j => META[k] = j));
+  }
+  await Promise.all(jobs);
+}
+
+/* ===================== LÍNEA DE TIEMPO ===================== */
+const LEAD = .55, TAIL = .45;   // aire antes del primer paso y después del último
+function buildTimeline(){
+  let t = 0;
+  for(const s of VID.scenes){
+    if(s.kind === 'demo'){
+      let u = LEAD; s.steps = [];
+      for(const [id, n, d] of s.shots){ const dur = d || STEP; s.steps.push({ k: id + '-' + n, t0: u, t1: u + dur }); u += dur; }
+      if(s.pdf){ s.pdfT0 = u; u += s.pdf; }
+      s.dur = u + TAIL;
+      const m = META[s.steps[0].k]; s.vw = m.vw; s.vh = m.vh;
+    }
+    s.start = t; t += s.dur;
+  }
+  return t;
+}
+let DURATION = 0;
+
+/* ===================== HELPERS ===================== */
+const clamp = (v, a=0, b=1) => Math.max(a, Math.min(b, v));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const eo = p => 1 - Math.pow(1 - p, 3);
+const eio = p => p < .5 ? 4*p*p*p : 1 - Math.pow(-2*p + 2, 3) / 2;
+function rr(X, Y, w, h, r){ x.beginPath(); x.roundRect(X, Y, w, h, r); }
+function font(sz, wt=700){ x.font = `${wt} ${sz}px Geist, "Segoe UI", sans-serif`; }
+
+// Titular con palabras clave: "*palabra*" o "*varias palabras*" en terracota. Centrado, con entrada palabra por palabra.
+function parseRich(text){
+  let on = false;
+  return text.split(' ').map(raw => {
+    let w = raw, key = on;
+    if(w.startsWith('*')){ key = true; w = w.slice(1); on = true; }
+    if(w.endsWith('*')){ w = w.slice(0, -1); on = false; }
+    else if(w.includes('*')){ w = w.replace('*', ''); on = false; }  // "*celular:*" ya cubierto; por las dudas
+    return { w, key };
+  });
+}
+function richLayout(text, sz, maxW){
+  font(sz, 700);
+  const words = parseRich(text), space = x.measureText(' ').width, lines = [[]]; let lw = 0;
+  for(const wd of words){
+    const ww = x.measureText(wd.w).width;
+    if(lines[lines.length-1].length && lw + space + ww > maxW){ lines.push([]); lw = 0; }
+    const L = lines[lines.length-1]; wd.width = ww; lw += (L.length ? space : 0) + ww; L.push(wd);
+  }
+  return { lines, space };
+}
+function headline(text, t, y, sz=80, maxW=950, alpha=1){
+  const { lines, space } = richLayout(text, sz, maxW);
+  font(sz, 700); x.textBaseline = 'top'; x.textAlign = 'left';
+  let i = 0;
+  lines.forEach((L, li) => {
+    const lw = L.reduce((a, w) => a + w.width, 0) + space * (L.length - 1);
+    let cx = (W - lw) / 2;
+    for(const wd of L){
+      const p = eo(prog(t, .05 + i * .035, .45 + i * .035));
+      x.globalAlpha = p * alpha; x.fillStyle = wd.key ? TERRA : BONE;
+      x.fillText(wd.w, cx, y + li * sz * 1.14 + (1 - p) * 22);
+      cx += wd.width + space; i++;
+    }
+  });
+  x.globalAlpha = 1;
+  return y + lines.length * sz * 1.14;
+}
+// punto terracota (motivo de marca)
+function brandDot(t){
+  const r = 9 + Math.sin(t * 3) * 1.2;
+  x.beginPath(); x.arc(W/2, 92, r, 0, Math.PI*2); x.fillStyle = TERRA; x.fill();
+  x.beginPath(); x.arc(W/2, 92, r + 9 + (t * 14) % 14, 0, Math.PI*2);
+  x.strokeStyle = `rgba(194,96,48,${.35 * (1 - ((t * 14) % 14) / 14)})`; x.lineWidth = 3; x.stroke();
+}
+function bg(){ x.fillStyle = BG; x.fillRect(0, 0, W, H); }
+
+/* ===================== DISPOSITIVO ===================== */
+const TOP = 520, BOTTOM = 1885;
+function deviceBox(s){
+  const phone = s.vw <= 420;
+  const maxW = phone ? 690 : 960, maxH = BOTTOM - TOP - 40;
+  const k = Math.min(maxW / s.vw, maxH / s.vh);
+  const sw = s.vw * k, sh = s.vh * k, bez = phone ? 16 : 14;
+  return { phone, k, sw, sh, bez, sx: (W - sw) / 2, sy: TOP + 20 + (maxH - sh) / 2 };
+}
+function drawShot(key, b, alpha=1){
+  const m = META[key], img = IMG[key];
+  x.globalAlpha = alpha;
+  x.drawImage(img, 0, 0, m.vw * 3, m.vh * 3, b.sx, b.sy, b.sw, b.sh);
+  x.globalAlpha = 1;
+}
+function frameDevice(b, drawScreen, enter){
+  const oy = (1 - eo(enter)) * 120;
+  x.save(); x.globalAlpha = eo(enter); x.translate(0, oy);
+  const R = b.phone ? 64 : 36;
+  x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 70; x.shadowOffsetY = 26;
+  rr(b.sx - b.bez, b.sy - b.bez, b.sw + b.bez*2, b.sh + b.bez*2, R + b.bez); x.fillStyle = '#0a0807'; x.fill();
+  x.shadowColor = 'transparent'; x.strokeStyle = '#3a2f28'; x.lineWidth = 3; x.stroke();
+  x.save(); rr(b.sx, b.sy, b.sw, b.sh, R); x.clip();
+  drawScreen();
+  x.restore();
+  x.restore();
+}
+// círculo de toque (Playwright/headless no muestra toques)
+function tapMark(cx, cy, p){
+  if(p <= 0 || p >= 1) return;
+  const a = p < .25 ? p / .25 : 1 - (p - .25) / .75;
+  x.beginPath(); x.arc(cx, cy, 38 + eo(p) * 22, 0, Math.PI*2);
+  x.fillStyle = `rgba(194,96,48,${.45 * a})`; x.fill();
+  x.beginPath(); x.arc(cx, cy, 44 + eo(p) * 46, 0, Math.PI*2);
+  x.strokeStyle = `rgba(194,96,48,${.85 * a})`; x.lineWidth = 6; x.stroke();
+}
+
+/* ===================== ESCENAS ===================== */
+function sceneHook(s, t){
+  const k = s.bg[0] + '-' + s.bg[1], m = META[k], img = IMG[k];
+  x.save(); x.filter = 'blur(22px) brightness(.45)';
+  const sc = Math.max(W / m.vw, H / m.vh) * 1.12;
+  const dw = m.vw * sc, dh = m.vh * sc, z = 1 + t * .012;
+  x.translate(W/2, H/2); x.scale(z, z);
+  x.drawImage(img, 0, 0, m.vw * 3, m.vh * 3, -dw/2, -dh/2, dw, dh);
+  x.restore(); x.filter = 'none';
+  const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, 'rgba(21,16,13,.85)'); g.addColorStop(.5, 'rgba(21,16,13,.35)'); g.addColorStop(1, 'rgba(21,16,13,.9)');
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  brandDot(t);
+  const { lines } = richLayout(s.text, 104, 900);
+  headline(s.text, t, H/2 - lines.length * 104 * 1.14 / 2 - 40, 104, 900);
+}
+
+function sceneDemo(s, t){
+  bg(); brandDot(t);
+  headline(s.text, t, 150);
+  const b = deviceBox(s);
+  const enter = prog(t, .15, .6);
+  // paso actual
+  let i = s.steps.findIndex(st => t < st.t1); if(i < 0) i = s.steps.length - 1;
+  const st = s.steps[i];
+  frameDevice(b, () => {
+    x.fillStyle = '#fff'; x.fillRect(b.sx, b.sy, b.sw, b.sh);
+    if(i > 0 && t < st.t0 + .2){ drawShot(s.steps[i-1].k, b); drawShot(st.k, b, prog(t, st.t0, st.t0 + .2)); }
+    else drawShot(st.k, b);
+  }, enter);
+  // toque al final del paso
+  const tap = META[st.k].tap;
+  if(tap && t < st.t1 && !(s.pdf && t >= s.pdfT0)){
+    tapMark(b.sx + tap.x * b.k, b.sy + tap.y * b.k, prog(t, st.t1 - .8, st.t1 - .02));
+  }
+  if(s.pdf && t >= s.pdfT0) pdfSheet(s, t - s.pdfT0);
+}
+
+// hoja PDF real del informe (la misma vista que la app convierte a PDF al tocar "Compartir")
+function pdfSheet(s, u){
+  const m = META['v1s4pdf-0'], img = IMG['v1s4pdf-0'];
+  const repH = 1195;                         // alto útil del informe en la captura (px CSS)
+  const p = eo(prog(u, 0, .55));
+  x.fillStyle = `rgba(21,16,13,${.72 * p})`; x.fillRect(0, TOP, W, H - TOP);
+  const w = 760, h = w * repH / m.vw;
+  x.save();
+  x.translate(W/2, TOP + 60 + h/2 + (1 - p) * 300);
+  x.rotate((-1.6 + u * .25) * Math.PI / 180);
+  const sc = .96 + .04 * p; x.scale(sc, sc);
+  x.globalAlpha = p;
+  x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 70; x.shadowOffsetY = 24;
+  rr(-w/2 - 12, -h/2 - 12, w + 24, h + 24, 18); x.fillStyle = '#fff'; x.fill(); x.shadowColor = 'transparent';
+  x.save(); rr(-w/2, -h/2, w, h, 10); x.clip();
+  x.drawImage(img, 0, 0, m.vw * 3, repH * 3, -w/2, -h/2, w, h); x.restore();
+  // etiqueta PDF
+  const lp = eo(prog(u, .5, .9));
+  x.globalAlpha = lp;
+  rr(-w/2 + 30, -h/2 - 40, 150, 70, 35); x.fillStyle = TERRA; x.fill();
+  font(36, 800); x.fillStyle = BONE; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('PDF', -w/2 + 105, -h/2 - 4);
+  x.restore();
+}
+
+function sceneReportCar(s, t){
+  bg(); brandDot(t);
+  headline(s.text, t, 150);
+  const p = eo(prog(t, .35, 1.0));
+  const lw = 820, lh = lw * 640 / 1110;
+  x.globalAlpha = p;
+  x.drawImage(IMG.rc, 182, 170, 1110, 640, (W - lw)/2, 720 + (1 - p) * 40, lw, lh);
+  font(56, 600); x.fillStyle = BONE; x.textAlign = 'center'; x.textBaseline = 'top';
+  x.globalAlpha = eo(prog(t, .9, 1.4)); x.fillText('reportscar.com', W/2, 720 + lh + 60);
+  x.globalAlpha = 1;
+}
+
+function sceneAppsArt(s, t){
+  bg(); brandDot(t);
+  const two = !!s.text2;
+  if(two){
+    const out = prog(t, s.split - .3, s.split);
+    if(t < s.split) headline(s.text, t, 150, 80, 950, 1 - out);
+    else headline(s.text2, t - s.split, 150);
+  } else headline(s.text, t, 150);
+  const p = eo(prog(t, .4, 1.1));
+  const lw = 860, lh = lw * 744 / 1800;
+  x.globalAlpha = p;
+  x.drawImage(IMG.logo, (W - lw)/2, 1000 - lh/2 + (1 - p) * 40, lw, lh);
+  x.globalAlpha = 1;
+}
+
+let QR = null;
+function buildQR(){ const q = qrcode(0, 'M'); q.addData(WA_URL); q.make(); QR = q; }
+function sceneContact(s, t){
+  bg(); brandDot(t);
+  headline(s.text, t, 150);
+  const a = d => eo(prog(t, d, d + .45));
+  // logo
+  const lw = 400, lh = lw * 744 / 1800;
+  x.globalAlpha = a(.2); x.drawImage(IMG.logo, (W - lw)/2, 400, lw, lh); x.globalAlpha = 1;
+  // QR en tarjeta blanca
+  const n = QR.getModuleCount(), quiet = 4, card = 660, cs = card / (n + quiet * 2);
+  const cx0 = (W - card)/2, cy0 = 640, pq = a(.35);
+  x.save(); x.globalAlpha = pq; x.translate(W/2, cy0 + card/2); const sc = .92 + .08 * pq; x.scale(sc, sc); x.translate(-W/2, -(cy0 + card/2));
+  rr(cx0, cy0, card, card, 34); x.fillStyle = '#fff'; x.fill();
+  x.fillStyle = '#15100D';
+  for(let r = 0; r < n; r++) for(let c = 0; c < n; c++){
+    if(QR.isDark(r, c)) x.fillRect(Math.floor(cx0 + (c + quiet) * cs), Math.floor(cy0 + (r + quiet) * cs), Math.ceil(cs), Math.ceil(cs));
+  }
+  x.restore();
+  // datos
+  x.textAlign = 'center'; x.textBaseline = 'top';
+  x.globalAlpha = a(.6); font(40, 600); x.fillStyle = DIM; x.fillText('WhatsApp', W/2, 1360);
+  font(70, 800); x.fillStyle = BONE; x.fillText('+54 9 11 3366-3820', W/2, 1412);
+  x.globalAlpha = a(.8); font(40, 600); x.fillStyle = DIM; x.fillText('Instagram', W/2, 1545);
+  font(60, 700); x.fillStyle = TERRA; x.fillText('@_appsart_', W/2, 1595);
+  if(s.reportcarLine){
+    x.globalAlpha = a(1.1); font(36, 600); x.fillStyle = DIM;
+    x.fillText('¿Tenés un taller? Conocé ReportCar · reportscar.com', W/2, 1790);
+  }
+  x.globalAlpha = 1;
+}
+
+/* ===================== CUADRO ===================== */
+function frame(T){
+  let s = VID.scenes.find(sc => T < sc.start + sc.dur) || VID.scenes[VID.scenes.length - 1];
+  const t = T - s.start;
+  x.save();
+  ({ hook: sceneHook, demo: sceneDemo, reportcar: sceneReportCar, appsart: sceneAppsArt, contact: sceneContact })[s.kind](s, t);
+  x.restore();
+  // fundido corto entre escenas (no al final: la placa de contacto queda quieta)
+  const isLast = s === VID.scenes[VID.scenes.length - 1];
+  const fin = 1 - prog(t, 0, .22), fout = isLast ? 0 : prog(t, s.dur - .22, s.dur);
+  const f = Math.max(s.start === 0 ? 0 : fin, fout);
+  if(f > 0){ x.fillStyle = `rgba(21,16,13,${f})`; x.fillRect(0, 0, W, H); }
+}
+
+/* ===================== ARRANQUE ===================== */
+async function main(){
+  await loadAll();
+  for(const w of [500, 600, 700, 800]) await document.fonts.load(`${w} 60px Geist`);
+  buildQR();
+  DURATION = buildTimeline();
+  document.title = 'DUR ' + DURATION.toFixed(2);
+  if(P.has('t')){ frame(parseFloat(P.get('t'))); document.title = 'READY ' + DURATION.toFixed(2); return; }
+  if(P.has('qr')){
+    frame(DURATION - .1);
+    const { default: jsQR } = await import('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/+esm');
+    const d = x.getImageData(0, 0, W, H);
+    const r = jsQR(d.data, W, H);
+    await fetch('/save/qr-check-' + V + '.txt', { method: 'POST', body: (r ? r.data : 'NO DECODIFICA') + '\n' + (r && r.data === WA_URL ? 'OK coincide' : 'NO coincide') });
+    document.title = 'QR DONE'; return;
+  }
+  if(P.has('enc')){ await encode(); return; }
+  const t0 = performance.now();
+  const loop = () => { frame(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(loop); };
+  loop();
+}
+
+async function encode(){
+  try{
+    const { Muxer, ArrayBufferTarget } = await import('https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/+esm');
+    let vcfg = null;
+    for(const codec of ['avc1.640028', 'avc1.4d0028', 'avc1.42002a']){
+      const c = { codec, width: W, height: H, bitrate: +(P.get('br') || 1_500_000), bitrateMode: 'variable', framerate: FPS, avc: { format: 'avc' } };
+      if((await VideoEncoder.isConfigSupported(c)).supported){ vcfg = c; break; }
+    }
+    if(!vcfg) throw new Error('sin encoder H.264');
+    // pista de audio AAC en silencio (los videos van sin voz por ahora; algunos reproductores esperan audio)
+    const SR = 48000, CH = 2;
+    const acfg = { codec: 'mp4a.40.2', sampleRate: SR, numberOfChannels: CH, bitrate: 64000 };
+    const hasEncoder = typeof AudioEncoder !== 'undefined' && (await AudioEncoder.isConfigSupported(acfg)).supported;
+    // Edge headless no trae encoder AAC: se usa el cuadro AAC-LC estéreo de silencio (el mismo de hls.js),
+    // 1024 muestras por cuadro, con AudioSpecificConfig 0x11 0x90 (LC, 48 kHz, 2 canales).
+    const SILENT = new Uint8Array([0x21, 0x00, 0x49, 0x90, 0x02, 0x19, 0x00, 0x23, 0x80]);
+    const ASC = new Uint8Array([0x11, 0x90]);
+    let audioCheck = 'encoder';
+    if(!hasEncoder){
+      try{ // validar que el cuadro decodifica
+        let ok = 0; const dec = new AudioDecoder({ output: a => { ok++; a.close(); }, error: e => audioCheck = 'decoder error ' + e });
+        dec.configure({ codec: 'mp4a.40.2', sampleRate: SR, numberOfChannels: CH, description: ASC });
+        for(let i = 0; i < 4; i++) dec.decode(new EncodedAudioChunk({ type: 'key', timestamp: i * 21333, data: SILENT }));
+        await dec.flush(); audioCheck = 'manual, decodificados ' + ok + '/4';
+      }catch(e){ audioCheck = 'manual, sin verificar: ' + e; }
+    }
+    const hasAudio = true;
+    const muxer = new Muxer({
+      target: new ArrayBufferTarget(),
+      video: { codec: 'avc', width: W, height: H, frameRate: FPS },
+      ...(hasAudio ? { audio: { codec: 'aac', numberOfChannels: CH, sampleRate: SR } } : {}),
+      fastStart: 'in-memory', firstTimestampBehavior: 'offset'
+    });
+    let err = null;
+    const enc = new VideoEncoder({ output: (ch, meta) => muxer.addVideoChunk(ch, meta), error: e => err = e });
+    enc.configure(vcfg);
+    const N = Math.round(DURATION * FPS);
+    if(!hasEncoder){
+      const FD = 1024 * 1e6 / SR;
+      for(let i = 0; i * 1024 < DURATION * SR; i++){
+        const chunk = new EncodedAudioChunk({ type: 'key', timestamp: Math.round(i * FD), duration: Math.round(FD), data: SILENT });
+        muxer.addAudioChunk(chunk, i === 0 ? { decoderConfig: { codec: 'mp4a.40.2', sampleRate: SR, numberOfChannels: CH, description: ASC } } : undefined);
+      }
+    } else {
+      const aenc = new AudioEncoder({ output: (ch, meta) => muxer.addAudioChunk(ch, meta), error: e => err = e });
+      aenc.configure(acfg);
+      const F = 4800;
+      for(let i = 0; i * F < DURATION * SR; i++){
+        const ad = new AudioData({ format: 'f32-planar', sampleRate: SR, numberOfFrames: F, numberOfChannels: CH, timestamp: Math.round(i * F * 1e6 / SR), data: new Float32Array(F * CH) });
+        aenc.encode(ad); ad.close();
+      }
+      await aenc.flush();
+    }
+    for(let i = 0; i < N; i++){
+      frame(i / FPS);
+      const vf = new VideoFrame(cv, { timestamp: Math.round(i * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
+      enc.encode(vf, { keyFrame: i % (FPS * 2) === 0 }); vf.close();
+      while(enc.encodeQueueSize > 8) await new Promise(r => setTimeout(r, 5));
+      if(err) throw err;
+      if(i % 30 === 0) document.title = 'ENC ' + i + '/' + N;
+    }
+    await enc.flush(); muxer.finalize();
+    const buf = muxer.target.buffer;
+    await fetch('/save/' + VID.file, { method: 'POST', body: buf });
+    await fetch('/save/enc-log-' + V + '.txt', { method: 'POST', body: `ok ${vcfg.codec} audio=${audioCheck} dur=${DURATION.toFixed(2)} bytes=${buf.byteLength}` });
+    document.title = 'DONE';
+  }catch(e){
+    await fetch('/save/enc-log-' + V + '.txt', { method: 'POST', body: 'ERROR ' + String(e && e.stack || e) });
+  }
+}
+main();
+</script>
+</body></html>
