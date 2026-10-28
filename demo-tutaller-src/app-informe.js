@@ -38,6 +38,7 @@ function blankInforme(){
     clienteId: null,
     vehiculoId: null,
     ingresoId: null,
+    presupuestoId: null,
     fields: {fecha: todayISO(), manoobra:'0'}
   };
 }
@@ -174,7 +175,9 @@ function informeMarkup(){
       <div class="panel">
         <h2>Repuestos utilizados</h2>
         <div id="repuestosList"></div>
-        <button class="add-row-btn" id="addRepuesto">＋ Agregar repuesto</button>
+        ${stockPickerHtml('informeStockInput', 'informeStockResults')}
+        <button class="add-row-btn" id="addRepuesto" style="margin-top:8px;">＋ Agregar repuesto manual</button>
+        <p class="small muted" style="margin:8px 0 0;">Los repuestos del stock se descuentan solos al guardar el trabajo.</p>
       </div>
 
       <div class="panel">
@@ -312,6 +315,18 @@ function renderInforme(){
   bindPhotoDrop();
   document.getElementById('addTrabajo').onclick = () => { state.informe.trabajos.push(''); renderTrabajosForm(); renderReport(); };
   document.getElementById('addRepuesto').onclick = () => { state.informe.repuestos.push({nombre:'',marca:'',costo:0}); renderRepuestosForm(); renderReport(); };
+  wireStockPicker('informeStockInput', 'informeStockResults', (r) => {
+    const reps = state.informe.repuestos;
+    const ya = reps.find(x => x.repuestoId === r.id);
+    if(ya){ ya.cantidad = (Number(ya.cantidad)||1) + 1; ya.costo = ya.precioUnit * ya.cantidad; }
+    else {
+      // Si la única línea es la vacía del arranque, se reemplaza en vez de dejarla colgando.
+      if(reps.length === 1 && !(reps[0].nombre||'').trim()) reps.pop();
+      reps.push({nombre:r.descripcion, marca:r.marca||'', costo:r.precioVenta||0, repuestoId:r.id, cantidad:1, precioUnit:r.precioVenta||0});
+    }
+    if((Number(r.stock)||0) < (ya ? ya.cantidad : 1)) toast(`Ojo: de "${r.descripcion}" quedan ${Number(r.stock)||0} en stock.`);
+    renderRepuestosForm(); renderReport();
+  });
   document.getElementById('addObs').onclick = () => { state.informe.obs.push(''); renderObsForm(); renderReport(); };
   document.getElementById('downloadBtn').onclick = () => withBusyButton(document.getElementById('downloadBtn'), 'Generando…', async () => {
     try{ downloadBlob(await buildReportPdfBlob(), reportFileName()); }
@@ -355,6 +370,19 @@ function renderRepuestosForm(){
   state.informe.repuestos.forEach((r, i) => {
     const card = document.createElement('div');
     card.className = 'item-card';
+    if(r.repuestoId){
+      // Línea tomada del stock: nombre y precio vienen del depósito, acá solo se elige cuántos.
+      const rep = findRepuesto(r.repuestoId);
+      card.innerHTML = `
+        <div class="item-card-head"><span>📦 Del stock</span><button class="btn-danger" data-remove="${i}">Quitar</button></div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <div class="part-icon-preview">${pickIcon(r.nombre)}</div>
+          <div style="flex:1; min-width:0;"><b style="font-size:14px;">${esc(r.nombre)}</b><div class="small muted">${[r.marca && esc(r.marca), money(r.precioUnit) + ' c/u', rep && 'quedan ' + (Number(rep.stock)||0)].filter(Boolean).join(' · ')}</div></div>
+          <div class="field" style="margin:0; width:74px;"><input type="number" min="1" step="1" data-field="cantidad" data-i="${i}" value="${Number(r.cantidad)||1}" aria-label="Cantidad"></div>
+        </div>`;
+      wrap.appendChild(card);
+      return;
+    }
     card.innerHTML = `
       <div class="item-card-head"><span>Repuesto ${i+1}</span><button class="btn-danger" data-remove="${i}">Quitar</button></div>
       <div style="display:flex; gap:10px; align-items:flex-start;">
@@ -372,8 +400,9 @@ function renderRepuestosForm(){
   });
   wrap.querySelectorAll('[data-remove]').forEach(b => b.onclick = () => { state.informe.repuestos.splice(+b.dataset.remove,1); renderRepuestosForm(); renderReport(); });
   wrap.querySelectorAll('[data-field]').forEach(el => el.oninput = () => {
-    const i = +el.dataset.i, field = el.dataset.field;
-    state.informe.repuestos[i][field] = field === 'costo' ? (parseFloat(el.value)||0) : el.value;
+    const i = +el.dataset.i, field = el.dataset.field, rep = state.informe.repuestos[i];
+    if(field === 'cantidad'){ rep.cantidad = Math.max(1, parseInt(el.value,10)||1); rep.costo = rep.precioUnit * rep.cantidad; renderReport(); return; }
+    rep[field] = field === 'costo' ? (parseFloat(el.value)||0) : el.value;
     if(field === 'nombre'){ const iw = document.getElementById(`icon-prev-${i}`); if(iw) iw.innerHTML = pickIcon(el.value); }
     renderReport();
   });
@@ -484,7 +513,7 @@ function renderReport(){
   let totalRepuestos = 0;
   document.getElementById('r_repuestos').innerHTML = state.informe.repuestos.filter(r=>r.nombre&&r.nombre.trim()).map(r => {
     totalRepuestos += (r.costo||0);
-    return `<tr><td><div class="r-part-name"><div class="r-part-icon">${pickIcon(r.nombre)}</div><div class="r-part-desc"><b>${esc(r.nombre)}</b></div></div></td><td>${esc(r.marca||'—')}</td><td class="r-part-cost" style="text-align:right;">${money(r.costo)}</td></tr>`;
+    return `<tr><td><div class="r-part-name"><div class="r-part-icon">${pickIcon(r.nombre)}</div><div class="r-part-desc"><b>${esc(r.nombre)}${(Number(r.cantidad)||1) > 1 ? ' x' + r.cantidad : ''}</b></div></div></td><td>${esc(r.marca||'—')}</td><td class="r-part-cost" style="text-align:right;">${money(r.costo)}</td></tr>`;
   }).join('') || `<tr><td colspan="3" class="empty-note">Agregá los repuestos utilizados.</td></tr>`;
 
   const manoObra = parseFloat(fV('manoobra'))||0;
@@ -583,13 +612,22 @@ async function guardarTrabajo(){
       createdAt: Date.now()
     };
     const trabajoId = await collectionRef('trabajos').add(trabajoData);
+    // Repuestos tomados del stock: se descuentan una sola vez (la línea queda marcada), así volver a
+    // tocar "Guardar trabajo" no los resta de nuevo.
+    const sinDescontar = state.informe.repuestos.filter(r => r.repuestoId && !r.descontado);
+    const descontados = await descontarStockDeTrabajo(sinDescontar, `${vehiculoData.patente || vehiculoData.modelo || 'Trabajo'} · ${nombre}`);
+    sinDescontar.forEach(r => { r.descontado = true; });
+    if(state.informe.presupuestoId){
+      await collectionRef('presupuestos').update(state.informe.presupuestoId, {estado:'aprobado', trabajoId});
+    }
     if(state.informe.ingresoId){
       // El auto se entrega: el acta pasa a "Entregado" y sale de Estado autos.
       await collectionRef('ingresos').update(state.informe.ingresoId, {estado:'entregado', entregadoAt:Date.now(), trabajoId});
       await Promise.all(state.ordenes.filter(o => o.ingresoId === state.informe.ingresoId).map(o => collectionRef('ordenes').remove(o.id)));
     }
     doneSaving();
-    toast('Trabajo guardado. Próximo service recalculado.');
+    saveInformeDraft();
+    toast(descontados ? `Trabajo guardado. Se descontaron ${descontados} repuesto${descontados===1?'':'s'} del stock.` : 'Trabajo guardado. Próximo service recalculado.');
   }catch(e){ saveError(e); }
 }
 
@@ -645,7 +683,7 @@ function cargarTrabajoComoInforme(id){
   inf.vehiculoId = t.vehiculoId || null;
   inf.ingresoId = t.ingresoId || null;
   inf.trabajos = (t.trabajosRealizados && t.trabajosRealizados.length) ? t.trabajosRealizados.slice() : [''];
-  inf.repuestos = (t.repuestos && t.repuestos.length) ? t.repuestos.map(r=>Object.assign({},r)) : [{nombre:'',marca:'',costo:0}];
+  inf.repuestos = (t.repuestos && t.repuestos.length) ? t.repuestos.map(r=>Object.assign({}, r, r.repuestoId ? {descontado:true} : {})) : [{nombre:'',marca:'',costo:0}];
   inf.obs = (t.observaciones && t.observaciones.length) ? t.observaciones.slice() : [''];
   inf.fields.fecha = t.fecha || todayISO();
   inf.fields.manoobra = String(t.manoObra||0);

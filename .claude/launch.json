@@ -25,6 +25,19 @@
       "port": 8791
     },
     {
+      "name": "tutaller-demo-ps",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        ".claude/serve-static.ps1",
+        "demo-tutaller-src",
+        "8791"
+      ],
+      "port": 8791
+    },
+    {
       "name": "repuestospro-demo",
       "runtimeExecutable": "powershell",
       "runtimeArgs": [

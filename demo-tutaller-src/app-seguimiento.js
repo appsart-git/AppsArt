@@ -67,6 +67,7 @@ function ordenCardHtml(o){
       <div class="orden-actions">
         ${next ? `<button class="btn btn-sm btn-primary" data-action="avanzarOrden" data-id="${o.id}">Pasar a "${esc(next.label)}"</button>` : ''}
         <button class="btn btn-sm btn-ghost" data-action="vistaClienteOrden" data-id="${o.id}">👁️ Vista del cliente</button>
+        ${o.estado==='diagnostico' || o.estado==='recibido' ? `<button class="btn btn-sm btn-ghost" data-action="presupuestoDesdeOrden" data-id="${o.id}">💲 Presupuestar</button>` : ''}
         ${o.ingresoId && state.ingresos.some(i=>i.id===o.ingresoId) ? `<button class="btn btn-sm btn-ghost" data-action="verActa" data-id="${o.ingresoId}">📋 Acta de ingreso</button>` : ''}
         ${c && c.telefono
           ? `<a class="btn btn-sm btn-wa" href="${waLink(c.telefono, msgEstado)}" target="_blank" rel="noopener" data-action="avisarEstadoOrden" data-id="${o.id}">💬 Avisar por WhatsApp</a>`

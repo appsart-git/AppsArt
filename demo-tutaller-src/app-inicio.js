@@ -68,6 +68,9 @@ function renderInicio(){
   const urgentes = all.filter(x => x.info.estado === 'vencido' || x.info.estado === 'porVencer')
     .sort((a,b)=>a.info.fecha.localeCompare(b.info.fecha)).slice(0,5);
   const autosEnTaller = state.ordenes.length;
+  const presuAbiertos = presupuestosDeTab('pendientes');
+  const paraReponer = repuestosActivos().filter(r => stockEstado(r) !== 'ok').length;
+  const valorStock = repuestosActivos().reduce((s,r)=>s + (Number(r.stock)||0)*(Number(r.costo)||0), 0);
   const meses6 = ultimosMeses(6).map(m => Object.assign({}, m, {
     manoObra: manoObraFacturadaMes(m.mesStr), gastos: totalGastosMes(m.mesStr)
   }));
@@ -101,6 +104,13 @@ function renderInicio(){
       <div class="kpi-card"><div class="lbl">Clientes en la base</div><div class="val">${state.clientes.length}</div><div class="sub">${state.vehiculos.length} vehículo${state.vehiculos.length===1?'':'s'} registrado${state.vehiculos.length===1?'':'s'}</div></div>
       <div class="kpi-card"><div class="lbl">Tasa de recompra</div><div class="val">${recompra==null?'—':recompra+'%'}</div><div class="sub">clientes que volvieron más de una vez</div></div>
       <div class="kpi-card"><div class="lbl">Autos en el taller</div><div class="val">${autosEnTaller}</div><div class="sub">en seguimiento ahora</div></div>
+    </div>
+
+    <h3 class="kpi-section-lbl">Presupuestos y stock</h3>
+    <div class="kpi-grid-3">
+      <div class="kpi-card" data-action="nav" data-id="presupuestos" role="button" tabindex="0" style="cursor:pointer;"><div class="lbl">Presupuestos sin respuesta</div><div class="val">${presuAbiertos.length}</div><div class="sub">${money(presuAbiertos.reduce((s,p)=>s+presuTotales(p).total,0))} esperando el sí del cliente</div></div>
+      <div class="kpi-card" data-action="nav" data-id="stock" role="button" tabindex="0" style="cursor:pointer;"><div class="lbl">Repuestos para reponer</div><div class="val" style="color:${paraReponer?'var(--amber)':'var(--green)'};">${paraReponer}</div><div class="sub">${paraReponer ? 'bajo el stock mínimo' : 'todo el stock al día'}</div></div>
+      <div class="kpi-card"><div class="lbl">Valor del stock</div><div class="val">${money(valorStock)}</div><div class="sub">repuestos en depósito, a costo</div></div>
     </div>
 
     <div class="panel">

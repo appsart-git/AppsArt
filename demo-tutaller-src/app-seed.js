@@ -241,3 +241,86 @@ function seedDemoDataIfEmpty(){
   lsWriteAll('contactos', contactos);
   localStorage.setItem(lsKey('seeded'), '1');
 }
+
+/* Stock y presupuestos tienen su propia marca de sembrado: así también aparecen en un navegador
+   que ya había abierto la demo antes de que existieran estas secciones (sin pisar sus datos). */
+function seedStockYPresupuestosIfEmpty(){
+  if(localStorage.getItem(lsKey('seeded_stock'))) return;
+  const hoy = new Date();
+  function isoOffset(days){ const d = new Date(hoy); d.setDate(d.getDate() + days); return d.toISOString().slice(0,10); }
+
+  // [descripción, marca, rubro, compatibilidad, stock, mínimo, costo, ubicación, proveedor]
+  const BASE = [
+    ['Filtro de aceite', 'Mann', 'Filtros', 'Fiat Cronos / Argo 1.3', 8, 4, 5400, 'A1', 'Distribuidora Sur'],
+    ['Filtro de aceite', 'Mann', 'Filtros', 'VW Gol / Suran 1.6', 6, 4, 5000, 'A1', 'Distribuidora Sur'],
+    ['Filtro de aire', 'Mann', 'Filtros', 'Chevrolet Onix / Prisma', 2, 3, 6400, 'A2', 'Distribuidora Sur'],
+    ['Filtro de combustible', 'Fram', 'Filtros', 'Toyota Hilux 2.8', 3, 2, 9800, 'A2', 'Distribuidora Sur'],
+    ['Aceite 10w40 semisintético x4L', 'Elaion', 'Lubricantes', 'Universal', 9, 6, 24000, 'B1', 'Lubricentro Mayorista'],
+    ['Aceite 5w30 sintético x4L', 'Shell Helix', 'Lubricantes', 'Universal', 4, 4, 38000, 'B1', 'Lubricentro Mayorista'],
+    ['Aceite ATF x1L', 'Elaion', 'Lubricantes', 'Cajas automáticas', 10, 6, 9500, 'B2', 'Lubricentro Mayorista'],
+    ['Pastillas de freno delanteras', 'Frasle', 'Frenos', 'Fiat Cronos / Argo', 3, 2, 29000, 'C1', 'Frenos del Sur'],
+    ['Pastillas de freno delanteras', 'Frasle', 'Frenos', 'VW Gol Trend', 1, 2, 27500, 'C1', 'Frenos del Sur'],
+    ['Discos de freno (par)', 'Fremax', 'Frenos', 'Renault Sandero / Logan', 2, 1, 62000, 'C2', 'Frenos del Sur'],
+    ['Líquido de frenos DOT4 x500ml', 'Bosch', 'Frenos', 'Universal', 7, 4, 6200, 'C2', 'Frenos del Sur'],
+    ['Bujías (juego x4)', 'NGK', 'Encendido', 'Chevrolet Onix 1.4', 4, 2, 19000, 'D1', 'Distribuidora Sur'],
+    ['Kit distribución + bomba de agua', 'Dayco', 'Distribución', 'Chevrolet Onix 1.4', 0, 1, 82000, 'D2', 'Distribuidora Sur'],
+    ['Kit distribución', 'Contitech', 'Distribución', 'Fiat Cronos 1.3', 2, 1, 51000, 'D2', 'Distribuidora Sur'],
+    ['Amortiguador delantero', 'Sadar', 'Suspensión', 'Renault Sandero', 2, 2, 38000, 'E1', 'Repuestos Bahía'],
+    ['Kit bujes y rótulas', 'Vauper', 'Suspensión', 'VW Gol / Suran', 1, 1, 46000, 'E1', 'Repuestos Bahía'],
+    ['Kit de embrague', 'Luk', 'Embrague', 'VW Gol 1.6', 1, 1, 112000, 'E2', 'Repuestos Bahía'],
+    ['Batería 12x65', 'Moura', 'Eléctrico', 'Universal', 2, 2, 74000, 'F1', 'Baterías Centro'],
+    ['Lámpara H4 60/55W', 'Philips', 'Eléctrico', 'Universal', 12, 6, 3800, 'F2', 'Baterías Centro'],
+    ['Refrigerante x1L', 'Paraflu', 'Refrigeración', 'Universal', 3, 6, 4800, 'B2', 'Lubricentro Mayorista'],
+    ['Junta tapa de válvulas', 'Ajusa', 'Juntas y retenes', 'Peugeot 208 1.6', 1, 1, 14500, 'G1', 'Repuestos Bahía']
+  ];
+  const repuestos = BASE.map((b, k) => ({
+    id: genLocalId(), codigo: 'R-' + String(k + 1).padStart(4,'0'), descripcion: b[0], marca: b[1], rubro: b[2],
+    compatibilidad: b[3], stock: b[4], stockMinimo: b[5], costo: b[6], precioVenta: Math.round(b[6] * 1.4 / 100) * 100,
+    ubicacion: 'Estante ' + b[7], proveedor: b[8], activo: true, createdAt: Date.now() - k
+  }));
+  const R = (desc, compat) => repuestos.find(r => r.descripcion === desc && (!compat || r.compatibilidad.includes(compat)));
+
+  // Movimientos: el alta de cada repuesto y algunas entradas/salidas recientes, para que la ficha
+  // de un repuesto muestre un historial creíble.
+  const movimientosStock = [];
+  repuestos.forEach(r => movimientosStock.push({id: genLocalId(), repuestoId: r.id, tipo:'inicial', cantidad: r.stock + 2, detalle:'Carga inicial del depósito', fecha: isoOffset(-40), createdAt: Date.now() - 40*86400000}));
+  repuestos.forEach(r => movimientosStock.push({id: genLocalId(), repuestoId: r.id, tipo:'salida', cantidad: -2, detalle:'Usado en trabajos del mes', fecha: isoOffset(-12), createdAt: Date.now() - 12*86400000}));
+  movimientosStock.push({id: genLocalId(), repuestoId: R('Aceite 10w40 semisintético x4L').id, tipo:'entrada', cantidad: 6, detalle:'Lubricentro Mayorista · remito 0003-1182', fecha: isoOffset(-5), createdAt: Date.now() - 5*86400000});
+  // La entrada de arriba ya está incluida en el stock actual: se compensa la carga inicial.
+  movimientosStock.find(m => m.repuestoId === R('Aceite 10w40 semisintético x4L').id && m.tipo === 'inicial').cantidad -= 6;
+
+  // Presupuestos: usan clientes y vehículos que ya existen en la demo.
+  const clientes = lsReadAll('clientes'), vehiculos = lsReadAll('vehiculos');
+  const cli = (nombre) => clientes.find(c => c.nombre === nombre);
+  const veh = (c) => c && vehiculos.find(v => v.clienteId === c.id);
+  const presupuestos = [];
+  let numero = 38;
+  function presu(nombre, diasAtras, estado, items, extra){
+    const c = cli(nombre);
+    if(!c) return;
+    const v = veh(c);
+    const p = Object.assign({id: genLocalId(), numero: numero++, clienteId: c.id, vehiculoId: v ? v.id : null, fecha: isoOffset(-diasAtras),
+      validezDias: 15, descuento: 0, notas: '', estado, items, createdAt: Date.now() - diasAtras*86400000}, extra || {});
+    if(estado === 'aprobado') p.aprobadoFecha = isoOffset(-Math.max(0, diasAtras - 1));
+    presupuestos.push(p);
+  }
+  const rep = (r, cant) => ({tipo:'rep', repuestoId: r.id, descripcion: r.descripcion + ' ' + r.marca, cantidad: cant, precio: r.precioVenta});
+  const mo = (descripcion, precio) => ({tipo:'mo', descripcion, precio});
+
+  presu('Fernando Castro', 34, 'aprobado', [mo('Cambio de aceite y filtro', 25000), rep(R('Aceite 10w40 semisintético x4L'), 1)]);
+  presu('Ariel Giménez', 22, 'rechazado', [mo('Cambio de amortiguadores delanteros', 70000), {tipo:'rep', descripcion:'Amortiguadores delanteros Monroe (par)', cantidad:1, precio:118000}]);
+  presu('Sonia Blanco', 15, 'aprobado', [mo('Service completo', 55000), rep(R('Aceite 5w30 sintético x4L'), 1), rep(R('Filtro de aceite','Cronos'), 1)]);
+  // Abiertos: lo que se ve primero en la llamada.
+  presu('Laura Paz', 1, 'enviado', [mo('Cambio de amortiguadores delanteros', 65000), mo('Alineación y balanceo', 22000), rep(R('Amortiguador delantero'), 2), rep(R('Discos de freno (par)'), 1)],
+    {notas: 'Las cubiertas delanteras están gastadas: te pasamos precio aparte si querés cambiarlas.'});
+  presu('Marcela Ríos', 2, 'enviado', [mo('Cambio de kit de distribución y bomba de agua', 120000), rep(R('Kit distribución + bomba de agua'), 1), rep(R('Refrigerante x1L'), 4)],
+    {notas: 'El kit se pide al proveedor: llega en 24 hs.'});
+  presu('Nico Ibáñez', 0, 'pendiente', [mo('Diagnóstico con escáner', 25000), mo('Limpieza de cuerpo de aceleración', 30000), rep(R('Bujías (juego x4)'), 1)], {descuento: 10});
+
+  presupuestos.forEach(p => { const t = p.items.reduce((s,it)=>s + (it.precio||0) * (it.tipo==='rep' ? (it.cantidad||1) : 1), 0); p.total = Math.round(t * (1 - (p.descuento||0)/100)); });
+
+  lsWriteAll('repuestos', repuestos);
+  lsWriteAll('movimientosStock', movimientosStock);
+  lsWriteAll('presupuestos', presupuestos);
+  localStorage.setItem(lsKey('seeded_stock'), '1');
+}
