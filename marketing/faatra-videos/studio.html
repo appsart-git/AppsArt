@@ -1,7 +1,7 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><title>Estudio videos FAATRA</title>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600;700;800&display=block" rel="stylesheet">
-<style>html,body{margin:0;background:#000;color:#ccc;font:14px system-ui}canvas{display:block;width:540px;height:960px}</style>
+<style>html,body{margin:0;background:#000;color:#ccc;font:14px system-ui}canvas{display:block;width:540px;height:960px}canvas.tab{width:960px;height:540px}</style>
 </head><body>
 <canvas id="c" width="1080" height="1920"></canvas>
 <script src="scenes.js"></script>
@@ -13,37 +13,40 @@
   studio.html?v=1&t=12.5     un cuadro quieto (para revisar con Edge headless --screenshot)
   studio.html?v=1&enc=1      render cuadro a cuadro -> out/appsart-talleres-vertical.mp4 (render.ps1)
   studio.html?v=1&qr=1       decodifica el QR del cuadro final con jsQR y guarda out/qr-check-<v>.txt
+  &f=tab en cualquiera de los anteriores = formato tablet horizontal 1920x1080 (-> appsart-*-tablet.mp4)
 
   TEXTOS: cada escena tiene un solo titular; *entre asteriscos* = palabras en terracota.
   Si se suma voz, la locución tiene que decir exactamente ese texto.
 */
-const W = 1080, H = 1920, FPS = 30;
+const P = new URLSearchParams(location.search);
+const TAB = P.get('f') === 'tab';           // formato tablet horizontal
+const W = TAB ? 1920 : 1080, H = TAB ? 1080 : 1920, FPS = 30;
 const BG = '#15100D', BONE = '#FAF8F6', TERRA = '#C26030', DIM = '#B8AEA4';
 const WA_URL = 'https://wa.me/5491133663820?text=Hola%2C%20vi%20el%20video%20de%20AppsArt%20en%20la%20jornada%20de%20FAATRA';
 const cv = document.getElementById('c'), x = cv.getContext('2d');
-const P = new URLSearchParams(location.search);
+cv.width = W; cv.height = H; if(TAB) cv.classList.add('tab');
 const V = P.get('v') || '1';
 
 /* ===================== GUION DE CADA VIDEO ===================== */
 // kind: hook | demo | reportcar | appsart | contact
-// demo: shots = [[escena, paso, segundos?], ...]; pdf = segundos de la hoja PDF al final
+// demo: shots = [[escena, paso, segundos?], ...]; pdf = segundos de la hoja PDF al final (pdfH = alto útil de la captura)
 const STEP = 2.4;
 const VIDEOS = {
-  '1': { file: 'appsart-talleres-vertical.mp4', scenes: [
+  '1': { file: TAB ? 'appsart-talleres-tablet.mp4' : 'appsart-talleres-vertical.mp4', scenes: [
     { kind: 'hook', text: '¿Tu taller todavía anota todo en *papel*?', bg: ['v1s5', 0], dur: 4 },
     { kind: 'demo', text: 'Cargá la orden de trabajo desde el *celular:* cliente, patente y vehículo.',
-      shots: [['v1s2', 0], ['v1s2', 1], ['v1s2', 2], ['v1s2', 3], ['v1s2', 4, 2.6]] },
+      shots: [['v1s2', 0, 2.2], ['v1s2', 1, 2.6], ['v1s2', 2], ['v1s2', 3], ['v1s2', 4, 3.0]] },
     { kind: 'demo', text: 'Buscá la *patente* y tenés todo el *historial* del auto.',
       shots: [['v1s3', 0], ['v1s3', 1], ['v1s3', 2, 2.8], ['v1s3', 3, 2.6]] },
-    { kind: 'demo', text: 'Armá el informe del trabajo y mandalo en *PDF* por *WhatsApp.*',
-      shots: [['v1s4', 0, 2.2], ['v1s4', 1, 2.0]], pdf: 4.6 },
+    { kind: 'demo', text: 'Armá el *presupuesto* y mandalo en *PDF* por *WhatsApp.*',
+      shots: [['v1s4', 0, 2.0], ['v1s4', 1, 2.4], ['v1s4', 2, 2.4], ['v1s4', 3, 2.4]], pdf: 4.2, pdfH: 738 },
     { kind: 'demo', text: 'Seguí cada auto: recibido, diagnóstico, esperando repuesto y *listo.*',
       shots: [['v1s5', 0], ['v1s5', 1], ['v1s5', 2, 2.8]] },
     { kind: 'reportcar', text: 'Esto es *ReportCar,* nuestro sistema para talleres.', dur: 5 },
     { kind: 'appsart', text: 'En AppsArt desarrollamos sistemas *a medida* para industria, comercio, pymes y profesionales.', dur: 6.2 },
     { kind: 'contact', text: 'Escribinos por *WhatsApp.*', dur: 6 },
   ]},
-  '2': { file: 'appsart-repuestos-vertical.mp4', scenes: [
+  '2': { file: TAB ? 'appsart-repuestos-tablet.mp4' : 'appsart-repuestos-vertical.mp4', scenes: [
     { kind: 'hook', text: '¿Cuánto tardás en encontrar el *repuesto justo?*', bg: ['v2s2', 0], dur: 4 },
     { kind: 'demo', text: 'Buscá por *vehículo* y encontrá el repuesto *compatible.*',
       shots: [['v2s2', 0, 2.6], ['v2s2', 1, 2.8], ['v2s2', 2, 3.2]] },
@@ -124,13 +127,13 @@ function richLayout(text, sz, maxW){
   }
   return { lines, space };
 }
-function headline(text, t, y, sz=80, maxW=950, alpha=1){
+function headline(text, t, y, sz=80, maxW=950, alpha=1, left=null){
   const { lines, space } = richLayout(text, sz, maxW);
   font(sz, 700); x.textBaseline = 'top'; x.textAlign = 'left';
   let i = 0;
   lines.forEach((L, li) => {
     const lw = L.reduce((a, w) => a + w.width, 0) + space * (L.length - 1);
-    let cx = (W - lw) / 2;
+    let cx = left == null ? (W - lw) / 2 : left;
     for(const wd of L){
       const p = eo(prog(t, .05 + i * .035, .45 + i * .035));
       x.globalAlpha = p * alpha; x.fillStyle = wd.key ? TERRA : BONE;
@@ -142,21 +145,24 @@ function headline(text, t, y, sz=80, maxW=950, alpha=1){
   return y + lines.length * sz * 1.14;
 }
 // punto terracota (motivo de marca)
-function brandDot(t){
+function brandDot(t, dx = W/2, dy = TAB ? 64 : 92){
   const r = 9 + Math.sin(t * 3) * 1.2;
-  x.beginPath(); x.arc(W/2, 92, r, 0, Math.PI*2); x.fillStyle = TERRA; x.fill();
-  x.beginPath(); x.arc(W/2, 92, r + 9 + (t * 14) % 14, 0, Math.PI*2);
+  x.beginPath(); x.arc(dx, dy, r, 0, Math.PI*2); x.fillStyle = TERRA; x.fill();
+  x.beginPath(); x.arc(dx, dy, r + 9 + (t * 14) % 14, 0, Math.PI*2);
   x.strokeStyle = `rgba(194,96,48,${.35 * (1 - ((t * 14) % 14) / 14)})`; x.lineWidth = 3; x.stroke();
 }
 function bg(){ x.fillStyle = BG; x.fillRect(0, 0, W, H); }
 
 /* ===================== DISPOSITIVO ===================== */
 const TOP = 520, BOTTOM = 1885;
+// tablet: texto en la columna izquierda (TXT_X..TXT_X+TXT_W), equipo centrado en DEV_CX
+const TXT_X = 120, TXT_W = 760, DEV_CX = 1400;
 function deviceBox(s){
   const phone = s.vw <= 420;
-  const maxW = phone ? 690 : 960, maxH = BOTTOM - TOP - 40;
+  const maxW = TAB ? (phone ? 560 : 900) : (phone ? 690 : 960), maxH = TAB ? H - 120 : BOTTOM - TOP - 40;
   const k = Math.min(maxW / s.vw, maxH / s.vh);
   const sw = s.vw * k, sh = s.vh * k, bez = phone ? 16 : 14;
+  if(TAB) return { phone, k, sw, sh, bez, sx: DEV_CX - sw / 2, sy: (H - sh) / 2 };
   return { phone, k, sw, sh, bez, sx: (W - sw) / 2, sy: TOP + 20 + (maxH - sh) / 2 };
 }
 function drawShot(key, b, alpha=1){
@@ -199,13 +205,18 @@ function sceneHook(s, t){
   const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, 'rgba(21,16,13,.85)'); g.addColorStop(.5, 'rgba(21,16,13,.35)'); g.addColorStop(1, 'rgba(21,16,13,.9)');
   x.fillStyle = g; x.fillRect(0, 0, W, H);
   brandDot(t);
-  const { lines } = richLayout(s.text, 104, 900);
-  headline(s.text, t, H/2 - lines.length * 104 * 1.14 / 2 - 40, 104, 900);
+  const hw = TAB ? 1400 : 900;
+  const { lines } = richLayout(s.text, 104, hw);
+  headline(s.text, t, H/2 - lines.length * 104 * 1.14 / 2 - (TAB ? 0 : 40), 104, hw);
 }
 
 function sceneDemo(s, t){
-  bg(); brandDot(t);
-  headline(s.text, t, 150);
+  bg();
+  if(TAB){
+    const { lines } = richLayout(s.text, 76, TXT_W), y0 = H/2 - lines.length * 76 * 1.14 / 2;
+    brandDot(t, TXT_X + 10, y0 - 70);
+    headline(s.text, t, y0, 76, TXT_W, 1, TXT_X);
+  } else { brandDot(t); headline(s.text, t, 150); }
   const b = deviceBox(s);
   const enter = prog(t, .15, .6);
   // paso actual
@@ -227,12 +238,14 @@ function sceneDemo(s, t){
 // hoja PDF real del informe (la misma vista que la app convierte a PDF al tocar "Compartir")
 function pdfSheet(s, u){
   const m = META['v1s4pdf-0'], img = IMG['v1s4pdf-0'];
-  const repH = 1195;                         // alto útil del informe en la captura (px CSS)
+  const repH = s.pdfH || 1195;               // alto útil del documento en la captura (px CSS)
   const p = eo(prog(u, 0, .55));
-  x.fillStyle = `rgba(21,16,13,${.72 * p})`; x.fillRect(0, TOP, W, H - TOP);
-  const w = 760, h = w * repH / m.vw;
+  const bw = TAB ? 900 : 860, bh = TAB ? H - 160 : H - TOP - 140;
+  const w = Math.min(bw, bh * m.vw / repH), h = w * repH / m.vw;
+  const cx = TAB ? DEV_CX : W/2, cy = TAB ? H/2 : TOP + 60 + h/2;
+  x.fillStyle = `rgba(21,16,13,${.72 * p})`; if(TAB) x.fillRect(DEV_CX - 520, 0, 1040, H); else x.fillRect(0, TOP, W, H - TOP);
   x.save();
-  x.translate(W/2, TOP + 60 + h/2 + (1 - p) * 300);
+  x.translate(cx, cy + (1 - p) * 300);
   x.rotate((-1.6 + u * .25) * Math.PI / 180);
   const sc = .96 + .04 * p; x.scale(sc, sc);
   x.globalAlpha = p;
@@ -250,34 +263,35 @@ function pdfSheet(s, u){
 
 function sceneReportCar(s, t){
   bg(); brandDot(t);
-  headline(s.text, t, 150);
+  headline(s.text, t, TAB ? 120 : 150, 80, TAB ? 1600 : 950);
   const p = eo(prog(t, .35, 1.0));
-  const lw = 820, lh = lw * 640 / 1110;
+  const lw = TAB ? 640 : 820, lh = lw * 640 / 1110, ly = TAB ? 330 : 720;
   x.globalAlpha = p;
-  x.drawImage(IMG.rc, 182, 170, 1110, 640, (W - lw)/2, 720 + (1 - p) * 40, lw, lh);
+  x.drawImage(IMG.rc, 182, 170, 1110, 640, (W - lw)/2, ly + (1 - p) * 40, lw, lh);
   font(56, 600); x.fillStyle = BONE; x.textAlign = 'center'; x.textBaseline = 'top';
-  x.globalAlpha = eo(prog(t, .9, 1.4)); x.fillText('reportscar.com', W/2, 720 + lh + 60);
+  x.globalAlpha = eo(prog(t, .9, 1.4)); x.fillText('reportscar.com', W/2, ly + lh + (TAB ? 40 : 60));
   x.globalAlpha = 1;
 }
 
 function sceneAppsArt(s, t){
   bg(); brandDot(t);
-  const two = !!s.text2;
+  const two = !!s.text2, ty = TAB ? 120 : 150, tw = TAB ? 1500 : 950;
   if(two){
     const out = prog(t, s.split - .3, s.split);
-    if(t < s.split) headline(s.text, t, 150, 80, 950, 1 - out);
-    else headline(s.text2, t - s.split, 150);
-  } else headline(s.text, t, 150);
+    if(t < s.split) headline(s.text, t, ty, 80, tw, 1 - out);
+    else headline(s.text2, t - s.split, ty, 80, tw);
+  } else headline(s.text, t, ty, 80, tw);
   const p = eo(prog(t, .4, 1.1));
-  const lw = 860, lh = lw * 744 / 1800;
+  const lw = TAB ? 820 : 860, lh = lw * 744 / 1800;
   x.globalAlpha = p;
-  x.drawImage(IMG.logo, (W - lw)/2, 1000 - lh/2 + (1 - p) * 40, lw, lh);
+  x.drawImage(IMG.logo, (W - lw)/2, (TAB ? 680 : 1000) - lh/2 + (1 - p) * 40, lw, lh);
   x.globalAlpha = 1;
 }
 
 let QR = null;
 function buildQR(){ const q = qrcode(0, 'M'); q.addData(WA_URL); q.make(); QR = q; }
 function sceneContact(s, t){
+  if(TAB) return sceneContactTab(s, t);
   bg(); brandDot(t);
   headline(s.text, t, 150);
   const a = d => eo(prog(t, d, d + .45));
@@ -307,6 +321,31 @@ function sceneContact(s, t){
   x.globalAlpha = 1;
 }
 
+// placa de contacto horizontal: datos a la izquierda, QR grande a la derecha
+function sceneContactTab(s, t){
+  bg(); brandDot(t, TXT_X + 10, 150);
+  const a = d => eo(prog(t, d, d + .45));
+  headline(s.text, t, 220, 96, 780, 1, TXT_X);
+  const lw = 340, lh = lw * 744 / 1800;
+  x.globalAlpha = a(.2); x.drawImage(IMG.logo, TXT_X - 6, 470, lw, lh);
+  x.textAlign = 'left'; x.textBaseline = 'top';
+  x.globalAlpha = a(.6); font(36, 600); x.fillStyle = DIM; x.fillText('WhatsApp', TXT_X, 650);
+  font(66, 800); x.fillStyle = BONE; x.fillText('+54 9 11 3366-3820', TXT_X, 696);
+  x.globalAlpha = a(.8); font(36, 600); x.fillStyle = DIM; x.fillText('Instagram', TXT_X, 810);
+  font(56, 700); x.fillStyle = TERRA; x.fillText('@_appsart_', TXT_X, 856);
+  if(s.reportcarLine){ x.globalAlpha = a(1.1); font(32, 600); x.fillStyle = DIM; x.fillText('¿Tenés un taller? Conocé ReportCar · reportscar.com', TXT_X, 980); }
+  x.globalAlpha = 1;
+  const n = QR.getModuleCount(), quiet = 4, card = 820, cs = card / (n + quiet * 2);
+  const cx0 = 1440 - card/2, cy0 = (H - card)/2, pq = a(.35);
+  x.save(); x.globalAlpha = pq; x.translate(1440, H/2); const sc = .92 + .08 * pq; x.scale(sc, sc); x.translate(-1440, -H/2);
+  rr(cx0, cy0, card, card, 40); x.fillStyle = '#fff'; x.fill();
+  x.fillStyle = '#15100D';
+  for(let r = 0; r < n; r++) for(let c = 0; c < n; c++){
+    if(QR.isDark(r, c)) x.fillRect(Math.floor(cx0 + (c + quiet) * cs), Math.floor(cy0 + (r + quiet) * cs), Math.ceil(cs), Math.ceil(cs));
+  }
+  x.restore();
+}
+
 /* ===================== CUADRO ===================== */
 function frame(T){
   let s = VID.scenes.find(sc => T < sc.start + sc.dur) || VID.scenes[VID.scenes.length - 1];
@@ -334,7 +373,7 @@ async function main(){
     const { default: jsQR } = await import('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/+esm');
     const d = x.getImageData(0, 0, W, H);
     const r = jsQR(d.data, W, H);
-    await fetch('/save/qr-check-' + V + '.txt', { method: 'POST', body: (r ? r.data : 'NO DECODIFICA') + '\n' + (r && r.data === WA_URL ? 'OK coincide' : 'NO coincide') });
+    await fetch('/save/qr-check-' + V + (TAB ? '-tab' : '') + '.txt', { method: 'POST', body: (r ? r.data : 'NO DECODIFICA') + '\n' + (r && r.data === WA_URL ? 'OK coincide' : 'NO coincide') });
     document.title = 'QR DONE'; return;
   }
   if(P.has('enc')){ await encode(); return; }
@@ -407,10 +446,10 @@ async function encode(){
     await enc.flush(); muxer.finalize();
     const buf = muxer.target.buffer;
     await fetch('/save/' + VID.file, { method: 'POST', body: buf });
-    await fetch('/save/enc-log-' + V + '.txt', { method: 'POST', body: `ok ${vcfg.codec} audio=${audioCheck} dur=${DURATION.toFixed(2)} bytes=${buf.byteLength}` });
+    await fetch('/save/enc-log-' + V + (TAB ? '-tab' : '') + '.txt', { method: 'POST', body: `ok ${vcfg.codec} audio=${audioCheck} dur=${DURATION.toFixed(2)} bytes=${buf.byteLength}` });
     document.title = 'DONE';
   }catch(e){
-    await fetch('/save/enc-log-' + V + '.txt', { method: 'POST', body: 'ERROR ' + String(e && e.stack || e) });
+    await fetch('/save/enc-log-' + V + (TAB ? '-tab' : '') + '.txt', { method: 'POST', body: 'ERROR ' + String(e && e.stack || e) });
   }
 }
 main();

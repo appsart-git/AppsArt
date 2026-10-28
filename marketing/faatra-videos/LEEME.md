@@ -1,11 +1,15 @@
 # Videos FAATRA (jornada 28/10)
 
-Hay dos videos verticales, de 1080×1920 a 30 fps, en H.264 con pista AAC en silencio. Por ahora no tienen voz.
+Hay dos videos, cada uno en dos formatos: vertical para el celular (1080×1920) y horizontal para la tablet (1920×1080). Son a 30 fps, en H.264 con pista AAC en silencio. Por ahora no tienen voz.
 
 | Archivo | Duración | Peso |
 |---|---|---|
-| `appsart-talleres-vertical.mp4` | 64 s | 8,3 MB |
+| `appsart-talleres-vertical.mp4` | 69 s | 8,9 MB |
+| `appsart-talleres-tablet.mp4` | 69 s | 8,6 MB |
 | `appsart-repuestos-vertical.mp4` | 63 s | 8,1 MB |
+| `appsart-repuestos-tablet.mp4` | 63 s | 7,7 MB |
+
+El 28/10 se regrabó el de talleres con los módulos nuevos de la demo Tu Taller: **Ingreso** (escena 2) y **Presupuestos** (escena 4).
 
 ## Cómo está armado
 
@@ -19,16 +23,17 @@ En esta PC no hay Node, Python ni ffmpeg, así que no se pudo usar Playwright ni
   - `still <v> <t...>`: saca cuadros sueltos.
   - `qr <v>`: decodifica el QR de la placa final.
   - `enc <v>`: exporta el MP4 a `out/`.
+  - `<v>` es `1` (talleres) o `2` (repuestos). Con una `t` al final (`1t`, `2t`) sale en formato tablet.
   - `verify <v>`: abre el MP4 y saca cuadros reales.
 
-**Para cambiar un texto**, editás `VIDEOS` en `studio.html` y después corrés `render.ps1 enc 1` (o `enc 2`). Tarda alrededor de 30 s.
+**Para cambiar un texto**, editás `VIDEOS` en `studio.html` y después corrés `render.ps1 enc 1` (o `enc 2`, `enc 1t`, `enc 2t`). Tarda alrededor de 30 s.
 
 **Si después se suma voz**, cada locución tiene que decir exactamente el titular de su escena, y la duración de la escena pasa a ser la del audio más 0,5 s. Para eso hay que ajustar `dur` y `shots` en `VIDEOS`.
 
 ## Escenas adaptadas porque la demo es distinta al guion
 
-1. **Talleres, escena 2 (orden de trabajo).** En la demo, la pantalla se llama "Registrar auto en el taller", pero pide cliente, teléfono, patente, marca y modelo. Mantuve el texto del guion.
-2. **Talleres, escena 4.** La demo **no tiene presupuesto**: arma un *informe del trabajo realizado* en PDF, que se comparte con "Compartir". Por eso el texto quedó así: "Armá el informe del trabajo y mandalo en PDF por WhatsApp." La hoja PDF que se ve es la misma vista de la app que se convierte en PDF. No se muestra el WhatsApp porque es el selector del sistema y no se puede capturar.
+1. **Talleres, escena 2 (orden de trabajo).** Se muestra el módulo **Ingreso**: se cargan cliente, WhatsApp, patente y vehículo, se marcan los daños en el plano, firma el cliente y sale el acta. Las fotos del auto quedan vacías porque en la demo no hay fotos cargadas. La firma es un garabato dibujado por el script.
+2. **Talleres, escena 4.** Ya usa el módulo **Presupuestos**, así que el texto volvió al del brief: "Armá el presupuesto y mandalo en PDF por WhatsApp." La hoja que aparece es el documento real que exporta "Compartir PDF". No se muestra WhatsApp porque es el selector del sistema y no se puede capturar.
 3. **Talleres, escena 5 (estados).** Los estados reales de la demo son Recibido, Diagnóstico, Esperando repuesto y Listo. Texto: "Seguí cada auto: recibido, diagnóstico, esperando repuesto y listo."
 4. **Repuestos, escena 2.** La demo **no busca por marca, modelo y versión**. El buscador de Productos filtra por texto y también busca en el campo "Compatibilidad". En el video se escribe "Fiat" y después "Fiat Cronos". Texto: "Buscá por vehículo y encontrá el repuesto compatible."
 5. **Repuestos, escena 3 (stock).** Se muestra solo la vista de compu. En el celular (390 px), el **Panel de la demo se desborda**: mide 614 px de ancho y corta la columna de stock. Conviene corregirlo en la demo. El texto quedó igual.
