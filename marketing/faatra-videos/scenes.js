@@ -132,3 +132,9 @@ const probe = (app, vw, vh, sections) => ({
 });
 SCENES.probeRP = probe('rp', 600, 1000, ['panel', 'productos', 'proveedores', 'cuentas', 'ventas', 'clientes']);
 SCENES.probeTT = probe('tt', 390, 780, ['seguimiento', 'clientes', 'informe']);
+
+/* ---------- versión PC (videos horizontales "pc"): mismos guiones con la pantalla de una compu ---------- */
+for(const k of ['v1s2', 'v1s3', 'v1s4', 'v1s5', 'v2s2', 'v2s3', 'v2s4', 'v2s5']) SCENES[k + 'pc'] = { ...SCENES[k], vw: 1440, vh: 810 };
+// en el Panel de la demo la grilla es "1fr 1fr" y las tablas empujan la segunda tarjeta fuera de pantalla: para la captura se acota
+SCENES.v2s3pc.steps = [SCENES.v2s3.steps[0], { do: async c => { c.w.goSection('panel'); await c.wait(200);
+  c.d.querySelectorAll('.panel-grid').forEach(g => g.style.gridTemplateColumns = 'minmax(0,1.2fr) minmax(0,1fr)'); c.w.scrollTo(0, 0); } }];

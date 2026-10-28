@@ -16,7 +16,7 @@ foreach ($s in $Scenes) {
     $url = "http://localhost:8796/capture.html?scene=$s&step=$step"
     $png = Join-Path $shots "$s-$step.png"
     $p = Start-Process -FilePath $edge -ArgumentList @("--headless=old", "--disable-gpu", "--hide-scrollbars", "--no-first-run",
-      "--user-data-dir=$prof", "--window-size=900,1400", "--force-device-scale-factor=$dsf",
+      "--user-data-dir=$prof", "--window-size=$(if ($s.EndsWith("pc")) { "1600,1400" } else { "900,1400" })", "--force-device-scale-factor=$dsf",
       "--virtual-time-budget=20000", "--screenshot=$png", $url) -PassThru -WindowStyle Hidden
     $p.WaitForExit(90000) | Out-Null
     Remove-Item $prof -Recurse -Force -ErrorAction SilentlyContinue

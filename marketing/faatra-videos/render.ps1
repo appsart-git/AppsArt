@@ -1,5 +1,6 @@
 # Render de los videos (con serve.ps1 corriendo).
-#   <v> = 1 talleres, 2 repuestos; con "t" al final (1t, 2t) = formato tablet horizontal 1920x1080
+#   <v> = 1 talleres, 2 repuestos; con "t" al final (1t, 2t) = formato tablet horizontal 1920x1080;
+#         con "p" (1p, 2p) = horizontal 1920x1080 con las demos en vista de compu (*-pc.mp4)
 #   render.ps1 still 1 12.5 30 40     -> out/still-1-<t>.png (cuadros sueltos para revisar)
 #   render.ps1 qr 1t                  -> out/qr-check-1-tab.txt (decodifica el QR de la placa final)
 #   render.ps1 enc 1 [bitrate]        -> out/appsart-talleres-vertical.mp4 (2: repuestos, 1t/2t: *-tablet.mp4)
@@ -8,8 +9,8 @@ param([string]$Mode, [string]$V, [Parameter(ValueFromRemainingArguments = $true)
 $edge = "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
 $out = "C:\Users\moyola\Desktop\AppsArt\marketing\faatra-videos\out"
 function Prof { Join-Path $env:TEMP ("faatra-prof-" + [guid]::NewGuid()) }
-$tab = $V.EndsWith("t"); $n = $V.TrimEnd("t")
-$fq = $(if ($tab) { "&f=tab" } else { "" }); $sfx = $(if ($tab) { "-tab" } else { "" })
+$pc = $V.EndsWith("p"); $tab = $V.EndsWith("t") -or $pc; $n = $V.TrimEnd("t", "p")
+$fq = $(if ($pc) { "&f=pc" } elseif ($tab) { "&f=tab" } else { "" }); $sfx = $(if ($pc) { "-pc" } elseif ($tab) { "-tab" } else { "" })
 $win = $(if ($tab) { "960,540" } else { "540,960" })
 if ($Mode -eq "still") {
   foreach ($t in $Rest) {
@@ -26,7 +27,7 @@ if ($Mode -eq "still") {
 # qr / enc / verify: Edge headless queda abierto (remote debugging) hasta que aparece el archivo de salida
 if ($Mode -eq "qr") { $flag = Join-Path $out "qr-check-$n$sfx.txt"; $url = "http://localhost:8796/studio.html?v=$n&qr=1$fq" }
 elseif ($Mode -eq "verify") {
-  $f = @{"1"="appsart-talleres";"2"="appsart-repuestos"}[$n] + $(if ($tab) { "-tablet.mp4" } else { "-vertical.mp4" })
+  $f = @{"1"="appsart-talleres";"2"="appsart-repuestos"}[$n] + $(if ($pc) { "-pc.mp4" } elseif ($tab) { "-tablet.mp4" } else { "-vertical.mp4" })
   $flag = Join-Path $out "verify-$f.txt"; $url = "http://localhost:8796/verify.html?f=$f"
 }
 else {

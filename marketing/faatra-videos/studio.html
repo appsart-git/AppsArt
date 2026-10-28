@@ -14,12 +14,17 @@
   studio.html?v=1&enc=1      render cuadro a cuadro -> out/appsart-talleres-vertical.mp4 (render.ps1)
   studio.html?v=1&qr=1       decodifica el QR del cuadro final con jsQR y guarda out/qr-check-<v>.txt
   &f=tab en cualquiera de los anteriores = formato tablet horizontal 1920x1080 (-> appsart-*-tablet.mp4)
+  &f=pc  = horizontal 1920x1080 con las demos en vista de compu dentro de una ventana (-> appsart-*-pc.mp4)
 
   TEXTOS: cada escena tiene un solo titular; *entre asteriscos* = palabras en terracota.
   Si se suma voz, la locución tiene que decir exactamente ese texto.
 */
 const P = new URLSearchParams(location.search);
-const TAB = P.get('f') === 'tab';           // formato tablet horizontal
+const PC = P.get('f') === 'pc';             // horizontal con la vista de compu de las demos (ventana de navegador)
+const TAB = P.get('f') === 'tab' || PC;     // formato horizontal (tablet o pc)
+const SFX = PC ? '-pc' : TAB ? '-tab' : '';
+const FILE_END = PC ? '-pc.mp4' : TAB ? '-tablet.mp4' : '-vertical.mp4';
+const sid = id => PC && !id.endsWith('pdf') ? id + 'pc' : id;   // capturas de la versión pc: <escena>pc-<paso>
 const W = TAB ? 1920 : 1080, H = TAB ? 1080 : 1920, FPS = 30;
 const BG = '#15100D', BONE = '#FAF8F6', TERRA = '#C26030', DIM = '#B8AEA4';
 const WA_URL = 'https://wa.me/5491133663820?text=Hola%2C%20vi%20el%20video%20de%20AppsArt%20en%20la%20jornada%20de%20FAATRA';
@@ -32,9 +37,10 @@ const V = P.get('v') || '1';
 // demo: shots = [[escena, paso, segundos?], ...]; pdf = segundos de la hoja PDF al final (pdfH = alto útil de la captura)
 const STEP = 2.4;
 const VIDEOS = {
-  '1': { file: TAB ? 'appsart-talleres-tablet.mp4' : 'appsart-talleres-vertical.mp4', scenes: [
+  '1': { file: 'appsart-talleres' + FILE_END, scenes: [
     { kind: 'hook', text: '¿Tu taller todavía anota todo en *papel*?', bg: ['v1s5', 0], dur: 4 },
-    { kind: 'demo', text: 'Cargá la orden de trabajo desde el *celular:* cliente, patente y vehículo.',
+    { kind: 'demo', text: PC ? 'Cargá la orden de trabajo desde la *compu* o el *celular:* cliente, patente y vehículo.'
+                             : 'Cargá la orden de trabajo desde el *celular:* cliente, patente y vehículo.',
       shots: [['v1s2', 0, 2.2], ['v1s2', 1, 2.6], ['v1s2', 2], ['v1s2', 3], ['v1s2', 4, 3.0]] },
     { kind: 'demo', text: 'Buscá la *patente* y tenés todo el *historial* del auto.',
       shots: [['v1s3', 0], ['v1s3', 1], ['v1s3', 2, 2.8], ['v1s3', 3, 2.6]] },
@@ -46,7 +52,7 @@ const VIDEOS = {
     { kind: 'appsart', text: 'En AppsArt desarrollamos sistemas *a medida* para industria, comercio, pymes y profesionales.', dur: 6.2 },
     { kind: 'contact', text: 'Escribinos por *WhatsApp.*', dur: 6 },
   ]},
-  '2': { file: TAB ? 'appsart-repuestos-tablet.mp4' : 'appsart-repuestos-vertical.mp4', scenes: [
+  '2': { file: 'appsart-repuestos' + FILE_END, scenes: [
     { kind: 'hook', text: '¿Cuánto tardás en encontrar el *repuesto justo?*', bg: ['v2s2', 0], dur: 4 },
     { kind: 'demo', text: 'Buscá por *vehículo* y encontrá el repuesto *compatible.*',
       shots: [['v2s2', 0, 2.6], ['v2s2', 1, 2.8], ['v2s2', 2, 3.2]] },
@@ -61,6 +67,7 @@ const VIDEOS = {
   ]},
 };
 const VID = VIDEOS[V];
+for(const s of VID.scenes){ if(s.shots) s.shots = s.shots.map(([id, ...r]) => [sid(id), ...r]); if(s.bg) s.bg = [sid(s.bg[0]), s.bg[1]]; }
 
 /* ===================== CARGA ===================== */
 const IMG = {}, META = {};
@@ -157,7 +164,13 @@ function bg(){ x.fillStyle = BG; x.fillRect(0, 0, W, H); }
 const TOP = 520, BOTTOM = 1885;
 // tablet: texto en la columna izquierda (TXT_X..TXT_X+TXT_W), equipo centrado en DEV_CX
 const TXT_X = 120, TXT_W = 760, DEV_CX = 1400;
+// pc: titular arriba y la ventana del navegador debajo (barra de BAR px + pantalla)
+const PC_TOP = 228, PC_BOTTOM = 1046, BAR = 46;
 function deviceBox(s){
+  if(PC){
+    const sh = PC_BOTTOM - PC_TOP - BAR, k = sh / s.vh, sw = s.vw * k;
+    return { phone: false, pc: true, k, sw, sh, bez: 0, sx: (W - sw) / 2, sy: PC_TOP + BAR };
+  }
   const phone = s.vw <= 420;
   const maxW = TAB ? (phone ? 560 : 900) : (phone ? 690 : 960), maxH = TAB ? H - 120 : BOTTOM - TOP - 40;
   const k = Math.min(maxW / s.vw, maxH / s.vh);
@@ -174,6 +187,7 @@ function drawShot(key, b, alpha=1){
 function frameDevice(b, drawScreen, enter){
   const oy = (1 - eo(enter)) * 120;
   x.save(); x.globalAlpha = eo(enter); x.translate(0, oy);
+  if(b.pc){ browserWindow(b, drawScreen); x.restore(); return; }
   const R = b.phone ? 64 : 36;
   x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 70; x.shadowOffsetY = 26;
   rr(b.sx - b.bez, b.sy - b.bez, b.sw + b.bez*2, b.sh + b.bez*2, R + b.bez); x.fillStyle = '#0a0807'; x.fill();
@@ -182,6 +196,34 @@ function frameDevice(b, drawScreen, enter){
   drawScreen();
   x.restore();
   x.restore();
+}
+// ventana de navegador de escritorio (sin marca de ningún navegador real)
+function browserWindow(b, drawScreen){
+  const X0 = b.sx, Y0 = b.sy - BAR, R = 16;
+  x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 70; x.shadowOffsetY = 26;
+  rr(X0, Y0, b.sw, b.sh + BAR, R); x.fillStyle = '#2a221d'; x.fill();
+  x.shadowColor = 'transparent'; x.strokeStyle = '#3a2f28'; x.lineWidth = 2; x.stroke();
+  [0, 1, 2].forEach(i => { x.beginPath(); x.arc(X0 + 28 + i * 24, Y0 + BAR/2, 7, 0, Math.PI*2); x.fillStyle = '#4a3d35'; x.fill(); });
+  const uw = Math.min(560, b.sw * .42);
+  rr(X0 + (b.sw - uw)/2, Y0 + 9, uw, BAR - 18, (BAR - 18)/2); x.fillStyle = '#15100D'; x.fill();
+  font(17, 500); x.fillStyle = DIM; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(V === '1' ? 'Demo · Tu Taller' : 'Demo · Repuestos Pro', X0 + b.sw/2, Y0 + BAR/2 + 1);
+  x.save(); x.beginPath(); x.roundRect(b.sx, b.sy, b.sw, b.sh, [0, 0, R, R]); x.clip();
+  drawScreen();
+  x.restore();
+}
+// puntero del mouse (versión pc): viaja hasta el elemento y hace clic
+function cursorMark(cx, cy, click){
+  x.save(); x.translate(cx, cy); x.scale(1.5, 1.5);
+  x.beginPath(); x.moveTo(0, 0); x.lineTo(0, 24); x.lineTo(6, 18.5); x.lineTo(10.5, 28); x.lineTo(14.5, 26.2); x.lineTo(10, 17); x.lineTo(18, 17); x.closePath();
+  x.shadowColor = 'rgba(0,0,0,.45)'; x.shadowBlur = 8; x.shadowOffsetY = 3;
+  x.fillStyle = '#fff'; x.fill(); x.shadowColor = 'transparent'; x.strokeStyle = '#15100D'; x.lineWidth = 1.6; x.lineJoin = 'round'; x.stroke();
+  x.restore();
+  if(click > 0 && click < 1){
+    const a = 1 - click;
+    x.beginPath(); x.arc(cx, cy, 14 + eo(click) * 34, 0, Math.PI*2);
+    x.fillStyle = `rgba(194,96,48,${.35 * a})`; x.fill(); x.strokeStyle = `rgba(194,96,48,${.9 * a})`; x.lineWidth = 4; x.stroke();
+  }
 }
 // círculo de toque (Playwright/headless no muestra toques)
 function tapMark(cx, cy, p){
@@ -212,7 +254,11 @@ function sceneHook(s, t){
 
 function sceneDemo(s, t){
   bg();
-  if(TAB){
+  if(PC){
+    const { lines } = richLayout(s.text, 60, 1600), y0 = (PC_TOP - lines.length * 60 * 1.14) / 2 + 4;
+    brandDot(t, 130, y0 + 34);
+    headline(s.text, t, y0, 60, 1600, 1, 175);
+  } else if(TAB){
     const { lines } = richLayout(s.text, 76, TXT_W), y0 = H/2 - lines.length * 76 * 1.14 / 2;
     brandDot(t, TXT_X + 10, y0 - 70);
     headline(s.text, t, y0, 76, TXT_W, 1, TXT_X);
@@ -229,7 +275,18 @@ function sceneDemo(s, t){
   }, enter);
   // toque al final del paso
   const tap = META[st.k].tap;
-  if(tap && t < st.t1 && !(s.pdf && t >= s.pdfT0)){
+  if(PC){
+    // el puntero sale del clic anterior (o del centro) y llega al elemento antes del clic
+    if(tap && t < st.t1 && !(s.pdf && t >= s.pdfT0)){
+      const prev = i > 0 && META[s.steps[i-1].k].tap;
+      const fx = b.sx + (prev ? prev.x * b.k : b.sw * .62), fy = b.sy + (prev ? prev.y * b.k : b.sh * .7);
+      const tx = b.sx + tap.x * b.k, ty = b.sy + tap.y * b.k;
+      const mv = eio(prog(t, Math.max(st.t0 + .1, st.t1 - 1.4), st.t1 - .55));
+      x.globalAlpha = prev ? 1 : prog(t, st.t0, st.t0 + .3);
+      cursorMark(fx + (tx - fx) * mv, fy + (ty - fy) * mv, prog(t, st.t1 - .5, st.t1 - .02));
+      x.globalAlpha = 1;
+    }
+  } else if(tap && t < st.t1 && !(s.pdf && t >= s.pdfT0)){
     tapMark(b.sx + tap.x * b.k, b.sy + tap.y * b.k, prog(t, st.t1 - .8, st.t1 - .02));
   }
   if(s.pdf && t >= s.pdfT0) pdfSheet(s, t - s.pdfT0);
@@ -240,10 +297,11 @@ function pdfSheet(s, u){
   const m = META['v1s4pdf-0'], img = IMG['v1s4pdf-0'];
   const repH = s.pdfH || 1195;               // alto útil del documento en la captura (px CSS)
   const p = eo(prog(u, 0, .55));
-  const bw = TAB ? 900 : 860, bh = TAB ? H - 160 : H - TOP - 140;
+  const bw = TAB ? 900 : 860, bh = PC ? PC_BOTTOM - PC_TOP - 60 : TAB ? H - 160 : H - TOP - 140;
   const w = Math.min(bw, bh * m.vw / repH), h = w * repH / m.vw;
-  const cx = TAB ? DEV_CX : W/2, cy = TAB ? H/2 : TOP + 60 + h/2;
-  x.fillStyle = `rgba(21,16,13,${.72 * p})`; if(TAB) x.fillRect(DEV_CX - 520, 0, 1040, H); else x.fillRect(0, TOP, W, H - TOP);
+  const cx = PC ? W/2 : TAB ? DEV_CX : W/2, cy = PC ? (PC_TOP + PC_BOTTOM) / 2 + 10 : TAB ? H/2 : TOP + 60 + h/2;
+  x.fillStyle = `rgba(21,16,13,${.72 * p})`;
+  if(PC) x.fillRect(0, PC_TOP - 10, W, H); else if(TAB) x.fillRect(DEV_CX - 520, 0, 1040, H); else x.fillRect(0, TOP, W, H - TOP);
   x.save();
   x.translate(cx, cy + (1 - p) * 300);
   x.rotate((-1.6 + u * .25) * Math.PI / 180);
@@ -373,7 +431,7 @@ async function main(){
     const { default: jsQR } = await import('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/+esm');
     const d = x.getImageData(0, 0, W, H);
     const r = jsQR(d.data, W, H);
-    await fetch('/save/qr-check-' + V + (TAB ? '-tab' : '') + '.txt', { method: 'POST', body: (r ? r.data : 'NO DECODIFICA') + '\n' + (r && r.data === WA_URL ? 'OK coincide' : 'NO coincide') });
+    await fetch('/save/qr-check-' + V + SFX + '.txt', { method: 'POST', body: (r ? r.data : 'NO DECODIFICA') + '\n' + (r && r.data === WA_URL ? 'OK coincide' : 'NO coincide') });
     document.title = 'QR DONE'; return;
   }
   if(P.has('enc')){ await encode(); return; }
@@ -446,10 +504,10 @@ async function encode(){
     await enc.flush(); muxer.finalize();
     const buf = muxer.target.buffer;
     await fetch('/save/' + VID.file, { method: 'POST', body: buf });
-    await fetch('/save/enc-log-' + V + (TAB ? '-tab' : '') + '.txt', { method: 'POST', body: `ok ${vcfg.codec} audio=${audioCheck} dur=${DURATION.toFixed(2)} bytes=${buf.byteLength}` });
+    await fetch('/save/enc-log-' + V + SFX + '.txt', { method: 'POST', body: `ok ${vcfg.codec} audio=${audioCheck} dur=${DURATION.toFixed(2)} bytes=${buf.byteLength}` });
     document.title = 'DONE';
   }catch(e){
-    await fetch('/save/enc-log-' + V + (TAB ? '-tab' : '') + '.txt', { method: 'POST', body: 'ERROR ' + String(e && e.stack || e) });
+    await fetch('/save/enc-log-' + V + SFX + '.txt', { method: 'POST', body: 'ERROR ' + String(e && e.stack || e) });
   }
 }
 main();

@@ -1,13 +1,20 @@
 # Videos FAATRA (jornada 28/10)
 
-Hay dos videos, cada uno en dos formatos: vertical para el celular (1080×1920) y horizontal para la tablet (1920×1080). Son a 30 fps, en H.264 con pista AAC en silencio. Por ahora no tienen voz.
+Hay dos videos, cada uno en tres formatos:
+- **vertical** para el celular (1080×1920);
+- **tablet**, horizontal (1920×1080), con la demo dentro de un celular;
+- **pc**, horizontal (1920×1080), con la demo en vista de compu dentro de una ventana de navegador y un puntero de mouse en vez de los toques.
+
+Todos van a 30 fps, en H.264 con pista AAC en silencio. Por ahora no tienen voz.
 
 | Archivo | Duración | Peso |
 |---|---|---|
 | `appsart-talleres-vertical.mp4` | 69 s | 8,9 MB |
 | `appsart-talleres-tablet.mp4` | 69 s | 8,6 MB |
+| `appsart-talleres-pc.mp4` | 69 s | 8,8 MB |
 | `appsart-repuestos-vertical.mp4` | 63 s | 8,1 MB |
 | `appsart-repuestos-tablet.mp4` | 63 s | 7,7 MB |
+| `appsart-repuestos-pc.mp4` | 63 s | 7,6 MB |
 
 El 28/10 se regrabó el de talleres con los módulos nuevos de la demo Tu Taller: **Ingreso** (escena 2) y **Presupuestos** (escena 4).
 
@@ -23,10 +30,10 @@ En esta PC no hay Node, Python ni ffmpeg, así que no se pudo usar Playwright ni
   - `still <v> <t...>`: saca cuadros sueltos.
   - `qr <v>`: decodifica el QR de la placa final.
   - `enc <v>`: exporta el MP4 a `out/`.
-  - `<v>` es `1` (talleres) o `2` (repuestos). Con una `t` al final (`1t`, `2t`) sale en formato tablet.
+  - `<v>` es `1` (talleres) o `2` (repuestos). Con una `t` al final (`1t`, `2t`) sale en formato tablet; con una `p` (`1p`, `2p`), en formato pc. Las capturas de la versiÃ³n pc son las escenas `<id>pc` de `scenes.js` (1440Ã810): `capture.ps1 v1s2pc v1s3pc ...`.
   - `verify <v>`: abre el MP4 y saca cuadros reales.
 
-**Para cambiar un texto**, editás `VIDEOS` en `studio.html` y después corrés `render.ps1 enc 1` (o `enc 2`, `enc 1t`, `enc 2t`). Tarda alrededor de 30 s.
+**Para cambiar un texto**, editás `VIDEOS` en `studio.html` y después corrés `render.ps1 enc 1` (o `enc 2`, `enc 1t`, `enc 2t`, `enc 1p`, `enc 2p`). Tarda alrededor de 30 s.
 
 **Si después se suma voz**, cada locución tiene que decir exactamente el titular de su escena, y la duración de la escena pasa a ser la del audio más 0,5 s. Para eso hay que ajustar `dur` y `shots` en `VIDEOS`.
 
@@ -39,6 +46,8 @@ En esta PC no hay Node, Python ni ffmpeg, así que no se pudo usar Playwright ni
 5. **Repuestos, escena 3 (stock).** Se muestra solo la vista de compu. En el celular (390 px), el **Panel de la demo se desborda**: mide 614 px de ancho y corta la columna de stock. Conviene corregirlo en la demo. El texto quedó igual.
 6. **Repuestos, escena 4.** La demo **no tiene listas de precios de proveedores**. Lo que sí tiene son los proveedores con su saldo y la ficha con sus compras y pagos. Texto: "Registrá las compras y sabé cuánto le debés a cada proveedor."
 7. **Repuestos, escena 6.** El texto pedido tiene 16 palabras, así que se muestra en dos golpes: "Esto es un ejemplo." y después "En AppsArt desarrollamos…".
+8. **Versión pc, talleres escena 2.** Como se ve la compu, el texto dice: "Cargá la orden de trabajo desde la compu o el celular: cliente, patente y vehículo."
+9. **Versión pc, repuestos escena 3.** En la demo, la grilla del Panel es `1fr 1fr` y a 1440 px las tablas empujan la tarjeta "Stock bajo mínimo" fuera de pantalla. Para la captura se acota la grilla con `minmax(0,…)`; conviene corregirlo también en la demo.
 
 ## Controles hechos
 
