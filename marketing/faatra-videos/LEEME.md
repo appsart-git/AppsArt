@@ -56,3 +56,40 @@ En esta PC no hay Node, Python ni ffmpeg, así que no se pudo usar Playwright ni
 - El QR se decodificó desde el cuadro final de cada video con jsQR y coincide exacto con el link de wa.me que tiene el mensaje precargado.
 - Los dos MP4 abren en el navegador con la duración y la resolución correctas, y el audio se decodifica.
 - **Falta:** escanear el QR con un celular real y mirar los videos completos en el teléfono.
+
+## Locución (pendiente)
+
+Los videos todavía van con la pista de audio en silencio. La voz tiene que decir **exactamente** el texto en pantalla, en rioplatense, con voseo y un tono cercano y tranquilo. Pronunciación: "ReportCar" se dice *ríport car*, "AppsArt" se dice *aps art* y "PDF" se dice *pe de efe*. Cada frase arranca apenas empieza su escena.
+
+**Talleres (69 s)**
+
+| Tiempo | Locución |
+|---|---|
+| 0:00 – 0:04 | ¿Tu taller todavía anota todo en papel? |
+| 0:04 – 0:17 | Cargá la orden de trabajo desde el celular: cliente, patente y vehículo. (En la versión pc: "desde la compu o el celular".) |
+| 0:17 – 0:29 | Buscá la patente y tenés todo el historial del auto. |
+| 0:29 – 0:43 | Armá el presupuesto y mandalo en PDF por WhatsApp. |
+| 0:43 – 0:52 | Seguí cada auto: recibido, diagnóstico, esperando repuesto y listo. |
+| 0:52 – 0:57 | Esto es ReportCar, nuestro sistema para talleres. |
+| 0:57 – 1:03 | En AppsArt desarrollamos sistemas a medida para industria, comercio, pymes y profesionales. |
+| 1:03 – 1:09 | Escribinos por WhatsApp. |
+
+**Repuestos (63 s)**
+
+| Tiempo | Locución |
+|---|---|
+| 0:00 – 0:04 | ¿Cuánto tardás en encontrar el repuesto justo? |
+| 0:04 – 0:14 | Buscá por vehículo y encontrá el repuesto compatible. |
+| 0:14 – 0:21 | Controlá el stock desde la compu o el celular. |
+| 0:21 – 0:33 | Registrá las compras y sabé cuánto le debés a cada proveedor. |
+| 0:33 – 0:48 | Emití comprobantes de venta y llevá la cuenta corriente de cada cliente. |
+| 0:48 – 0:51 | Esto es un ejemplo. |
+| 0:51 – 0:57 | En AppsArt desarrollamos sistemas a medida para industria, comercio, pymes y profesionales. |
+| 0:57 – 1:03 | Escribinos por WhatsApp. |
+
+**Pasos con ElevenLabs:**
+
+1. Generar cada frase por separado con la API (la clave va en la variable de entorno `ELEVENLABS_API_KEY`, nunca en el repo). Probar primero un par de frases para aprobar la voz.
+2. En `studio.html`, cargar los audios y ubicar cada uno en el `start` de su escena.
+3. Reemplazar la pista muda en `encode()`. Edge headless no trae encoder AAC: o se usa Opus con `AudioEncoder` (anda en Android, Chrome, Windows y VLC, pero puede fallar en iPhone o iPad viejos), o se codifica en AAC por fuera.
+4. Volver a exportar los seis videos (`enc 1`, `1t`, `1p`, `2`, `2t`, `2p`) y verificarlos con `verify`.
