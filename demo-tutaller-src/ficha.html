@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Ficha del vehículo · Tu Taller</title>
+<meta name="theme-color" content="#0b0b0b">
+<meta name="robots" content="noindex">
+<link rel="icon" href="./icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Página pública que abre el QR del sticker. No muestra precios ni datos personales del cliente. -->
+<style>
+  :root{
+    --black-950:#0b0b0b; --black-900:#161616; --red-500:#e2222d; --red-600:#c8202b;
+    --ink-900:#1a1817; --ink-600:#57524f; --line:#e2ddda; --bg:#eceef0; --card:#ffffff;
+    --green:#1e8a4c; --wa:#1fa855;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink-900); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased;}
+  .top{background:var(--black-950); padding:calc(18px + env(safe-area-inset-top)) 16px 64px; text-align:center;}
+  .top img{height:46px; max-width:80%;}
+  .wrap{max-width:520px; margin:-44px auto 0; padding:0 16px 32px;}
+  .card{background:var(--card); border-radius:18px; padding:20px; box-shadow:0 1px 2px rgba(15,15,15,.06), 0 12px 30px -16px rgba(15,15,15,.25); margin-bottom:14px;}
+  .eb{font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-600);}
+  h1{font-family:'Oswald',sans-serif; text-transform:uppercase; letter-spacing:.02em; font-size:26px; line-height:1.1; margin:6px 0 4px;}
+  .pat{display:inline-block; border:2px solid var(--ink-900); border-radius:6px; padding:2px 10px; font-weight:700; letter-spacing:.12em; font-size:14px; margin-top:6px;}
+  .nro{float:right; font-size:12px; color:var(--ink-600); font-weight:600;}
+  .tiles{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px;}
+  .tile{background:#f6f3f2; border-radius:12px; padding:12px;}
+  .tile span{display:block; font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-600);}
+  .tile b{display:block; font-size:17px; margin-top:4px;}
+  .tile.alerta{background:#fbe3e4;} .tile.alerta b{color:var(--red-600);}
+  .tile .sub{font-size:12px; color:var(--ink-600); margin-top:2px;}
+  h2{font-family:'Oswald',sans-serif; text-transform:uppercase; font-size:15px; letter-spacing:.04em; margin:0 0 12px;}
+  .hist{list-style:none; margin:0; padding:0;}
+  .hist li{display:grid; grid-template-columns:78px 1fr; gap:10px; padding:10px 0; border-top:1px solid var(--line); font-size:14px;}
+  .hist li:first-child{border-top:none; padding-top:0;}
+  .hist .f{font-weight:700; color:var(--ink-600); font-size:13px;}
+  .hist .k{display:block; font-size:12px; color:var(--ink-600); margin-top:2px;}
+  .btn{display:flex; align-items:center; justify-content:center; gap:10px; width:100%; background:var(--wa); color:#fff; text-decoration:none; border-radius:14px; padding:16px; font-weight:700; font-size:16px;}
+  .vacio p{color:var(--ink-600); line-height:1.5;}
+  .foot{text-align:center; font-size:11.5px; color:var(--ink-600); margin-top:18px;}
+  .foot img{height:15px; vertical-align:-3px; opacity:.7;}
+  .demo{font-size:12px; color:var(--ink-600); text-align:center; margin:0 0 12px;}
+</style>
+</head>
+<body>
+<div class="top"><img src="./logo-tutaller.png" alt="Tu Taller"></div>
+<div class="wrap" id="ficha"></div>
+
+<script src="./ficha-datos.js"></script>
+<script>
+(function(){
+  const LS = 'tutaller:';
+  const ls = (k, def) => { try{ return JSON.parse(localStorage.getItem(LS + k)) || def; }catch(e){ return def; } };
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const params = new URLSearchParams(location.search);
+  const codigo = (params.get('c') || '').toLowerCase();
+  const hash = new URLSearchParams(location.hash.slice(1));
+
+  // 1) QR de pantalla de la demo: la ficha viene en el link. 2) Mismo navegador que la app: se lee
+  // de lo guardado. 3) Sticker sin asignar o desconocido: solo el taller y el botón de turno.
+  const negocio = Object.assign({nombre:'TU TALLER', telefono:'', intervaloServicioMeses:6}, ls('config_negocio', {}));
+  let ficha = hash.get('d') ? fichaDecodificar(hash.get('d')) : null;
+  let estado = ficha ? 'asignado' : 'libre';
+  if(!ficha && codigo){
+    const s = ls('stickers', []).find(x => x.codigo === codigo);
+    if(s && s.estado === 'asignado'){
+      ficha = construirFicha({vehiculos: ls('vehiculos', []), trabajos: ls('trabajos', []), ingresos: ls('ingresos', []), negocio}, s.vehiculoId, s.numero);
+      if(ficha) estado = 'asignado';
+    } else if(s && s.estado === 'baja') estado = 'baja';
+  }
+  const taller = ficha ? ficha.t : negocio.nombre;
+  const tel = ficha ? ficha.w : negocio.telefono;
+  document.title = 'Ficha del vehículo · ' + taller;
+
+  function waLink(mensaje){
+    let d = String(tel || '').replace(/\D/g,'');
+    if(d && !d.startsWith('54')) d = '549' + d.replace(/^0/,'').replace(/^15/,'');
+    return 'https://wa.me/' + d + '?text=' + encodeURIComponent(mensaje);
+  }
+  const hoy = new Date().toISOString().slice(0,10);
+  const btnTurno = (msg) => `<a class="btn" href="${esc(waLink(msg))}" target="_blank" rel="noopener">💬 Pedir turno por WhatsApp</a>`;
+  const pie = `<div class="foot">Ficha del vehículo · ${esc(taller)}<br><br>by <img src="./appsart-brand-claro.png" alt="AppsArt"></div>`;
+  const el = document.getElementById('ficha');
+
+  if(estado !== 'asignado'){
+    el.innerHTML = `
+      <div class="card vacio">
+        <div class="eb">${esc(taller)}</div>
+        <h1>${estado === 'baja' ? 'Este sticker fue reemplazado' : 'Sticker sin asignar'}</h1>
+        <p>${estado === 'baja' ? 'El auto tiene un sticker nuevo. Pedile al taller que te lo muestre.' : 'Este sticker todavía no está vinculado a ningún auto. Cuando lo asignemos, acá vas a ver la ficha de tu vehículo.'}</p>
+        ${btnTurno('Hola! Quiero pedir un turno en el taller.')}
+      </div>${pie}`;
+    return;
+  }
+
+  const vencido = ficha.ps && ficha.ps <= hoy;
+  const correaVencida = ficha.co && ficha.co <= hoy;
+  el.innerHTML = `
+    ${hash.get('d') ? '<p class="demo">Ficha de ejemplo · demo</p>' : ''}
+    <div class="card">
+      <div class="eb">Ficha del vehículo ${ficha.n ? `<span class="nro">N° ${esc(ficha.n)}</span>` : ''}</div>
+      <h1>${esc(ficha.v || 'Vehículo')}${ficha.a ? ' ' + esc(ficha.a) : ''}</h1>
+      ${ficha.p ? `<span class="pat">${esc(ficha.p)}</span>` : ''}
+      <div class="tiles">
+        <div class="tile"><span>Último service</span><b>${fichaFecha(ficha.us)}</b>${ficha.sk ? `<div class="sub">${fichaKm(ficha.sk)}</div>` : ''}</div>
+        <div class="tile"><span>Kilómetros</span><b>${fichaKm(ficha.km)}</b><div class="sub">última visita</div></div>
+        <div class="tile ${vencido ? 'alerta' : ''}"><span>Próximo service</span><b>${vencido ? '¡Ya te toca!' : fichaMesAnio(ficha.ps)}</b>${vencido ? `<div class="sub">desde ${fichaMesAnio(ficha.ps)}</div>` : ''}</div>
+        <div class="tile ${correaVencida ? 'alerta' : ''}"><span>Correa de distribución</span><b>${ficha.co ? (correaVencida ? '¡Revisar ya!' : fichaMesAnio(ficha.co)) : 'Sin registro'}</b></div>
+      </div>
+    </div>
+    <div class="card">
+      ${btnTurno(`Hola! Escaneé el sticker de mi ${ficha.v}${ficha.p ? ' (' + ficha.p + ')' : ''}. Quiero pedir un turno${vencido ? ' para el service' : ''}.`)}
+    </div>
+    <div class="card">
+      <h2>Historial en ${esc(taller)}</h2>
+      ${ficha.h.length ? `<ul class="hist">${ficha.h.map(h => `<li><span class="f">${fichaFecha(h[0]).slice(0,6)}${h[0] ? h[0].slice(2,4) : ''}</span><span>${esc(h[1] || 'Trabajo en el taller')}${h[2] ? `<span class="k">${fichaKm(h[2])}</span>` : ''}</span></li>`).join('')}</ul>`
+        : '<p style="margin:0; color:var(--ink-600);">Todavía no hay trabajos registrados.</p>'}
+    </div>${pie}`;
+})();
+</script>
+</body>
+</html>

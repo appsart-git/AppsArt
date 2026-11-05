@@ -75,6 +75,7 @@ Object.assign(actions, {
       localStorage.removeItem(lsKey('config_negocio'));
       localStorage.removeItem(lsKey('seeded'));
       localStorage.removeItem(lsKey('seeded_stock'));
+      localStorage.removeItem(lsKey('seeded_qr'));
       localStorage.removeItem(lsKey('ingreso_borrador'));
       localStorage.removeItem(lsKey('presupuesto_borrador'));
       localStorage.removeItem(lsKey('informe_borrador'));

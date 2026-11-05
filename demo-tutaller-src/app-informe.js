@@ -603,6 +603,7 @@ async function guardarTrabajo(){
     const trabajoData = {
       clienteId, vehiculoId,
       fecha: fV('fecha') || todayISO(),
+      km: fV('km') || '',
       trabajosRealizados: state.informe.trabajos.filter(t=>t&&t.trim()),
       repuestos,
       manoObra,

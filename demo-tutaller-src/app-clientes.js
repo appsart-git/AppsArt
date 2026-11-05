@@ -16,17 +16,15 @@ function vehiculoLabel(v){
   return `${v.patente ? v.patente.toUpperCase()+' — ' : ''}${v.marca||''} ${v.modelo||''}`.trim();
 }
 
+// Campos por los que se encuentra a un cliente: sus datos y los de todos sus autos.
+function camposBusquedaCliente(c){
+  const vs = vehiculosDeCliente(c.id);
+  return [c.nombre, c.telefono, c.direccion].concat(...vs.map(v => [v.patente, v.marca, v.modelo, v.anio]));
+}
 function clientesFiltrados(){
-  const q = (state.filtro.clientes||'').toLowerCase().trim();
-  let list = state.clientes.slice().sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
-  if(!q) return list;
-  const patenteMatchIds = new Set(
-    state.vehiculos.filter(v => (v.patente||'').toLowerCase().includes(q)).map(v => v.clienteId)
-  );
-  return list.filter(c =>
-    [c.nombre, c.telefono, c.direccion].some(v => (v||'').toLowerCase().includes(q)) ||
-    patenteMatchIds.has(c.id)
-  );
+  const q = (state.filtro.clientes||'').trim();
+  const list = state.clientes.slice().sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+  return q ? list.filter(c => coincideBusqueda(q, camposBusquedaCliente(c))) : list;
 }
 
 function recompraPillHtml(clienteId){
@@ -43,15 +41,19 @@ function renderClientes(){
     <div class="section-head">
       <h1>Clientes</h1>
       <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-        <div class="searchbar"><span class="ico">🔎</span><input placeholder="Buscar por nombre, teléfono o patente…" data-input="filtro_clientes" value="${esc(state.filtro.clientes)}"></div>
+        <div class="searchbar"><span class="ico">🔎</span><input id="filtro_clientes" placeholder="Nombre, teléfono, patente o modelo…" data-input="filtro_clientes" value="${esc(state.filtro.clientes)}"></div>
         <button class="btn btn-primary" data-action="nuevoCliente">+ Nuevo cliente</button>
       </div>
     </div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Nombre</th><th>Teléfono</th><th>Vehículos</th><th>Trabajos</th><th>Recompra</th><th></th></tr></thead>
-        <tbody>
-          ${list.length ? list.map(c => {
+        <tbody id="clientesBody">${clientesFilasHtml(list)}</tbody>
+      </table>
+    </div>`;
+}
+function clientesFilasHtml(list){
+  return list.length ? list.map(c => {
             const vs = vehiculosDeCliente(c.id);
             const tCount = trabajosDeCliente(c.id).length;
             return `
@@ -66,10 +68,7 @@ function renderClientes(){
                 <button class="btn btn-sm btn-icon" data-action="eliminarCliente" data-id="${c.id}" title="Eliminar">🗑️</button>
               </td>
             </tr>`;
-          }).join('') : `<tr><td colspan="6" class="empty">Todavía no hay clientes cargados.</td></tr>`}
-        </tbody>
-      </table>
-    </div>`;
+          }).join('') : `<tr><td colspan="6" class="empty">${state.filtro.clientes ? 'Ningún cliente coincide con la búsqueda.' : 'Todavía no hay clientes cargados.'}</td></tr>`;
 }
 
 function clienteFormHtml(c){
@@ -138,6 +137,7 @@ function clienteDetailHtml(id){
           <td class="muted">${esc(v.modelo||'—')}</td>
           <td class="muted">${esc(v.anio||'—')}</td>
           <td style="text-align:right; white-space:nowrap;">
+            <button class="btn btn-sm btn-ghost" data-action="fichaQrVehiculo" data-id="${v.id}" title="Ficha QR">🔳 ${stickerDeVehiculo(v.id) ? esc(stickerDeVehiculo(v.id).numero) : 'QR'}</button>
             <button class="btn btn-sm btn-icon" data-action="editarVehiculo" data-id="${v.id}" data-cliente="${id}" title="Editar">✏️</button>
             <button class="btn btn-sm btn-icon" data-action="eliminarVehiculo" data-id="${v.id}" data-cliente="${id}" title="Eliminar">🗑️</button>
           </td>
@@ -244,17 +244,19 @@ Object.assign(actions, {
   }
 });
 
-inputActions.filtro_clientes = (el) => { state.filtro.clientes = el.value; renderClientes(); };
+// Al escribir se redibujan solo las filas, así el buscador no pierde el foco.
+inputActions.filtro_clientes = (el) => {
+  state.filtro.clientes = el.value;
+  const body = document.getElementById('clientesBody');
+  if(body) body.innerHTML = clientesFilasHtml(clientesFiltrados()); else renderClientes();
+};
 
 /* Buscador de clientes reutilizado desde el informe y desde seguimiento (recepción rápida) para
    vincular a un cliente/vehículo existente sin tener que ir a la sección Clientes. */
 function buscadorClienteListHtml(){
-  const q = (state._buscadorClienteQuery||'').toLowerCase().trim();
+  const q = (state._buscadorClienteQuery||'').trim();
   let list = state.clientes.slice().sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
-  if(q){
-    const patenteMatchIds = new Set(state.vehiculos.filter(v=>(v.patente||'').toLowerCase().includes(q)).map(v=>v.clienteId));
-    list = list.filter(c => [c.nombre,c.telefono].some(v=>(v||'').toLowerCase().includes(q)) || patenteMatchIds.has(c.id));
-  }
+  if(q) list = list.filter(c => coincideBusqueda(q, camposBusquedaCliente(c)));
   list = list.slice(0, 25);
   return list.length ? list.map(c=>{
     const vs = vehiculosDeCliente(c.id);
@@ -267,7 +269,7 @@ function buscadorClienteListHtml(){
 function buscadorClienteHtml(){
   return `
     <div class="modal-head"><h2>Buscar cliente</h2><button class="modal-close" data-action="closeModal">&times;</button></div>
-    <div class="searchbar" style="margin-bottom:12px;"><span class="ico">🔎</span><input id="bc_input" autofocus placeholder="Nombre, teléfono o patente…" data-input="buscadorClienteInput" value="${esc(state._buscadorClienteQuery||'')}"></div>
+    <div class="searchbar" style="margin-bottom:12px;"><span class="ico">🔎</span><input id="bc_input" autofocus placeholder="Nombre, teléfono, patente o modelo…" data-input="buscadorClienteInput" value="${esc(state._buscadorClienteQuery||'')}"></div>
     <div class="card-list" id="bc_list" style="max-height:340px; overflow-y:auto;">${buscadorClienteListHtml()}</div>`;
 }
 inputActions.buscadorClienteInput = (el) => {

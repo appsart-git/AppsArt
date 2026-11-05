@@ -4,7 +4,7 @@
 // un vehículo, buscable/filtrable por nombre de cliente, patente o rango de fechas.
 
 function trabajosFiltrados(){
-  const q = (state.filtroTrabajos.query||'').toLowerCase().trim();
+  const q = (state.filtroTrabajos.query||'').trim();
   const desde = state.filtroTrabajos.desde;
   const hasta = state.filtroTrabajos.hasta;
   let list = state.trabajos.slice().sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
@@ -12,7 +12,8 @@ function trabajosFiltrados(){
     list = list.filter(t => {
       const c = state.clientes.find(x=>x.id===t.clienteId);
       const v = state.vehiculos.find(x=>x.id===t.vehiculoId);
-      return [c&&c.nombre, v&&v.patente, v&&v.marca, v&&v.modelo].some(val => (val||'').toLowerCase().includes(q));
+      return coincideBusqueda(q, [c&&c.nombre, v&&v.patente, v&&v.marca, v&&v.modelo]
+        .concat(t.trabajosRealizados||[], (t.repuestos||[]).map(r => r.nombre)));
     });
   }
   if(desde) list = list.filter(t => (t.fecha||'') >= desde);
@@ -21,19 +22,24 @@ function trabajosFiltrados(){
 }
 
 function renderTrabajos(){
-  const list = trabajosFiltrados();
-  const totalManoObra = list.reduce((s,t)=>s+(t.manoObra||0),0);
-  const totalGeneral = list.reduce((s,t)=>s+(t.total||0),0);
-  const hayFiltroFecha = state.filtroTrabajos.desde || state.filtroTrabajos.hasta;
   document.getElementById('main').innerHTML = `
     <div class="section-head"><h1>Trabajos</h1></div>
     <div class="filters-row">
-      <div class="searchbar"><span class="ico">🔎</span><input placeholder="Cliente, patente o marca…" data-input="filtro_trabajos_query" value="${esc(state.filtroTrabajos.query)}"></div>
+      <div class="searchbar"><span class="ico">🔎</span><input id="filtro_trabajos_query" placeholder="Cliente, patente, modelo o trabajo…" data-input="filtro_trabajos_query" value="${esc(state.filtroTrabajos.query)}"></div>
       <div class="field"><label>Desde</label><input type="date" data-change="filtro_trabajos_desde" value="${esc(state.filtroTrabajos.desde)}"></div>
       <div class="field"><label>Hasta</label><input type="date" data-change="filtro_trabajos_hasta" value="${esc(state.filtroTrabajos.hasta)}"></div>
     </div>
+    <div id="trabajosResultado">${trabajosResultadoHtml()}</div>`;
+}
+// Resumen + lista. Se redibuja sola al buscar o filtrar por fecha, así el buscador no pierde el foco.
+function trabajosResultadoHtml(){
+  const list = trabajosFiltrados();
+  const totalManoObra = list.reduce((s,t)=>s+(t.manoObra||0),0);
+  const totalGeneral = list.reduce((s,t)=>s+(t.total||0),0);
+  const hayFiltro = state.filtroTrabajos.query || state.filtroTrabajos.desde || state.filtroTrabajos.hasta;
+  return `
     <div class="trabajos-summary">
-      <span>${list.length} trabajo${list.length===1?'':'s'}${hayFiltroFecha ? ' en el rango elegido' : ' en total'}</span>
+      <span>${list.length} trabajo${list.length===1?'':'s'}${hayFiltro ? ' con este filtro' : ' en total'}</span>
       <span>Mano de obra: <b>${money(totalManoObra)}</b></span>
       <span>Total: <b>${money(totalGeneral)}</b></span>
     </div>
@@ -116,6 +122,10 @@ Object.assign(actions, {
   }
 });
 
-inputActions.filtro_trabajos_query = (el) => { state.filtroTrabajos.query = el.value; renderTrabajos(); };
-inputActions.filtro_trabajos_desde = (el) => { state.filtroTrabajos.desde = el.value; renderTrabajos(); };
-inputActions.filtro_trabajos_hasta = (el) => { state.filtroTrabajos.hasta = el.value; renderTrabajos(); };
+function refrescarTrabajos(){
+  const box = document.getElementById('trabajosResultado');
+  if(box) box.innerHTML = trabajosResultadoHtml(); else renderTrabajos();
+}
+inputActions.filtro_trabajos_query = (el) => { state.filtroTrabajos.query = el.value; refrescarTrabajos(); };
+inputActions.filtro_trabajos_desde = (el) => { state.filtroTrabajos.desde = el.value; refrescarTrabajos(); };
+inputActions.filtro_trabajos_hasta = (el) => { state.filtroTrabajos.hasta = el.value; refrescarTrabajos(); };
