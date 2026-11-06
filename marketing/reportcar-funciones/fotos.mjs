@@ -10,6 +10,17 @@ import fs from 'node:fs';
 
 const KEY = process.env.OPENAI_API_KEY;
 if(!KEY){ console.log('Falta OPENAI_API_KEY'); process.exit(1); }
+// modelo: argumento --modelo=<id> (por defecto el primero gpt-image* que liste la cuenta)
+let MODELO = (process.argv.find(a => a.startsWith('--modelo=')) || '').slice(9);
+if(process.argv[2] === 'modelos' || !MODELO){
+  const r = await fetch('https://api.openai.com/v1/models', { headers: { Authorization: 'Bearer ' + KEY } });
+  const ids = (await r.json()).data.map(m => m.id).filter(id => /image|dall/i.test(id)).sort();
+  console.log('modelos de imagen:', ids.join(', '));
+  if(process.argv[2] === 'modelos') process.exit(0);
+  MODELO = ids.filter(id => /^gpt-image/.test(id)).sort().pop();
+  if(!MODELO){ console.log('no hay modelo gpt-image disponible'); process.exit(1); }
+}
+console.log('modelo:', MODELO);
 const AUTOS = {
   'toyota-corolla':  'a silver 2020 Toyota Corolla sedan (twelfth generation, Argentine market)',
   'ford-ka':         'a white 2022 Ford Ka hatchback (second generation, Brazilian/Argentine market)',
@@ -33,24 +44,24 @@ async function api(path, init){
   return Buffer.from(j.data[0].b64_json, 'base64');
 }
 const generar = prompt => api('generations', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ model: 'gpt-image-1', prompt, size: '1536x1024', quality: 'medium', output_format: 'jpeg', output_compression: 85 }) });
+  body: JSON.stringify({ model: MODELO, prompt, size: '1536x1024', quality: 'medium', output_format: 'jpeg', output_compression: 85 }) });
 function editar(prompt, ref){
   const fd = new FormData();
-  fd.append('model', 'gpt-image-1'); fd.append('prompt', prompt); fd.append('size', '1536x1024'); fd.append('quality', 'medium'); fd.append('output_format', 'jpeg'); fd.append('input_fidelity', 'high');
+  fd.append('model', MODELO); fd.append('prompt', prompt); fd.append('size', '1536x1024'); fd.append('quality', 'medium'); fd.append('output_format', 'jpeg'); fd.append('input_fidelity', 'high');
   fd.append('image[]', new Blob([ref], { type: 'image/jpeg' }), 'frente.jpg');
   return api('edits', { method: 'POST', body: fd });
 }
 
-const solo = process.argv.slice(2);
+const solo = process.argv.slice(2).filter(a => !a.startsWith('--'));
 for(const [id, desc] of Object.entries(AUTOS)){
   if(solo.length && !solo.includes(id)) continue;
   const pFrente = `${desc}, ${LADOS.frente}. ${REGLAS}`;
   const frente = await generar(pFrente);
-  fs.writeFileSync(`${DIR}/${id}-frente.jpg`, frente); log.push(`${id}-frente.jpg | gpt-image-1 | ${pFrente}`); console.log(id, 'frente');
+  fs.writeFileSync(`${DIR}/${id}-frente.jpg`, frente); log.push(`${id}-frente.jpg | ${MODELO} | ${pFrente}`); console.log(id, 'frente');
   for(const lado of ['trasera', 'izq', 'der']){
     const p = `The exact same car as in the reference photo (same model, color, wheels and condition), in the same workshop, now ${LADOS[lado]}. ${REGLAS}`;
     const img = await editar(p, frente);
-    fs.writeFileSync(`${DIR}/${id}-${lado}.jpg`, img); log.push(`${id}-${lado}.jpg | gpt-image-1 (edición del frente) | ${p}`); console.log(id, lado);
+    fs.writeFileSync(`${DIR}/${id}-${lado}.jpg`, img); log.push(`${id}-${lado}.jpg | ${MODELO} (edición del frente) | ${p}`); console.log(id, lado);
   }
 }
 fs.appendFileSync(`${DIR}/prompts.txt`, log.join('\n') + '\n');
