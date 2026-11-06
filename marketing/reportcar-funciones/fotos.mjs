@@ -53,14 +53,27 @@ function editar(prompt, ref){
   return api('edits', { method: 'POST', body: fd });
 }
 
-const solo = process.argv.slice(2).filter(a => !a.startsWith('--'));
+// argumentos: "ford-ka" (los 4 lados) o "ford-ka:trasera,izq" (rehace solo esos lados, partiendo del
+// frente que ya está en fotos/demo/ y que se sube al repo)
+const CARROCERIA = {
+  'toyota-corolla': 'a 4-door SEDAN with a separate trunk (not a hatchback)',
+  'ford-ka': 'a small 5-door HATCHBACK (short rear, no trunk)',
+  'renault-sandero': 'a 5-door HATCHBACK (short rear, no trunk; NOT the Logan sedan)',
+  'chevrolet-onix': 'a 5-door HATCHBACK (short rear, no trunk; NOT the Onix Plus sedan)',
+};
+const pedidos = process.argv.slice(2).filter(a => !a.startsWith('--')).map(a => { const [id, l] = a.split(':'); return { id, lados: l ? l.split(',') : null }; });
 for(const [id, desc] of Object.entries(AUTOS)){
-  if(solo.length && !solo.includes(id)) continue;
-  const pFrente = `${desc}, ${LADOS.frente}. ${REGLAS}`;
-  const frente = await generar(pFrente);
-  fs.writeFileSync(`${DIR}/${id}-frente.jpg`, frente); log.push(`${id}-frente.jpg | ${MODELO} | ${pFrente}`); console.log(id, 'frente');
-  for(const lado of ['trasera', 'izq', 'der']){
-    const p = `The exact same car as in the reference photo (same model, color, wheels and condition), in the same workshop, now ${LADOS[lado]}. ${REGLAS}`;
+  const ped = pedidos.find(p => p.id === id);
+  if(pedidos.length && !ped) continue;
+  let frente;
+  if(ped && ped.lados && fs.existsSync(`${DIR}/${id}-frente.jpg`)) frente = fs.readFileSync(`${DIR}/${id}-frente.jpg`);
+  else {
+    const pFrente = `${desc}, ${CARROCERIA[id]}, ${LADOS.frente}. ${REGLAS}`;
+    frente = await generar(pFrente);
+    fs.writeFileSync(`${DIR}/${id}-frente.jpg`, frente); log.push(`${id}-frente.jpg | ${MODELO} | ${pFrente}`); console.log(id, 'frente');
+  }
+  for(const lado of (ped && ped.lados) || ['trasera', 'izq', 'der']){
+    const p = `The exact same car as in the reference photo: ${desc}, ${CARROCERIA[id]}. Same model, body style, color, wheels and condition, in the same workshop, now ${LADOS[lado]}. ${REGLAS}`;
     const img = await editar(p, frente);
     fs.writeFileSync(`${DIR}/${id}-${lado}.jpg`, img); log.push(`${id}-${lado}.jpg | ${MODELO} (edición del frente) | ${p}`); console.log(id, lado);
   }
