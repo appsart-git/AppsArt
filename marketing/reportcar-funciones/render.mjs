@@ -13,7 +13,7 @@ import { chromium } from 'playwright';
 import { servir } from './lib/servidor.mjs';
 
 const PORT = 8798, RAIZ = path.resolve('.'), OUT = 'reportcar-funciones-vertical.mp4';
-const MUSICA_DB = -13;     // la música entra a -21 LUFS aprox. (sale de musica-synth a -14) y baja más cuando habla la voz
+const MUSICA_DB = -16;     // la música (normalizada a -14 LUFS) entra a -30 LUFS aprox. y baja más cuando habla la voz
 const [modo, ...resto] = process.argv.slice(2);
 
 const srv = await servir(PORT, RAIZ);
@@ -71,7 +71,7 @@ async function encode({ soloAudio = false } = {}){
   }
   if(musica){
     args.push('-stream_loop', '-1', '-i', 'audio/musica.mp3');
-    filtros.push(`[${idx}]aformat=channel_layouts=stereo:sample_rates=48000,atrim=0:${D},volume=${MUSICA_DB}dB,afade=t=in:d=0.4,afade=t=out:st=${(TL.duration - 2.5).toFixed(2)}:d=2.5[mus0]`);
+    filtros.push(`[${idx}]aformat=channel_layouts=stereo:sample_rates=48000,atrim=0:${D},equalizer=f=1800:t=q:w=1:g=-4,equalizer=f=3500:t=q:w=1.2:g=-3,volume=${MUSICA_DB}dB,afade=t=in:d=0.4,afade=t=out:st=${(TL.duration - 2.5).toFixed(2)}:d=2.5[mus0]`);
     if(voces.length) filtros.push(`[mus0][sc]sidechaincompress=threshold=0.015:ratio=4:attack=15:release=450:level_sc=2:makeup=1[mus]`);
     else filtros.push('[mus0]anull[mus]');
   }

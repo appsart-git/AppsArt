@@ -1,6 +1,6 @@
 # Video "Todas las funciones de ReportCar" (vertical 1080×1920)
 
-**Estado:** terminado. El archivo es `reportcar-funciones-vertical.mp4`: dura 95 s, pesa 10,6 MB y tiene voz y música phonk.
+**Estado:** terminado. El archivo es `reportcar-funciones-vertical.mp4`: dura 95 s, pesa 10,6 MB y tiene voz y música rock ("Action race rock music", MagpieMusic, Pixabay).
 
 ## Cómo está armado
 
@@ -52,11 +52,11 @@ Cuando existe `audio/duraciones.json`, cada escena dura lo que su locución más
 - **Ajustes:** modelo `eleven_multilingual_v2`, velocidad 1.08.
 - **Pronunciación:** en el texto de la voz se escribe "guatsáp", "cu erre", "pe de efe", "Ríport Car" y "Aps Art". En pantalla queda el texto normal.
 - **El promo de talleres no tiene voz**, así que no hay una voz anterior con la que emparejar. Si se le agrega voz al promo, conviene usar esta misma.
-- **Música:** es una base phonk/trap **original** a 140 BPM, sintetizada con ffmpeg (`musica-synth.mjs`): bombo, 808 distorsionado, hi-hats, palmas y cencerro. Martín la pidió "potente, fierrera, más viral".
+- **Música:** "Action race rock music" de **MagpieMusic** (Pixabay, licencia de uso comercial; tiene Content ID, ver `fotos/creditos.txt`). Martín eligió rock en vez de phonk porque el público son dueños de taller. Se normaliza a −14 LUFS y en la mezcla lleva un recorte en 1,8 y 3,5 kHz para dejarle lugar a la voz. Antes era una base phonk/trap **original** a 140 BPM, sintetizada con ffmpeg (`musica-synth.mjs`): bombo, 808 distorsionado, hi-hats, palmas y cencerro. Martín la pidió "potente, fierrera, más viral".
   - Es provisoria. Para un tema más producido está listo `musica.mjs`, que usa Eleven Music: tarea `musica` del workflow, con tres estilos (phonk, trap y rock).
   - Hoy falla porque **la clave de ElevenLabs de GitHub no tiene el permiso `music_generation`**. Hay que habilitarlo en ElevenLabs → Developers → API Keys, editando la clave. La pad suave anterior sigue en `musica.sh`.
 - **Mezcla:** la voz y la música van "fusionadas".
-  - La música baja sola cuando habla la voz (sidechain): queda entre 7 y 12 dB por debajo. En los silencios sube hasta el nivel de la voz.
+  - La música baja sola cuando habla la voz (sidechain): queda unos 9 dB por debajo en promedio. En los silencios sube hasta el nivel de la voz.
   - La voz lleva compresión, una reverb corta y fundidos de 25 ms.
   - Todo sale a −14 LUFS, con pico de −1 dBFS.
   - `node render.mjs audio` saca solo la mezcla y las pistas por separado en `out/`, para medir.

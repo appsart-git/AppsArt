@@ -27,3 +27,9 @@ autos ni talleres reales, las patentes están en blanco y no hay personas.
 Los prompts exactos de cada foto están en fotos/demo/prompts.txt. Se achicaron a 1000 px de ancho.
   toyota-corolla-{frente,trasera,izq,der}.jpg   el auto que entra en la escena 1 (Martina Ruiz)
   ford-ka-*.jpg, renault-sandero-*.jpg, chevrolet-onix-*.jpg   los 3 autos que ya están en el taller
+
+MÚSICA
+- "Action race rock music" — MagpieMusic (Pixabay), https://pixabay.com/music/rock-action-race-rock-music-513682/
+  Pixabay Content License (uso comercial, sin atribución obligatoria). Registrado en Content ID: en YouTube puede
+  aparecer un reclamo; el autor dice que lo libera si se le escribe con el link del video.
+  Original en audio/pixabay/, normalizado a -14 LUFS en audio/musica.mp3. La base phonk sintetizada anterior quedó en audio/musica-phonk-synth.mp3.
