@@ -35,8 +35,7 @@ const LADOS = {
 };
 const REGLAS = 'Realistic smartphone photo taken by a mechanic at the reception area of a small, clean independent car repair workshop in Argentina, daylight, concrete floor, tool cabinets in the background. The whole car is in frame. The license plates are completely blank plain white with no characters at all. No people, no readable text, no logos of other brands.';
 const DIR = 'fotos/demo'; fs.mkdirSync(DIR, { recursive: true });
-const log = { push: l => fs.appendFileSync(`${DIR}/prompts.txt`, l + '
-') };   // se escribe a medida que sale cada foto
+const log = { push: l => fs.appendFileSync(`${DIR}/prompts.txt`, l + '\n') };   // se escribe a medida que sale cada foto
 
 async function api(path, init, intento = 1){
   const r = await fetch('https://api.openai.com/v1/images/' + path, { ...init, headers: { Authorization: 'Bearer ' + KEY, ...(init.headers || {}) } });
