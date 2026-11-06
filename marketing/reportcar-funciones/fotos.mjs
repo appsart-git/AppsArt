@@ -47,7 +47,7 @@ const generar = prompt => api('generations', { method: 'POST', headers: { 'Conte
   body: JSON.stringify({ model: MODELO, prompt, size: '1536x1024', quality: 'medium', output_format: 'jpeg', output_compression: 85 }) });
 function editar(prompt, ref){
   const fd = new FormData();
-  fd.append('model', MODELO); fd.append('prompt', prompt); fd.append('size', '1536x1024'); fd.append('quality', 'medium'); fd.append('output_format', 'jpeg'); fd.append('input_fidelity', 'high');
+  fd.append('model', MODELO); fd.append('prompt', prompt); fd.append('size', '1536x1024'); fd.append('quality', 'medium'); fd.append('output_format', 'jpeg');
   fd.append('image[]', new Blob([ref], { type: 'image/jpeg' }), 'frente.jpg');
   return api('edits', { method: 'POST', body: fd });
 }
