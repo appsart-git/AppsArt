@@ -35,11 +35,13 @@ const LADOS = {
 };
 const REGLAS = 'Realistic smartphone photo taken by a mechanic at the reception area of a small, clean independent car repair workshop in Argentina, daylight, concrete floor, tool cabinets in the background. The whole car is in frame. The license plates are completely blank plain white with no characters at all. No people, no readable text, no logos of other brands.';
 const DIR = 'fotos/demo'; fs.mkdirSync(DIR, { recursive: true });
-const log = [];
+const log = { push: l => fs.appendFileSync(`${DIR}/prompts.txt`, l + '
+') };   // se escribe a medida que sale cada foto
 
-async function api(path, init){
+async function api(path, init, intento = 1){
   const r = await fetch('https://api.openai.com/v1/images/' + path, { ...init, headers: { Authorization: 'Bearer ' + KEY, ...(init.headers || {}) } });
-  const j = await r.json();
+  const txt = await r.text(); let j; try{ j = JSON.parse(txt); }catch(e){ j = { error: txt }; }
+  if(!r.ok && r.status >= 500 && intento < 3){ console.log('reintento', r.status); await new Promise(s => setTimeout(s, 5000)); return api(path, init, intento + 1); }
   if(!r.ok) throw new Error(`OpenAI ${r.status}: ${JSON.stringify(j.error || j)}`);
   return Buffer.from(j.data[0].b64_json, 'base64');
 }
