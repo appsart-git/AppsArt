@@ -86,8 +86,10 @@ function buildTimeline(){
     s.dur = s.dur || Math.max(s.min || 0, voz + AIRE);
     if(s.kind === 'devices'){ s.steps = s.shots.map(([id, n]) => ({ k: id + '-' + n })); }
     if(s.kind === 'demo'){
-      if(s.dur < 2.4) s.dur = 2.4;
-      const pesos = s.shots.map(r => r[2] || 1), total = pesos.reduce((a, b) => a + b, 0) + (s.pdf || 0);
+      // mínimo para poder leer cada pantalla: 1,3 s por paso; 2,8 s si muestra el mensaje de WhatsApp
+      const minLeer = LEAD + TAIL + (s.pdf ? 1.8 : 0) + s.shots.reduce((acc, [id, n]) => acc + (META[id + '-' + n].wa ? 2.8 : 1.3), 0);
+      s.dur = Math.max(s.dur, minLeer);
+      const pesos = s.shots.map(([id, n, w]) => (w || 1) * (META[id + '-' + n].wa ? 2 : 1)), total = pesos.reduce((a, b) => a + b, 0) + (s.pdf || 0);
       const util = s.dur - LEAD - TAIL;
       let u = LEAD; s.steps = [];
       s.shots.forEach(([id, n], i) => { const d = util * pesos[i] / total; s.steps.push({ k: id + '-' + n, t0: u, t1: u + d }); u += d; });

@@ -17,3 +17,13 @@ taller-capot-abierto.jpg
 motor.jpg
   BHARAT VISHAWAKARMA (@bharat05)
   https://unsplash.com/es/fotos/compartimento-del-motor-del-coche-con-el-capo-abierto-4U3UOoAORes
+
+----------------------------------------------------------------------
+fotos/demo/  (las fotos de los autos que se cargan DENTRO de la demo)
+No hay fotos libres de Ford Ka, Renault Sandero, Chevrolet Onix ni Toyota Corolla de los 4 lados en
+Unsplash/Pexels, así que se generaron con la API de imágenes de OpenAI (modelo gpt-image-2), con la clave
+del pipeline de contenido (workflow "ReportCar video: voz y fotos"). Son imágenes generadas: no muestran
+autos ni talleres reales, las patentes están en blanco y no hay personas.
+Los prompts exactos de cada foto están en fotos/demo/prompts.txt. Se achicaron a 1000 px de ancho.
+  toyota-corolla-{frente,trasera,izq,der}.jpg   el auto que entra en la escena 1 (Martina Ruiz)
+  ford-ka-*.jpg, renault-sandero-*.jpg, chevrolet-onix-*.jpg   los 3 autos que ya están en el taller
