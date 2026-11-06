@@ -27,9 +27,12 @@ const [modo, ...args] = process.argv.slice(2);
 const escenas = JSON.parse(fs.readFileSync('guion.json', 'utf8'));
 fs.mkdirSync('audio/candidatas', { recursive: true });
 
-async function tts(voz, texto, archivo){
+// prev/next: la frase anterior y la siguiente (request stitching de ElevenLabs): así cada frase sale con
+// la entonación de un mismo locutor leyendo seguido, y no suena cortada ni "de a una".
+async function tts(voz, texto, archivo, prev, next){
   const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voz}?output_format=mp3_44100_128`, {
-    method: 'POST', headers: H, body: JSON.stringify({ text: texto, model_id: MODELO, voice_settings: AJUSTES, language_code: 'es' }) });
+    method: 'POST', headers: H, body: JSON.stringify({ text: texto, model_id: MODELO, voice_settings: AJUSTES, language_code: 'es', seed: 7,
+      ...(prev ? { previous_text: prev } : {}), ...(next ? { next_text: next } : {}) }) });
   if(!r.ok) throw new Error(`ElevenLabs ${r.status}: ${await r.text()}`);
   fs.writeFileSync(archivo, Buffer.from(await r.arrayBuffer()));
 }
@@ -47,9 +50,10 @@ if(modo === 'buscar'){
 } else if(modo === 'todo'){
   const [voz, ...solo] = args;
   const dj = fs.existsSync('audio/duraciones.json') ? JSON.parse(fs.readFileSync('audio/duraciones.json', 'utf8')) : {};
-  for(const s of escenas){
+  for(const [k, s] of escenas.entries()){
     if(solo.length && !solo.includes(s.id)) continue;
-    const f = `audio/${s.id}.mp3`; await tts(voz, paraVoz(s.text), f);
+    const prev = escenas[k - 1] && paraVoz(escenas[k - 1].text), next = escenas[k + 1] && paraVoz(escenas[k + 1].text);
+    const f = `audio/${s.id}.mp3`; await tts(voz, paraVoz(s.text), f, prev, next);
     dj[s.id] = +dur(f).toFixed(3); console.log(s.id, dj[s.id], 's |', paraVoz(s.text));
   }
   dj._voz = voz; fs.writeFileSync('audio/duraciones.json', JSON.stringify(dj, null, 1));
