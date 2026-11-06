@@ -53,7 +53,7 @@ Cuando existe `audio/duraciones.json`, cada escena dura lo que su locución más
 - **Pronunciación:** en el texto de la voz se escribe "guatsáp", "cu erre", "pe de efe", "Ríport Car" y "Aps Art". En pantalla queda el texto normal.
 - **El promo de talleres no tiene voz**, así que no hay una voz anterior con la que emparejar. Si se le agrega voz al promo, conviene usar esta misma.
 - **Música:** "Action race rock music" de **MagpieMusic** (Pixabay, licencia de uso comercial; tiene Content ID, ver `fotos/creditos.txt`). Martín eligió rock en vez de phonk porque el público son dueños de taller. Se normaliza a −14 LUFS y en la mezcla lleva un recorte en 1,8 y 3,5 kHz para dejarle lugar a la voz. Antes era una base phonk/trap **original** a 140 BPM, sintetizada con ffmpeg (`musica-synth.mjs`): bombo, 808 distorsionado, hi-hats, palmas y cencerro. Martín la pidió "potente, fierrera, más viral".
-  - Es provisoria. Para un tema más producido está listo `musica.mjs`, que usa Eleven Music: tarea `musica` del workflow, con tres estilos (phonk, trap y rock).
+  - Alternativa sin Content ID: `musica.mjs`, que usa Eleven Music: tarea `musica` del workflow, con tres estilos (phonk, trap y rock).
   - Hoy falla porque **la clave de ElevenLabs de GitHub no tiene el permiso `music_generation`**. Hay que habilitarlo en ElevenLabs → Developers → API Keys, editando la clave. La pad suave anterior sigue en `musica.sh`.
 - **Mezcla:** la voz y la música van "fusionadas".
   - La música baja sola cuando habla la voz (sidechain): queda unos 9 dB por debajo en promedio. En los silencios sube hasta el nivel de la voz.
