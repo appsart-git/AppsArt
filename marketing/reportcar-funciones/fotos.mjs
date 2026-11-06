@@ -65,4 +65,3 @@ for(const [id, desc] of Object.entries(AUTOS)){
     fs.writeFileSync(`${DIR}/${id}-${lado}.jpg`, img); log.push(`${id}-${lado}.jpg | ${MODELO} (edición del frente) | ${p}`); console.log(id, lado);
   }
 }
-fs.appendFileSync(`${DIR}/prompts.txt`, log.join('\n') + '\n');
