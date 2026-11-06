@@ -6,6 +6,7 @@
 #   tarea = "voz candidatas <id1> <id2> <id3>"  -> escenas 0 y 1 con cada voz
 #   tarea = "voz todo <voice_id> [s4 s7 ...]"   -> todas las locuciones + duraciones.json
 #   tarea = "fotos [ford-ka ...]"              -> fotos de los 4 lados de cada auto
+#   tarea = "musica [phonk trap rock]"        -> temas instrumentales con Eleven Music
 name: "ReportCar video: voz y fotos"
 on:
   workflow_dispatch:
@@ -40,6 +41,7 @@ jobs:
           case "$cmd" in
             voz)   node voz.mjs $rest ;;
             fotos) node fotos.mjs $rest ;;
+            musica) node musica.mjs $rest ;;
             *) echo "tarea desconocida: $cmd"; exit 1 ;;
           esac
       - uses: actions/upload-artifact@v4
