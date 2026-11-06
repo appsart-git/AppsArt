@@ -1,0 +1,385 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Estudio · Todas las funciones de ReportCar</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@500;600;700;800&display=block" rel="stylesheet">
+<style>html,body{margin:0;background:#000;color:#ccc;font:14px system-ui}canvas{display:block;width:540px;height:960px}</style>
+</head><body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script>
+/*
+  Montaje del video vertical "Todas las funciones de ReportCar" (1080x1920, 30 fps).
+  Parte del studio.html de los videos FAATRA: las placas de AppsArt y de contacto son las mismas
+  funciones (sceneAppsArt / sceneContact), sin cambios salvo el link del QR y la línea de reportscar.com.
+
+  studio.html            preview en loop
+  studio.html?t=12.5     un cuadro quieto
+  render.mjs             lo recorre cuadro a cuadro (window.__frame) y lo pasa a ffmpeg con la voz y la música
+
+  TEXTOS: cada escena tiene un solo titular = locución palabra por palabra; *entre asteriscos* = terracota.
+  Duración de cada escena = audio/duraciones.json (lo que dura su locución) + AIRE. Sin audio, se estima.
+*/
+const P = new URLSearchParams(location.search);
+const W = 1080, H = 1920, FPS = 30;
+const BG = '#15100D', BONE = '#FAF8F6', TERRA = '#C26030', DIM = '#B8AEA4';
+const WA_URL = 'https://wa.me/5491133663820?text=Hola%2C%20vi%20el%20video%20de%20funciones%20de%20ReportCar';
+const cv = document.getElementById('c'), x = cv.getContext('2d');
+const AIRE = .5;        // después de cada locución (brief: 0,4 a 0,6 s)
+
+/* ===================== GUION ===================== */
+// kind: title | demo | corte | appsart | contact
+// demo: shots = [[escena, paso, peso?]] (el tiempo de la escena se reparte según el peso)
+//       pdf: peso de la hoja PDF al final; bgFoto: foto de taller desenfocada detrás del celular
+const SCENES = [
+  { id: 's0', kind: 'title', text: '*ReportCar.* Todo tu taller en el celular.', foto: 'taller-capot-abierto', min: 3 },
+  { id: 's1', kind: 'demo', text: 'El auto entra: *fotos, daños,* kilómetros, combustible y *firma.*', bgFoto: 'taller-elevadores',
+    shots: [['e1', 0, .8], ['e1', 1, 1], ['e1', 2, .9], ['e1', 3, 1.2], ['e1', 4, 1], ['e1', 5, 1.1]] },
+  { id: 's2', kind: 'demo', text: 'El *acta de ingreso* le llega al cliente por *WhatsApp.*', shots: [['e2', 0, 1]] },
+  { id: 's3', kind: 'demo', text: 'Seguí cada auto: recibido, diagnóstico, esperando repuesto, *listo.*', shots: [['e3', 0, 1.2], ['e3', 1, 1]] },
+  { id: 's4', kind: 'demo', text: 'Tu cliente *ve cómo va,* sin tener que llamar.', shots: [['e4', 1, 1.3], ['e4', 2, 1]] },
+  { id: 'c1', kind: 'corte', foto: 'taller-auto-en-elevador', dur: 1 },
+  { id: 's5', kind: 'demo', text: 'Armá el *presupuesto* con precios del stock y mandalo por *WhatsApp.*', shots: [['e5', 0, .8], ['e5', 1, 1.4]] },
+  { id: 's6', kind: 'demo', text: 'Cuando lo *aprueba,* pasa directo al *informe.*', shots: [['e6', 0, .8], ['e6', 1, .9], ['e6', 2, .8]] },
+  { id: 's7', kind: 'demo', text: 'El informe sale en *PDF,* con fotos y tu logo.', shots: [['e7', 1, .8], ['e7', 3, .7]], pdf: 1.6 },
+  { id: 's8', kind: 'demo', text: 'Los repuestos usados se *descuentan solos* del stock.', shots: [['e8', 0, .8], ['e8', 1, .9], ['e8', 2, 1.1]] },
+  { id: 's9', kind: 'demo', text: '*Stock mínimo,* ubicación en estante y *pedido de reposición.*', shots: [['e9', 0, .7], ['e9', 1, .8], ['e9', 2, 1.1]] },
+  { id: 'c2', kind: 'corte', foto: 'motor', dur: 1 },
+  { id: 's10', kind: 'demo', text: 'Cada *cliente,* con sus autos y todo su *historial.*', shots: [['e10', 0, .7], ['e10', 1, 1], ['e10', 3, 1]] },
+  { id: 's11', kind: 'demo', text: '*Sticker QR* en el parabrisas: el cliente ve la *ficha de su auto.*', shots: [['e11', 0, .7], ['e11', 1, 1], ['e11', 2, 1.2]] },
+  { id: 's12', kind: 'demo', text: 'El sistema te dice a quién le toca el *próximo service.*', shots: [['e12', 0, 1], ['e12', 1, 1]] },
+  { id: 's13', kind: 'demo', text: '*Recordatorio* y *promo mensual* por WhatsApp, con un clic.', shots: [['e13', 0, 1.3], ['e13', 1, .6], ['e13', 2, 1]] },
+  { id: 's14', kind: 'demo', text: '*Ingresos, gastos* y *ganancia* del mes, de un vistazo.', shots: [['e14', 0, 1], ['e14', 1, 1], ['e14', 2, 1]] },
+  { id: 's15', kind: 'demo', text: 'Y todo se *adapta* a la forma de trabajar de tu taller.', shots: [['e15', 0, .8], ['e15', 1, 1], ['e15', 2, 1]] },
+  { id: 's15b', kind: 'devices', text: 'Funciona en el *celular,* la *tablet* o la *compu.*', shots: [['e16pc', 0], ['e16tab', 0], ['e16cel', 0]], min: 3.6 },
+  { id: 's16', kind: 'appsart', text: 'En AppsArt desarrollamos sistemas *a medida* para industria, comercio, pymes y profesionales.', min: 5.2 },
+  { id: 's17', kind: 'contact', text: 'Escribinos por *WhatsApp.*', min: 6, reportcarLine: true },
+];
+
+/* ===================== CARGA ===================== */
+const IMG = {}, META = {};
+let DURS = null;   // segundos de locución por escena (audio/duraciones.json)
+const load = (k, src) => new Promise((res, rej) => { const i = new Image(); i.onload = () => { IMG[k] = i; res(); }; i.onerror = () => rej(new Error('img ' + src)); i.src = src; });
+async function loadAll(){
+  const jobs = [load('logo', 'assets/appsart-logo.png'), load('rc', 'assets/reportcar-lockup.png')];
+  const shots = new Set(), fotos = new Set();
+  for(const s of SCENES){
+    if(s.shots) s.shots.forEach(([id, n]) => shots.add(id + '-' + n));
+    if(s.pdf) shots.add(s.shots[0][0] + '-pdf');
+    if(s.foto) fotos.add(s.foto); if(s.bgFoto) fotos.add(s.bgFoto);
+  }
+  for(const k of shots){
+    jobs.push(load(k, 'out/shots/' + k + '.png'));
+    if(!k.endsWith('-pdf')) jobs.push(fetch('out/shots/' + k + '.json').then(r => r.json()).then(j => META[k] = j));
+  }
+  for(const f of fotos) jobs.push(load('foto:' + f, 'fotos/' + f + '.jpg'));
+  jobs.push(fetch('audio/duraciones.json').then(r => r.ok ? r.json() : null).then(j => DURS = j).catch(() => {}));
+  await Promise.all(jobs);
+}
+
+/* ===================== LÍNEA DE TIEMPO ===================== */
+const LEAD = .45, TAIL = .3;
+const palabras = s => s.text.replace(/\*/g, '').split(/\s+/).length;
+function buildTimeline(){
+  let t = 0;
+  for(const s of SCENES){
+    const voz = DURS && DURS[s.id] != null ? DURS[s.id] : (s.text ? palabras(s) / 2.75 + .2 : 0);  // estimación sin audio
+    s.voz = voz;
+    s.dur = s.dur || Math.max(s.min || 0, voz + AIRE);
+    if(s.kind === 'devices'){ s.steps = s.shots.map(([id, n]) => ({ k: id + '-' + n })); }
+    if(s.kind === 'demo'){
+      if(s.dur < 2.4) s.dur = 2.4;
+      const pesos = s.shots.map(r => r[2] || 1), total = pesos.reduce((a, b) => a + b, 0) + (s.pdf || 0);
+      const util = s.dur - LEAD - TAIL;
+      let u = LEAD; s.steps = [];
+      s.shots.forEach(([id, n], i) => { const d = util * pesos[i] / total; s.steps.push({ k: id + '-' + n, t0: u, t1: u + d }); u += d; });
+      if(s.pdf){ s.pdfT0 = u; s.pdfK = s.shots[0][0] + '-pdf'; }
+      s.vw = META[s.steps[0].k].vw; s.vh = META[s.steps[0].k].vh;
+    }
+    s.start = t; t += s.dur;
+  }
+  return t;
+}
+let DURATION = 0;
+
+/* ===================== HELPERS (iguales al promo) ===================== */
+const clamp = (v, a=0, b=1) => Math.max(a, Math.min(b, v));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const eo = p => 1 - Math.pow(1 - p, 3);
+function rr(X, Y, w, h, r){ x.beginPath(); x.roundRect(X, Y, w, h, r); }
+function font(sz, wt=700){ x.font = `${wt} ${sz}px Geist, "Segoe UI", sans-serif`; }
+function parseRich(text){
+  let on = false;
+  return text.split(' ').map(raw => {
+    let w = raw, key = on;
+    if(w.startsWith('*')){ key = true; w = w.slice(1); on = true; }
+    if(w.endsWith('*')){ w = w.slice(0, -1); on = false; }
+    else if(w.includes('*')){ w = w.replace('*', ''); on = false; }
+    return { w, key };
+  });
+}
+function richLayout(text, sz, maxW){
+  font(sz, 700);
+  const words = parseRich(text), space = x.measureText(' ').width, lines = [[]]; let lw = 0;
+  for(const wd of words){
+    const ww = x.measureText(wd.w).width;
+    if(lines[lines.length-1].length && lw + space + ww > maxW){ lines.push([]); lw = 0; }
+    const L = lines[lines.length-1]; wd.width = ww; lw += (L.length ? space : 0) + ww; L.push(wd);
+  }
+  return { lines, space };
+}
+function headline(text, t, y, sz=80, maxW=950, alpha=1, left=null){
+  const { lines, space } = richLayout(text, sz, maxW);
+  font(sz, 700); x.textBaseline = 'top'; x.textAlign = 'left';
+  let i = 0;
+  lines.forEach((L, li) => {
+    const lw = L.reduce((a, w) => a + w.width, 0) + space * (L.length - 1);
+    let cx = left == null ? (W - lw) / 2 : left;
+    for(const wd of L){
+      const p = eo(prog(t, .05 + i * .035, .45 + i * .035));
+      x.globalAlpha = p * alpha; x.fillStyle = wd.key ? TERRA : BONE;
+      x.fillText(wd.w, cx, y + li * sz * 1.14 + (1 - p) * 22);
+      cx += wd.width + space; i++;
+    }
+  });
+  x.globalAlpha = 1;
+  return y + lines.length * sz * 1.14;
+}
+function brandDot(t, dx = W/2, dy = 92){
+  const r = 9 + Math.sin(t * 3) * 1.2;
+  x.beginPath(); x.arc(dx, dy, r, 0, Math.PI*2); x.fillStyle = TERRA; x.fill();
+  x.beginPath(); x.arc(dx, dy, r + 9 + (t * 14) % 14, 0, Math.PI*2);
+  x.strokeStyle = `rgba(194,96,48,${.35 * (1 - ((t * 14) % 14) / 14)})`; x.lineWidth = 3; x.stroke();
+}
+function bg(){ x.fillStyle = BG; x.fillRect(0, 0, W, H); }
+// foto de taller a pantalla completa (cover), con zoom lento y oscurecida
+function fotoCover(k, t, { dark = .65, blur = 0, zoom = .012, from = 1 } = {}){
+  const img = IMG['foto:' + k];
+  const sc = Math.max(W / img.width, H / img.height) * (blur ? 1.1 : 1), z = from + t * zoom;
+  x.save(); if(blur) x.filter = `blur(${blur}px)`;
+  x.translate(W/2, H/2); x.scale(z, z);
+  x.drawImage(img, -img.width * sc / 2, -img.height * sc / 2, img.width * sc, img.height * sc);
+  x.restore(); x.filter = 'none';
+  x.fillStyle = `rgba(21,16,13,${dark})`; x.fillRect(0, 0, W, H);
+}
+
+/* ===================== DISPOSITIVO ===================== */
+const TOP = 470, BOTTOM = 1885;
+function deviceBox(s){
+  const maxW = 650, maxH = BOTTOM - TOP - 30;
+  const k = Math.min(maxW / s.vw, maxH / s.vh);
+  const sw = s.vw * k, sh = s.vh * k, bez = 16;
+  return { k, sw, sh, bez, sx: (W - sw) / 2, sy: TOP + 10 + (maxH - sh) / 2 };
+}
+function drawShot(key, b, alpha=1){
+  const m = META[key], img = IMG[key];
+  x.globalAlpha = alpha;
+  const d = m.dsf || 3;
+  x.drawImage(img, 0, 0, m.vw * d, m.vh * d, b.sx, b.sy, b.sw, b.sh);
+  x.globalAlpha = 1;
+}
+function frameDevice(b, drawScreen, enter){
+  const oy = (1 - eo(enter)) * 120, R = 64;
+  x.save(); x.globalAlpha = eo(enter); x.translate(0, oy);
+  x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 70; x.shadowOffsetY = 26;
+  rr(b.sx - b.bez, b.sy - b.bez, b.sw + b.bez*2, b.sh + b.bez*2, R + b.bez); x.fillStyle = '#0a0807'; x.fill();
+  x.shadowColor = 'transparent'; x.strokeStyle = '#3a2f28'; x.lineWidth = 3; x.stroke();
+  x.save(); rr(b.sx, b.sy, b.sw, b.sh, R); x.clip();
+  drawScreen();
+  x.restore();
+  x.restore();
+}
+// círculo de toque terracota (los toques no se ven en la grabación)
+function tapMark(cx, cy, p){
+  if(p <= 0 || p >= 1) return;
+  const a = p < .25 ? p / .25 : 1 - (p - .25) / .75;
+  x.beginPath(); x.arc(cx, cy, 38 + eo(p) * 22, 0, Math.PI*2);
+  x.fillStyle = `rgba(194,96,48,${.45 * a})`; x.fill();
+  x.beginPath(); x.arc(cx, cy, 44 + eo(p) * 46, 0, Math.PI*2);
+  x.strokeStyle = `rgba(194,96,48,${.85 * a})`; x.lineWidth = 6; x.stroke();
+}
+// el mensaje de WhatsApp que arma la demo (no se abre WhatsApp: es una vista previa genérica, sin marca)
+function wrapLines(text, sz, maxW, wt=500){
+  font(sz, wt); const out = [];
+  for(const par of text.split('\n')){
+    let line = '';
+    for(const w of par.split(' ')){ const tr = line ? line + ' ' + w : w; if(x.measureText(tr).width > maxW && line){ out.push(line); line = w; } else line = tr; }
+    out.push(line);
+  }
+  return out;
+}
+function waBubble(msg, u, b){
+  const p = eo(prog(u, 0, .35));
+  x.fillStyle = `rgba(21,16,13,${.62 * p})`; x.fillRect(0, TOP - 20, W, H - TOP + 20);
+  const bw = 820, pad = 34, sz = 38, lh = sz * 1.32;
+  const lines = wrapLines(msg.replace(/[🚗🔧📣]/gu, '').trim(), sz, bw - pad * 2);
+  const bh = 96 + lines.length * lh + pad + 40;
+  const bx = (W - bw) / 2, by = TOP + 140 + (1 - p) * 80;
+  x.save(); x.globalAlpha = p;
+  font(30, 600); x.fillStyle = DIM; x.textAlign = 'center'; x.textBaseline = 'top';
+  x.fillText('Lo que le llega al cliente', W / 2, by - 64);
+  x.shadowColor = 'rgba(0,0,0,.5)'; x.shadowBlur = 50; x.shadowOffsetY = 18;
+  rr(bx, by, bw, bh, 34); x.fillStyle = '#E7F6DC'; x.fill(); x.shadowColor = 'transparent';
+  // colita del globo
+  x.beginPath(); x.moveTo(bx + bw - 40, by + bh - 4); x.lineTo(bx + bw + 18, by + bh + 26); x.lineTo(bx + bw - 90, by + bh - 4); x.closePath(); x.fill();
+  font(28, 700); x.fillStyle = '#1F8A4C'; x.textAlign = 'left'; x.fillText('WhatsApp · mensaje armado', bx + pad, by + 30);
+  font(sz, 500); x.fillStyle = '#15100D';
+  lines.forEach((l, i) => x.fillText(l, bx + pad, by + 86 + i * lh));
+  font(26, 500); x.fillStyle = '#5B6B5F'; x.textAlign = 'right'; x.fillText('✓✓', bx + bw - pad, by + bh - 46);
+  x.restore();
+}
+
+/* ===================== ESCENAS ===================== */
+function sceneTitle(s, t){
+  fotoCover(s.foto, t, { dark: .68, zoom: .02 });
+  const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, 'rgba(21,16,13,.55)'); g.addColorStop(.5, 'rgba(21,16,13,0)'); g.addColorStop(1, 'rgba(21,16,13,.75)');
+  x.fillStyle = g; x.fillRect(0, 0, W, H);
+  brandDot(t, W/2, 560);
+  const p = eo(prog(t, .1, .7)), lw = 860, lh = lw * 640 / 1110;
+  x.globalAlpha = p; x.drawImage(IMG.rc, 182, 170, 1110, 640, (W - lw)/2, 640 + (1 - p) * 40, lw, lh); x.globalAlpha = 1;
+  headline(s.text, t - .35, 1230, 92, 920);
+}
+function sceneCorte(s, t){ bg(); fotoCover(s.foto, t, { dark: .45, zoom: .06, from: 1.04 }); brandDot(t); }
+
+function sceneDemo(s, t){
+  if(s.bgFoto) fotoCover(s.bgFoto, t, { dark: .8, blur: 26, zoom: .01 }); else bg();
+  brandDot(t); headline(s.text, t, 150, 76, 960);
+  const b = deviceBox(s);
+  const enter = s.enterFrom ? 1 : prog(t, .1, .5);
+  let i = s.steps.findIndex(st => t < st.t1); if(i < 0) i = s.steps.length - 1;
+  const st = s.steps[i], m = META[st.k];
+  const inPdf = s.pdf && t >= s.pdfT0;
+  frameDevice(b, () => {
+    x.fillStyle = '#fff'; x.fillRect(b.sx, b.sy, b.sw, b.sh);
+    if(i > 0 && t < st.t0 + .2){ drawShot(s.steps[i-1].k, b); drawShot(st.k, b, prog(t, st.t0, st.t0 + .2)); }
+    else drawShot(st.k, b);
+  }, enter);
+  // con mensaje de WhatsApp: toque a mitad del paso y después el globo con el mensaje
+  const tWa = m.wa ? st.t0 + Math.min(1.1, (st.t1 - st.t0) * .3) : null;
+  const tTap = m.wa ? tWa : st.t1;
+  if(m.tap && !inPdf && t < tTap) tapMark(b.sx + m.tap.x * b.k, b.sy + m.tap.y * b.k, prog(t, tTap - .8, tTap - .02));
+  if(m.wa && t >= tWa) waBubble(m.wa, t - tWa, b);
+  if(inPdf) pdfSheet(s, t - s.pdfT0);
+}
+
+// hoja PDF real del informe (la misma imagen que la app convierte a PDF)
+function pdfSheet(s, u){
+  const img = IMG[s.pdfK], ratio = img.height / img.width;
+  const p = eo(prog(u, 0, .5));
+  const w = Math.min(880, (H - TOP - 120) / ratio), h = w * ratio;
+  const cx = W/2, cy = TOP + 50 + h/2;
+  x.fillStyle = `rgba(21,16,13,${.72 * p})`; x.fillRect(0, TOP - 20, W, H - TOP + 20);
+  x.save();
+  x.translate(cx, cy + (1 - p) * 300);
+  x.rotate((-1.6 + u * .25) * Math.PI / 180);
+  const sc = .96 + .04 * p; x.scale(sc, sc);
+  x.globalAlpha = p;
+  x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 70; x.shadowOffsetY = 24;
+  rr(-w/2 - 12, -h/2 - 12, w + 24, h + 24, 18); x.fillStyle = '#fff'; x.fill(); x.shadowColor = 'transparent';
+  x.save(); rr(-w/2, -h/2, w, h, 10); x.clip(); x.drawImage(img, -w/2, -h/2, w, h); x.restore();
+  const lp = eo(prog(u, .4, .8));
+  x.globalAlpha = lp;
+  rr(-w/2 + 30, -h/2 - 40, 150, 70, 35); x.fillStyle = TERRA; x.fill();
+  font(36, 800); x.fillStyle = BONE; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('PDF', -w/2 + 105, -h/2 - 4);
+  x.restore();
+}
+
+// la misma pantalla en compu, tablet y celular (entran de a uno)
+function sceneDevices(s, t){
+  bg(); brandDot(t); headline(s.text, t, 150, 80, 960);
+  const [pc, tab, cel] = s.steps.map(st => st.k);
+  const box = (k, w, cx, cy) => { const m = META[k], kk = w / m.vw; return { k: kk, sw: w, sh: m.vh * kk, sx: cx - w / 2, sy: cy - m.vh * kk / 2 }; };
+  // compu: pantalla con marco y base
+  const bp = box(pc, 900, W / 2, 760), ep = prog(t, .15, .6);
+  x.save(); x.globalAlpha = eo(ep); x.translate(0, (1 - eo(ep)) * 80);
+  x.shadowColor = 'rgba(0,0,0,.6)'; x.shadowBlur = 60; x.shadowOffsetY = 20;
+  rr(bp.sx - 18, bp.sy - 18, bp.sw + 36, bp.sh + 36, 22); x.fillStyle = '#0a0807'; x.fill(); x.shadowColor = 'transparent';
+  x.strokeStyle = '#3a2f28'; x.lineWidth = 3; x.stroke();
+  rr(W / 2 - 70, bp.sy + bp.sh + 18, 140, 70, 6); x.fillStyle = '#231b16'; x.fill();
+  rr(W / 2 - 200, bp.sy + bp.sh + 84, 400, 18, 9); x.fillStyle = '#2e241e'; x.fill();
+  x.save(); rr(bp.sx, bp.sy, bp.sw, bp.sh, 6); x.clip(); drawShot(pc, bp); x.restore();
+  x.restore();
+  // tablet y celular adelante
+  const dev = (k, w, cx, cy, r, bez, d0) => {
+    const b = box(k, w, cx, cy), e = prog(t, d0, d0 + .45);
+    x.save(); x.globalAlpha = eo(e); x.translate(0, (1 - eo(e)) * 100);
+    x.shadowColor = 'rgba(0,0,0,.65)'; x.shadowBlur = 60; x.shadowOffsetY = 22;
+    rr(b.sx - bez, b.sy - bez, b.sw + bez * 2, b.sh + bez * 2, r + bez); x.fillStyle = '#0a0807'; x.fill(); x.shadowColor = 'transparent';
+    x.strokeStyle = '#3a2f28'; x.lineWidth = 3; x.stroke();
+    x.save(); rr(b.sx, b.sy, b.sw, b.sh, r); x.clip(); drawShot(k, b); x.restore();
+    x.restore();
+  };
+  dev(tab, 520, 360, 1430, 26, 16, .55);
+  dev(cel, 300, 830, 1500, 40, 12, .9);
+}
+
+/* ---- placas finales: copiadas tal cual del promo (faatra-videos/studio.html, formato vertical) ---- */
+function sceneAppsArt(s, t){
+  bg(); brandDot(t);
+  headline(s.text, t, 150, 80, 950);
+  const p = eo(prog(t, .4, 1.1));
+  const lw = 860, lh = lw * 744 / 1800;
+  x.globalAlpha = p;
+  x.drawImage(IMG.logo, (W - lw)/2, 1000 - lh/2 + (1 - p) * 40, lw, lh);
+  x.globalAlpha = 1;
+}
+let QR = null;
+function buildQR(){ const q = qrcode(0, 'M'); q.addData(WA_URL); q.make(); QR = q; }
+function sceneContact(s, t){
+  bg(); brandDot(t);
+  headline(s.text, t, 150);
+  const a = d => eo(prog(t, d, d + .45));
+  const lw = 400, lh = lw * 744 / 1800;
+  x.globalAlpha = a(.2); x.drawImage(IMG.logo, (W - lw)/2, 400, lw, lh); x.globalAlpha = 1;
+  const n = QR.getModuleCount(), quiet = 4, card = 660, cs = card / (n + quiet * 2);
+  const cx0 = (W - card)/2, cy0 = 640, pq = a(.35);
+  x.save(); x.globalAlpha = pq; x.translate(W/2, cy0 + card/2); const sc = .92 + .08 * pq; x.scale(sc, sc); x.translate(-W/2, -(cy0 + card/2));
+  rr(cx0, cy0, card, card, 34); x.fillStyle = '#fff'; x.fill();
+  x.fillStyle = '#15100D';
+  for(let r = 0; r < n; r++) for(let c = 0; c < n; c++){
+    if(QR.isDark(r, c)) x.fillRect(Math.floor(cx0 + (c + quiet) * cs), Math.floor(cy0 + (r + quiet) * cs), Math.ceil(cs), Math.ceil(cs));
+  }
+  x.restore();
+  x.textAlign = 'center'; x.textBaseline = 'top';
+  x.globalAlpha = a(.6); font(40, 600); x.fillStyle = DIM; x.fillText('WhatsApp', W/2, 1360);
+  font(70, 800); x.fillStyle = BONE; x.fillText('+54 9 11 3366-3820', W/2, 1412);
+  x.globalAlpha = a(.8); font(40, 600); x.fillStyle = DIM; x.fillText('Instagram', W/2, 1545);
+  font(60, 700); x.fillStyle = TERRA; x.fillText('@_appsart_', W/2, 1595);
+  if(s.reportcarLine){
+    x.globalAlpha = a(1.1); font(44, 700); x.fillStyle = BONE;
+    x.fillText('reportscar.com', W/2, 1770);
+  }
+  x.globalAlpha = 1;
+}
+
+/* ===================== CUADRO ===================== */
+function frame(T){
+  let s = SCENES.find(sc => T < sc.start + sc.dur) || SCENES[SCENES.length - 1];
+  const t = T - s.start;
+  x.save();
+  ({ title: sceneTitle, devices: sceneDevices, demo: sceneDemo, corte: sceneCorte, appsart: sceneAppsArt, contact: sceneContact })[s.kind](s, t);
+  x.restore();
+  const isLast = s === SCENES[SCENES.length - 1];
+  const fin = 1 - prog(t, 0, .2), fout = isLast ? 0 : prog(t, s.dur - .2, s.dur);
+  const f = Math.max(s.start === 0 ? 0 : fin, fout);
+  if(f > 0){ x.fillStyle = `rgba(21,16,13,${f})`; x.fillRect(0, 0, W, H); }
+}
+
+/* ===================== ARRANQUE ===================== */
+async function main(){
+  await loadAll();
+  for(const w of [500, 600, 700, 800]) await document.fonts.load(`${w} 60px Geist`);
+  buildQR();
+  DURATION = buildTimeline();
+  // lo usa render.mjs: duración, inicio de cada escena (para ubicar la voz) y un cuadro por pedido
+  window.__timeline = { duration: DURATION, fps: FPS, waUrl: WA_URL, scenes: SCENES.map(s => ({ id: s.id, kind: s.kind, start: s.start, dur: s.dur, voz: s.voz, text: s.text || '' })) };
+  window.__frame = (T, q = .92) => { frame(T); return cv.toDataURL('image/jpeg', q); };
+  window.__qr = () => { frame(DURATION - .05); return x.getImageData(0, 0, W, H); };
+  document.title = 'READY ' + DURATION.toFixed(2);
+  if(P.has('t')){ frame(parseFloat(P.get('t'))); return; }
+  if(P.has('quieto')) return;
+  const t0 = performance.now();
+  const loop = () => { frame(((performance.now() - t0) / 1000) % DURATION); requestAnimationFrame(loop); };
+  loop();
+}
+main();
+</script>
+</body></html>

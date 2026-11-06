@@ -1,0 +1,10 @@
+{
+  "name": "reportcar-funciones",
+  "private": true,
+  "type": "module",
+  "description": "Video vertical 'Todas las funciones de ReportCar': grabación con Playwright + montaje en canvas + ffmpeg",
+  "dependencies": {
+    "jsqr": "^1.4.0",
+    "playwright": "^1.49.0"
+  }
+}

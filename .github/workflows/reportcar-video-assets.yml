@@ -1,0 +1,53 @@
+# Genera la voz (ElevenLabs) y las fotos de los autos (OpenAI) del video "Todas las funciones de ReportCar"
+# con las claves que ya están en los secrets del repo (las mismas del sistema de posts para redes).
+# Se dispara a mano (Actions -> "ReportCar video: voz y fotos" -> Run workflow, o `gh workflow run`) y deja
+# los archivos como artifact "reportcar-video-<run>". No toca nada del repo.
+#   tarea = "voz buscar"                      -> lista voces (queda en el log)
+#   tarea = "voz candidatas <id1> <id2> <id3>"  -> escenas 0 y 1 con cada voz
+#   tarea = "voz todo <voice_id> [s4 s7 ...]"   -> todas las locuciones + duraciones.json
+#   tarea = "fotos [ford-ka ...]"              -> fotos de los 4 lados de cada auto
+name: "ReportCar video: voz y fotos"
+on:
+  workflow_dispatch:
+    inputs:
+      tarea:
+        description: 'voz buscar | voz candidatas <ids> | voz todo <voice_id> | fotos [autos]'
+        required: true
+jobs:
+  generar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: marketing/reportcar-funciones
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: marketing/reportcar-funciones
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: ffmpeg (ffprobe para medir los audios)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
+      - name: Generar
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          TAREA: ${{ inputs.tarea }}
+        run: |
+          set -f
+          read -r cmd rest <<< "$TAREA"
+          case "$cmd" in
+            voz)   node voz.mjs $rest ;;
+            fotos) node fotos.mjs $rest ;;
+            *) echo "tarea desconocida: $cmd"; exit 1 ;;
+          esac
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reportcar-video-${{ github.run_id }}
+          path: |
+            marketing/reportcar-funciones/audio/
+            marketing/reportcar-funciones/fotos/demo/
+          if-no-files-found: ignore
+          retention-days: 7
