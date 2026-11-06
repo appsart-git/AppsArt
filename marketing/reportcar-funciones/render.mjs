@@ -13,7 +13,7 @@ import { chromium } from 'playwright';
 import { servir } from './lib/servidor.mjs';
 
 const PORT = 8798, RAIZ = path.resolve('.'), OUT = 'reportcar-funciones-vertical.mp4';
-const MUSICA_DB = -22;     // música respecto de la voz (brief: -20 a -24 dB)
+const MUSICA_DB = -13;     // la música entra a -21 LUFS aprox. (sale de musica-synth a -14) y baja más cuando habla la voz
 const [modo, ...resto] = process.argv.slice(2);
 
 const srv = await servir(PORT, RAIZ);
@@ -39,29 +39,57 @@ try{
     const d = await page.evaluate(() => { const i = window.__qr(); return { w: i.width, h: i.height, data: Array.from(i.data) }; });
     const r = jsQR(Uint8ClampedArray.from(d.data), d.w, d.h);
     console.log(r ? r.data : 'NO DECODIFICA', '\n', r && r.data === TL.waUrl ? 'OK coincide con el link de WhatsApp' : 'NO coincide');
+  } else if(modo === 'audio'){
+    await encode({ soloAudio: true });
   } else {
     await encode();
   }
 } finally { await browser.close(); srv.close(); }
 
-async function encode(){
+async function encode({ soloAudio = false } = {}){
   const N = Math.round(TL.duration * TL.fps);
-  const args = ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(TL.fps), '-c:v', 'mjpeg', '-i', 'pipe:0'];
-  // audio: locuciones en su escena + música
+  // modo audio: sin video (entrada 0 = silencio) -> out/mezcla.wav + out/stem-voz.wav + out/stem-musica.wav
+  const args = soloAudio ? ['-y', '-loglevel', 'error', '-f', 'lavfi', '-t', TL.duration.toFixed(3), '-i', 'anullsrc=r=48000:cl=stereo']
+    : ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(TL.fps), '-c:v', 'mjpeg', '-i', 'pipe:0'];
+  // audio: locuciones en su escena + música.
+  // Mezcla "fusionada" (pedido de Martín): la música va fuerte y baja sola cuando habla la voz (sidechain),
+  // y vuelve a subir en los silencios; la voz lleva compresión, reverb corta y fundidos de 25 ms, así
+  // no corta seco. Al final todo se normaliza a -14 LUFS (volumen de redes).
   const voces = TL.scenes.filter(s => fs.existsSync(`audio/${s.id}.mp3`));
   const musica = fs.existsSync('audio/musica.mp3');
   const filtros = []; let idx = 1;
-  voces.forEach(s => { args.push('-i', `audio/${s.id}.mp3`); filtros.push(`[${idx}]adelay=${Math.round(s.start * 1000 + 60)}:all=1[v${idx}]`); idx++; });
+  voces.forEach(s => {
+    args.push('-i', `audio/${s.id}.mp3`);
+    const d = (s.voz || 3).toFixed(3);
+    filtros.push(`[${idx}]aformat=channel_layouts=stereo:sample_rates=48000,afade=t=in:d=0.025,afade=t=out:st=${Math.max(0, s.voz - .06).toFixed(3)}:d=0.06,adelay=${Math.round(s.start * 1000 + 60)}:all=1[v${idx}]`);
+    idx++;
+  });
+  const D = TL.duration.toFixed(3);
+  if(voces.length){
+    filtros.push(`${voces.map((_, i) => `[v${i + 1}]`).join('')}amix=inputs=${voces.length}:normalize=0:dropout_transition=0,apad,atrim=0:${D},`
+      + `acompressor=threshold=0.12:ratio=3:attack=4:release=120:makeup=1.6,aecho=0.9:0.5:38|71:0.13|0.08,asplit=2[voz][sc]`);
+  }
   if(musica){
     args.push('-stream_loop', '-1', '-i', 'audio/musica.mp3');
-    filtros.push(`[${idx}]atrim=0:${TL.duration.toFixed(2)},volume=${MUSICA_DB}dB,afade=t=in:d=1,afade=t=out:st=${(TL.duration - 2).toFixed(2)}:d=2[mus]`);
+    filtros.push(`[${idx}]aformat=channel_layouts=stereo:sample_rates=48000,atrim=0:${D},volume=${MUSICA_DB}dB,afade=t=in:d=0.4,afade=t=out:st=${(TL.duration - 2.5).toFixed(2)}:d=2.5[mus0]`);
+    if(voces.length) filtros.push(`[mus0][sc]sidechaincompress=threshold=0.015:ratio=4:attack=15:release=450:level_sc=2:makeup=1[mus]`);
+    else filtros.push('[mus0]anull[mus]');
   }
-  const mezcla = [...voces.map((_, i) => `[v${i + 1}]`), ...(musica ? ['[mus]'] : [])];
+  const mezcla = [...(voces.length ? ['[voz]'] : []), ...(musica ? ['[mus]'] : [])];
   if(mezcla.length){
-    filtros.push(`${mezcla.join('')}amix=inputs=${mezcla.length}:normalize=0:dropout_transition=0,apad,atrim=0:${TL.duration.toFixed(3)}[a]`);
+    if(soloAudio && voces.length && musica){
+      filtros[filtros.length - 1] = filtros[filtros.length - 1].replace('[mus]', '[mus1]') + ';[mus1]asplit=2[mus][musS]';
+      filtros[filtros.findIndex(x => x.endsWith('[voz][sc]'))] = filtros.find(x => x.endsWith('[voz][sc]')).replace('asplit=2[voz][sc]', 'asplit=3[voz][sc][vozS]');
+    }
+    filtros.push(`${mezcla.join('')}amix=inputs=${mezcla.length}:normalize=0:dropout_transition=0,atrim=0:${D},loudnorm=I=-14:TP=-1.2:LRA=9[a]`);
+    if(soloAudio){
+      args.push('-filter_complex', filtros.join(';'), '-map', '[a]', 'out/mezcla.wav');
+      if(voces.length && musica) args.push('-map', '[vozS]', 'out/stem-voz.wav', '-map', '[musS]', 'out/stem-musica.wav');
+      const ffa = spawn('ffmpeg', args, { stdio: 'inherit' }); await new Promise(res => ffa.on('close', res)); console.log('out/mezcla.wav + stems'); return;
+    }
     args.push('-filter_complex', filtros.join(';'), '-map', '0:v', '-map', '[a]');
   } else {
-    args.push('-f', 'lavfi', '-t', TL.duration.toFixed(3), '-i', 'anullsrc=r=48000:cl=stereo', '-map', '0:v', '-map', `${idx}:a`);
+    args.push('-f', 'lavfi', '-t', D, '-i', 'anullsrc=r=48000:cl=stereo', '-map', '0:v', '-map', `${idx}:a`);
   }
   args.push('-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p', '-r', String(TL.fps),
     '-c:a', 'aac', '-b:a', '128k', '-ar', '48000', '-movflags', '+faststart', '-t', TL.duration.toFixed(3), OUT);
