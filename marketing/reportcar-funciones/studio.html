@@ -30,7 +30,7 @@ const AIRE = .5;        // después de cada locución (brief: 0,4 a 0,6 s)
 // demo: shots = [[escena, paso, peso?]] (el tiempo de la escena se reparte según el peso)
 //       pdf: peso de la hoja PDF al final; bgFoto: foto de taller desenfocada detrás del celular
 const SCENES = [
-  { id: 's0', kind: 'title', text: '*ReportCar.* Todo tu taller en el celular.', foto: 'taller-capot-abierto', min: 3 },
+  { id: 's0', kind: 'title', text: '*ReportCar.* Todo tu taller en el celular.', foto: 'taller-capot-abierto', min: 3, pre: 2.2 },  // pre: portada sin voz (WhatsApp corta el arranque y usa el 1er cuadro de miniatura)
   { id: 's1', kind: 'demo', text: 'El auto entra: *fotos, daños,* kilómetros, combustible y *firma.*', bgFoto: 'taller-elevadores',
     shots: [['e1', 0, .8], ['e1', 1, 1], ['e1', 2, .9], ['e1', 3, 1.2], ['e1', 4, 1], ['e1', 5, 1.1]] },
   { id: 's2', kind: 'demo', text: 'El *acta de ingreso* le llega al cliente por *WhatsApp.*', shots: [['e2', 0, 1]] },
@@ -83,7 +83,8 @@ function buildTimeline(){
   for(const s of SCENES){
     const voz = DURS && DURS[s.id] != null ? DURS[s.id] : (s.text ? palabras(s) / 2.75 + .2 : 0);  // estimación sin audio
     s.voz = voz;
-    s.dur = s.dur || Math.max(s.min || 0, voz + AIRE);
+    s.pre = s.pre || 0;
+    s.dur = s.dur || Math.max(s.min || 0, s.pre + voz + AIRE);
     if(s.kind === 'devices'){ s.steps = s.shots.map(([id, n]) => ({ k: id + '-' + n })); }
     if(s.kind === 'demo'){
       // mínimo para poder leer cada pantalla: 1,3 s por paso; 2,8 s si muestra el mensaje de WhatsApp
@@ -235,9 +236,14 @@ function sceneTitle(s, t){
   const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, 'rgba(21,16,13,.55)'); g.addColorStop(.5, 'rgba(21,16,13,0)'); g.addColorStop(1, 'rgba(21,16,13,.75)');
   x.fillStyle = g; x.fillRect(0, 0, W, H);
   brandDot(t, W/2, 560);
-  const p = eo(prog(t, .1, .7)), lw = 860, lh = lw * 640 / 1110;
+  const p = s.pre ? 1 : eo(prog(t, .1, .7)), lw = 860, lh = lw * 640 / 1110;
   x.globalAlpha = p; x.drawImage(IMG.rc, 182, 170, 1110, 640, (W - lw)/2, 640 + (1 - p) * 40, lw, lh); x.globalAlpha = 1;
-  headline(s.text, t - .35, 1230, 92, 920);
+  if(s.pre){
+    const q = 1 - prog(t, s.pre - .5, s.pre - .1);
+    x.globalAlpha = q; font(76, 800); x.fillStyle = TERRA; x.textAlign = 'center'; x.fillText('TODAS LAS FUNCIONES', W/2, 1290);
+    font(48, 500); x.fillStyle = BONE; x.fillText('El sistema para talleres mecánicos', W/2, 1380); x.globalAlpha = 1;
+  }
+  headline(s.text, t - .35 - s.pre, 1230, 92, 920);
 }
 function sceneCorte(s, t){ bg(); fotoCover(s.foto, t, { dark: .45, zoom: .06, from: 1.04 }); brandDot(t); }
 
@@ -372,7 +378,7 @@ async function main(){
   buildQR();
   DURATION = buildTimeline();
   // lo usa render.mjs: duración, inicio de cada escena (para ubicar la voz) y un cuadro por pedido
-  window.__timeline = { duration: DURATION, fps: FPS, waUrl: WA_URL, scenes: SCENES.map(s => ({ id: s.id, kind: s.kind, start: s.start, dur: s.dur, voz: s.voz, text: s.text || '' })) };
+  window.__timeline = { duration: DURATION, fps: FPS, waUrl: WA_URL, scenes: SCENES.map(s => ({ id: s.id, kind: s.kind, start: s.start, dur: s.dur, voz: s.voz, pre: s.pre, text: s.text || '' })) };
   window.__frame = (T, q = .92) => { frame(T); return cv.toDataURL('image/jpeg', q); };
   window.__qr = () => { frame(DURATION - .05); return x.getImageData(0, 0, W, H); };
   document.title = 'READY ' + DURATION.toFixed(2);

@@ -61,7 +61,7 @@ async function encode({ soloAudio = false } = {}){
   voces.forEach(s => {
     args.push('-i', `audio/${s.id}.mp3`);
     const d = (s.voz || 3).toFixed(3);
-    filtros.push(`[${idx}]aformat=channel_layouts=stereo:sample_rates=48000,afade=t=in:d=0.025,afade=t=out:st=${Math.max(0, s.voz - .06).toFixed(3)}:d=0.06,adelay=${Math.round(s.start * 1000 + 60)}:all=1[v${idx}]`);
+    filtros.push(`[${idx}]aformat=channel_layouts=stereo:sample_rates=48000,afade=t=in:d=0.025,afade=t=out:st=${Math.max(0, s.voz - .06).toFixed(3)}:d=0.06,adelay=${Math.round((s.start + (s.pre || 0)) * 1000 + 60)}:all=1[v${idx}]`);
     idx++;
   });
   const D = TL.duration.toFixed(3);

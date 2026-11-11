@@ -1,6 +1,6 @@
 # Video "Todas las funciones de ReportCar" (vertical 1080×1920)
 
-**Estado:** terminado. El archivo es `reportcar-funciones-vertical.mp4`: dura 95 s, pesa 10,6 MB y tiene voz y música rock ("Action race rock music", MagpieMusic, Pixabay).
+**Estado:** terminado. El archivo es `reportcar-funciones-vertical.mp4`: dura 97,5 s, pesa 10,7 MB y tiene voz y música rock ("Action race rock music", MagpieMusic, Pixabay).
 
 ## Cómo está armado
 
@@ -72,3 +72,11 @@ Cuando existe `audio/duraciones.json`, cada escena dura lo que su locución más
 - **Falta, y lo tiene que hacer alguien con el celular:**
   - escanear el QR;
   - **escuchar** el video con sonido, para confirmar la pronunciación de "WhatsApp", "QR", "PDF" y "ReportCar". Si alguna suena mal, se corrige en `FONETICA` (en `voz.mjs`) y se regenera solo esa escena.
+
+## Portada y arranque sin voz (pedido de Martín, nov 2026)
+
+Al compartirlo por WhatsApp se perdía el "ReportCar" del principio y la miniatura salía oscura. Por eso la escena 0 tiene `pre: 2.2`:
+
+- Los primeros 2,2 s son una **portada**: el logo de ReportCar, "TODAS LAS FUNCIONES" y "El sistema para talleres mecánicos", con música y sin voz.
+- Ya está completa en el **primer cuadro**, que es el que WhatsApp usa de miniatura.
+- La locución arranca a los 2,2 s.
