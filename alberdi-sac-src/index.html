@@ -1069,16 +1069,17 @@ function renderDashboard(rows, ctx){
     const cats = [...top, 'Otras'].filter(c => totCat[c]);
     if (!cats.length || !periods.size) { el.closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
     const pl = [...periods].sort();
-    // Barras horizontales en celular o cuando hay muchas causas: las etiquetas largas no entran debajo de las barras
-    const horiz = window.innerWidth < 700 || cats.length > 12;
-    el.closest('.chart-wrap').style.height = horiz ? Math.max(320, cats.length * pl.length * 15 + 90) + 'px' : '310px';
+    // Vertical en pantallas anchas (etiquetas rotadas, una línea por causa); horizontal solo en celular
+    const horiz = window.innerWidth < 700;
+    el.closest('.chart-wrap').style.height = horiz ? Math.max(320, cats.length * pl.length * 15 + 90) + 'px' : '480px';
     const valOf = c => horiz ? c.parsed.x : c.parsed.y;
     makeChart(id, {
       type:'bar',
-      data:{ labels: cats.map(c => horiz ? `${c} (${fmtTot(totCat[c])})` : [...wrapLabel(c, 14), `(${fmtTot(totCat[c])})`]),
+      data:{ labels: cats.map(c => `${c} (${fmtTot(totCat[c])})`),
         datasets: pl.map((p, i) => ({
           label: `${periodLabel(p, state.granularity)} (${fmtTot(cats.reduce((a, c) => a + ((byPeriod[p] && byPeriod[p][c]) || 0), 0))})`,
-          backgroundColor: periodColor(i, pl.length), borderRadius:3,
+          backgroundColor: periodColor(i, pl.length), borderRadius:2,
+          categoryPercentage:0.92, barPercentage:0.96,
           data: cats.map(c => (byPeriod[p] && byPeriod[p][c]) || 0)
         })) },
       options:{ indexAxis: horiz ? 'y' : 'x', responsive:true, maintainAspectRatio:false,
@@ -1086,7 +1087,7 @@ function renderDashboard(rows, ctx){
           tooltip:{ callbacks:{ title: items => cats[items[0].dataIndex], label: c => c.dataset.label.split(' (')[0] + ': ' + fmtMetricTip(valOf(c)) } } },
         scales: horiz
           ? { x:{ grid:{color:grid}, beginAtZero:true }, y:{ grid:{display:false}, ticks:{ font:{size:10.5}, autoSkip:false } } }
-          : { x:{ grid:{display:false}, ticks:{ font:{size:10.5}, maxRotation:0, autoSkip:false } }, y:{ grid:{color:grid}, beginAtZero:true } } }
+          : { x:{ grid:{display:false}, ticks:{ font:{size:10.5}, minRotation:55, maxRotation:55, autoSkip:false } }, y:{ grid:{color:grid}, beginAtZero:true } } }
     });
   }
 
