@@ -646,10 +646,10 @@ function applyFilters(rows){
 
 function getFiltered(){ return applyFilters(ALL); }
 
-// El Panel muestra por defecto solo el último año (12 meses corridos, mes actual incluido),
+// El Panel muestra por defecto los últimos 13 meses (mes actual + los 12 anteriores, así queda el mismo mes del año pasado para comparar),
 // salvo que se filtre por fecha o se elija "Todo el historial".
 function hasDateFilter(){ return !!(state.dateFrom || state.dateTo || state.dateFromProd || state.dateToProd); }
-function lastYearStart(){ const d = new Date(); return new Date(d.getFullYear(), d.getMonth() - 11, 1); }
+function lastYearStart(){ const d = new Date(); return new Date(d.getFullYear(), d.getMonth() - 12, 1); }
 function dashboardRows(){
   const all = getFiltered();
   if (state.showAll || hasDateFilter()) return { rows: all, all, windowed: false };
@@ -837,7 +837,7 @@ function renderAll(){
   document.getElementById('dashboardView').classList.toggle('hidden', ALL.length === 0 || state.view !== 'dashboard');
   document.getElementById('tableView').classList.toggle('hidden', ALL.length === 0 || state.view !== 'table');
   document.getElementById('resultCount').textContent = ALL.length
-    ? `${rows.length} reclamo(s)` + (dash && dash.windowed ? ` · último año (desde ${monthLabel(monthKey(dash.from))})` : '')
+    ? `${rows.length} reclamo(s)` + (dash && dash.windowed ? ` · últimos 13 meses (desde ${monthLabel(monthKey(dash.from))})` : '')
     : '';
   if (!ALL.length) return;
   if (dash) renderDashboard(dash.rows, dash); else renderTableView(rows);
@@ -880,7 +880,7 @@ function renderDashboard(rows, ctx){
     (hasDateFilter()
       ? `<div class="dash-control-group"><span>Rango</span><div class="dash-note">según los filtros de fecha</div></div>`
       : controlToggle('Rango', [
-          { val:'year', label:'Último año' },
+          { val:'year', label:'Últimos 13 meses' },
           { val:'all', label:'Todo el historial' }
         ], state.showAll ? 'all' : 'year', 'range')) +
     `<div class="dash-control-group"><button class="icon-btn" data-action="open-chart-settings">⚙ Editar gráficos</button></div>` +
