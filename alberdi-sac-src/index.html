@@ -102,6 +102,8 @@
   .chart-card.wide{grid-column:1/-1;}
   .chart-card-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; gap:8px; flex-wrap:wrap;}
   .chart-card h4{margin:0; font-size:13px; font-weight:700; color:var(--text);}
+  .chart-sub{display:block; margin-top:2px; font-size:11.5px; color:var(--text-muted); font-weight:600;}
+  .chart-section-title{grid-column:1/-1; margin-top:6px; font-size:11.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text-muted);}
   .chart-toggle{display:flex; gap:4px;}
   .chart-toggle button{
     padding:4px 10px; border-radius:14px; border:1px solid var(--border); background:var(--surface-2);
@@ -401,7 +403,11 @@ const XLSX_KEY_MAP = {
   MATERIALESPROPIOS:'materialesPropios', MATERIALESDETERCEROS:'materialesDeTerceros',
   VIATICOS:'viaticos', FLETES:'fletes', TOTALGASTOS:'totalGastos',
   IDINSPECTOR:'idInspector', IDADHESIVO:'idAdhesivo', IDESTIMADO:'idEstimado',
-  IDFINALIZADO:'idFinalizado', IDCAUSA:'idCausa'
+  IDFINALIZADO:'idFinalizado', IDCAUSA:'idCausa',
+  FECHADEINGRESOR:'fechaIngreso', FECHADEINGRESO:'fechaIngreso', FECHAINGRESO:'fechaIngreso',
+  NCA:'ncA', NCB:'ncB', NC3ROS:'nc3ros', NCTERCEROS:'nc3ros', NCTOTAL:'ncTotal',
+  M2:'materialesPropiosM2', M2COMPRADOS:'m2Comprados', M2SINCOLOCAR:'m2SinColocar',
+  FCST:'facturaRemito', FACTURAREMITO:'facturaRemito', REGISTRO:'registradoPor', APROBADO:'aprobado'
 };
 const NUMERIC_FIELDS = ['metros','manoDeObra','materialesPropios','materialesDeTerceros','viaticos','fletes','totalGastos',
   'm2Comprados','m2SinColocar','ncA','ncB','nc3ros','ncTotal','materialesPropiosM2'];
@@ -444,7 +450,14 @@ const FILTERABLE = [
 ];
 const COLORS = ['#E8A33D','#4C8B5A','#E15252','#5B8DEF','#9B6BDE','#4FB6C7','#D98BD9','#C9A227','#7FA1C3','#6FCF97'];
 
+// Gráficos "por nivel": uno por cada nodo del árbol Total › Planta (Salta / JCP) › Línea o Horno › Marca.
 const OPTIONAL_CHARTS = [
+  { id:'chNivTotal', group:'nivel', wide:true, title:'Total · por planta', sub:'Total › Salta | JCP' },
+  { id:'chNivSalta', group:'nivel', title:'Salta · por línea', sub:'Salta › SGR | ESMA' },
+  { id:'chNivJcp', group:'nivel', title:'JCP · por horno', sub:'JCP › H4 | H5' },
+  { id:'chNivH4', group:'nivel', title:'JCP H4 · por marca', sub:'JCP › H4 › VIT | ALB' },
+  { id:'chNivH5', group:'nivel', title:'JCP H5 · por marca', sub:'JCP › H5 › VIT | ALB' },
+  { id:'chNivJcpMarca', group:'nivel', title:'JCP · por marca (H4 + H5)', sub:'JCP › VIT | ALB' },
   { id:'chEstado', title:'Estado de los reclamos' },
   { id:'chOrigen', title:'Origen del reclamo' },
   { id:'chAging', title:'Reclamos abiertos por antigüedad' },
@@ -490,8 +503,10 @@ function parseNumber(v){
 function parseDateVal(v){
   if (v instanceof Date) return isNaN(v) ? null : v;
   if (typeof v === 'number' && v > 0) {
-    const epoch = Date.UTC(1899, 11, 30);
-    return new Date(epoch + v * 86400000);
+    const days = Math.floor(v);
+    const d = new Date(1899, 11, 30 + days);
+    d.setMilliseconds(Math.round((v - days) * 86400000));
+    return d;
   }
   if (typeof v === 'string') {
     const s = v.trim();
@@ -508,6 +523,21 @@ function parseDateVal(v){
   }
   return null;
 }
+function padNum(n){ return String(n).padStart(2, '0'); }
+function fracToHora(f){
+  const mins = Math.round((f % 1) * 1440);
+  return `${padNum(Math.floor(mins / 60) % 24)}:${padNum(mins % 60)}`;
+}
+function normHora(v){
+  if (v === null || v === undefined || v === '') return '';
+  if (v instanceof Date) return isNaN(v) ? '' : `${padNum(v.getHours())}:${padNum(v.getMinutes())}`;
+  if (typeof v === 'number') return fracToHora(v);
+  const s = String(v).trim();
+  if (!s) return '';
+  if (/^\d*\.\d+$/.test(s) && parseFloat(s) < 1) return fracToHora(parseFloat(s));
+  const m = s.match(/(\d{1,2}):(\d{2})/);
+  return m ? `${padNum(+m[1])}:${m[2]}` : s;
+}
 function fmtMoney(n){ return (n||0).toLocaleString('es-AR', { style:'currency', currency:'ARS', maximumFractionDigits:0 }); }
 function fmtNum(n, dec){ return (n||0).toLocaleString('es-AR', { maximumFractionDigits: dec ?? 1 }); }
 function fmtDate(d){ return d ? d.toLocaleDateString('es-AR') : '—'; }
@@ -523,6 +553,35 @@ function isClosed(finalizado){
   const v = stripAccents(String(finalizado||'')).toUpperCase().trim();
   return v === 'SI' || v === 'S' || v === 'YES' || v === '1' || v === 'TRUE';
 }
+
+/* ===================== Árbol de niveles (planta › línea/horno › marca) ===================== */
+
+function plantaOf(r){
+  const h = String(r.horno || '').trim().toUpperCase();
+  if (h === 'SALTA') return 'SALTA';
+  return /^H\d+$/.test(h) ? 'JCP' : 'Otros';
+}
+function lineaSaltaOf(r){
+  const w = String(r.nombre || '').trim().toUpperCase().split(/\s+/)[0];
+  return w === 'SGR' ? 'SGR' : w === 'ESMA' ? 'ESMA' : 'Otros';
+}
+function hornoJcpOf(r){
+  const h = String(r.horno || '').trim().toUpperCase();
+  return h === 'H4' || h === 'H5' ? h : 'Otros';
+}
+function marcaOf(r){
+  const m = String(r.marca || '').trim().toUpperCase();
+  return (m === 'VITE' || m === 'VIT') ? 'VIT' : (m === 'ALBERDI' || m === 'ALB') ? 'ALB' : 'Otros';
+}
+const TREE_NODES = {
+  chNivTotal:    { rows: r => true,                                          by: plantaOf,     order: ['SALTA','JCP','Otros'] },
+  chNivSalta:    { rows: r => plantaOf(r) === 'SALTA',                       by: lineaSaltaOf, order: ['SGR','ESMA','Otros'] },
+  chNivJcp:      { rows: r => plantaOf(r) === 'JCP',                         by: hornoJcpOf,   order: ['H4','H5','Otros'] },
+  chNivH4:       { rows: r => plantaOf(r) === 'JCP' && hornoJcpOf(r) === 'H4', by: marcaOf,    order: ['VIT','ALB','Otros'] },
+  chNivH5:       { rows: r => plantaOf(r) === 'JCP' && hornoJcpOf(r) === 'H5', by: marcaOf,    order: ['VIT','ALB','Otros'] },
+  chNivJcpMarca: { rows: r => plantaOf(r) === 'JCP',                         by: marcaOf,      order: ['VIT','ALB','Otros'] }
+};
+const TREE_COLORS = { SALTA:'#5B8DEF', JCP:'#E8A33D', SGR:'#4FB6C7', ESMA:'#9B6BDE', H4:'#D98BD9', H5:'#6FCF97', VIT:'#E15252', ALB:'#C9A227', Otros:'#5C6470' };
 
 /* ===================== Estado ===================== */
 
@@ -551,6 +610,7 @@ async function loadData(){
   return snap.docs.map(d => {
     const data = d.data();
     DATE_FIELDS.forEach(f => { if (data[f] && data[f].toDate) data[f] = data[f].toDate(); });
+    if (data.hora) data.hora = normHora(data.hora);
     return data;
   });
 }
@@ -669,13 +729,20 @@ function avgDays(rows, fromKey, toKey){
   return diffs.reduce((a,b) => a+b, 0) / diffs.length;
 }
 
+// Importe de un reclamo: total de gastos (planilla histórica) o notas de crédito (planilla nueva), lo que sea mayor.
+function costoOf(r){
+  const comp = (r.manoDeObra||0) + (r.materialesPropios||0) + (r.materialesDeTerceros||0) + (r.viaticos||0) + (r.fletes||0);
+  const nc = (r.ncTotal||0) || ((r.ncA||0) + (r.ncB||0) + (r.nc3ros||0));
+  return Math.max(r.totalGastos||0, comp, nc);
+}
+
 function buildTimeSeries(rows, dateField, granularity){
   const count = {}, cost = {};
   rows.forEach(r => {
     const k = periodKey(r[dateField], granularity);
     if (!k) return;
     count[k] = (count[k]||0) + 1;
-    cost[k] = (cost[k]||0) + (r.totalGastos||0);
+    cost[k] = (cost[k]||0) + costoOf(r);
   });
   const periods = Object.keys(count).sort();
   return { periods, count, cost };
@@ -705,9 +772,7 @@ function computeStats(rows){
   const costFields = ['manoDeObra','materialesPropios','materialesDeTerceros','viaticos','fletes'];
   s.costBreakdown = {};
   costFields.forEach(f => s.costBreakdown[f] = rows.reduce((a,r) => a + (r[f]||0), 0));
-  const sumComponents = Object.values(s.costBreakdown).reduce((a,b) => a+b, 0);
-  const sumTotalGastos = rows.reduce((a,r) => a + (r.totalGastos||0), 0);
-  s.totalCosto = Math.max(sumComponents, sumTotalGastos);
+  s.totalCosto = rows.reduce((a,r) => a + costoOf(r), 0);
   s.costoPromedio = s.total ? s.totalCosto / s.total : 0;
 
   s.estadoCounts = groupCount(rows, 'finalizado');
@@ -715,7 +780,9 @@ function computeStats(rows){
   s.cerrados = s.total - s.abiertos;
 
   s.porCausaCount = topN(groupCount(rows, 'causa'), 8);
-  s.porCausaCosto = topN(groupSum(rows, 'causa', 'totalGastos'), 8);
+  const costoPorCausa = {};
+  rows.forEach(r => { const k = String(r.causa||'—').trim() || '—'; costoPorCausa[k] = (costoPorCausa[k]||0) + costoOf(r); });
+  s.porCausaCosto = topN(costoPorCausa, 8);
   s.porLinea = topN(groupCount(rows, 'lineaProd'), 10);
   s.porHorno = topN(groupCount(rows, 'horno'), 10);
   s.porTurno = topN(groupCount(rows, 'turno'), 8);
@@ -806,9 +873,18 @@ function renderDashboard(rows){
       <div class="chart-wrap"><canvas id="chYoY"></canvas></div>
     </div>` : '';
 
+  const GROUP_TITLES = { nivel:'Por nivel · Total › Planta › Línea / Horno › Marca', general:'Otros gráficos' };
+  let lastGroup = null;
   const optionalCardsHtml = OPTIONAL_CHARTS
     .filter(c => chartVisibility[c.id])
-    .map(c => `<div class="chart-card"><div class="chart-card-head"><h4>${esc(c.title)}</h4></div><div class="chart-wrap"><canvas id="${c.id}"></canvas></div></div>`)
+    .map(c => {
+      const g = c.group || 'general';
+      const title = g !== lastGroup ? `<div class="chart-section-title">${esc(GROUP_TITLES[g])}</div>` : '';
+      lastGroup = g;
+      return `${title}<div class="chart-card${c.wide ? ' wide' : ''}">
+        <div class="chart-card-head"><div><h4>${esc(c.title)}</h4>${c.sub ? `<small class="chart-sub" id="${c.id}Sub">${esc(c.sub)}</small>` : ''}</div></div>
+        <div class="chart-wrap"><canvas id="${c.id}"></canvas></div></div>`;
+    })
     .join('');
 
   document.getElementById('chartGrid').innerHTML = `
@@ -856,6 +932,49 @@ function renderDashboard(rows){
     });
   }
 
+  function treeChart(id){
+    const el = document.getElementById(id);
+    if (!el) return;
+    const node = TREE_NODES[id];
+    const metric = state.trendMetric;
+    const nodeRows = rows.filter(node.rows);
+    const totals = {}, byLabel = {}, periods = new Set();
+    let dated = 0;
+    nodeRows.forEach(r => {
+      const lab = node.by(r);
+      const v = metric === 'cost' ? costoOf(r) : 1;
+      totals[lab] = (totals[lab] || 0) + v;
+      const p = periodKey(r[state.dateBasis], state.granularity);
+      if (!p) return;
+      dated++;
+      periods.add(p);
+      byLabel[lab] = byLabel[lab] || {};
+      byLabel[lab][p] = (byLabel[lab][p] || 0) + v;
+    });
+    const sub = document.getElementById(id + 'Sub');
+    if (sub) {
+      const base = OPTIONAL_CHARTS.find(c => c.id === id).sub;
+      const sinFecha = nodeRows.length - dated;
+      sub.textContent = `${base} · ${fmtNum(nodeRows.length,0)} reclamos` + (sinFecha ? ` (${fmtNum(sinFecha,0)} sin ${state.dateBasis === 'fechaProd' ? 'fecha de producción' : 'fecha'})` : '');
+    }
+    const labels = node.order.filter(l => totals[l]);
+    if (!labels.length || !periods.size) { el.closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
+    const pl = [...periods].sort();
+    const fmtTot = n => metric === 'cost' ? fmtMoney(n) : fmtNum(n, 0);
+    makeChart(id, {
+      type:'bar',
+      data:{ labels: pl.map(p => periodLabel(p, state.granularity)),
+        datasets: labels.map(l => ({
+          label: `${l} (${fmtTot(totals[l])})`, backgroundColor: TREE_COLORS[l] || '#5C6470', borderRadius:2,
+          data: pl.map(p => (byLabel[l] && byLabel[l][p]) || 0)
+        })) },
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{size:11} } },
+          tooltip:{ mode:'index', callbacks:{ label: ctx => ctx.dataset.label.split(' (')[0] + ': ' + (metric === 'cost' ? fmtMoney(ctx.parsed.y) : ctx.parsed.y) } } },
+        scales:{ x:{ stacked:true, grid:{display:false} }, y:{ stacked:true, grid:{color:grid}, beginAtZero:true } } }
+    });
+  }
+
   makeChart('chTrend', {
     type:'bar',
     data:{ labels: s.trend.periods.map(p => periodLabel(p, state.granularity)),
@@ -881,6 +1000,7 @@ function renderDashboard(rows){
     });
   }
 
+  Object.keys(TREE_NODES).forEach(treeChart);
   donut('chEstado', s.estadoCounts);
   donut('chOrigen', s.origenCounts);
   hbar('chAging', Object.entries(s.aging), '#E15252');
@@ -940,7 +1060,7 @@ function renderTableView(rows){
       let v = rowValue(r, c.key);
       if (c.key === 'fechaReclamo' || c.key === 'fechaProd') v = fmtDate(v);
       else if (c.key === 'metros') v = fmtNum(v,1);
-      else if (c.key === 'totalGastos') v = fmtMoney(v || Math.max(v||0, (r.manoDeObra||0)+(r.materialesPropios||0)+(r.materialesDeTerceros||0)+(r.viaticos||0)+(r.fletes||0)));
+      else if (c.key === 'totalGastos') v = fmtMoney(costoOf(r));
       else if (c.key === 'finalizado') v = `<span class="pill ${isClosed(r.finalizado) ? 'closed' : 'open'}">${isClosed(r.finalizado) ? 'Cerrado' : 'Abierto'}</span>`;
       else v = esc(v ?? '—');
       const cls = c.key === 'productoDisplay' ? 'desc' : '';
@@ -1492,6 +1612,7 @@ async function handleFile(file){
     const rows = parseWorkbook(buf);
     statusEl.innerHTML = `<div class="admin-spinner">Comparando con la base actual…</div>`;
     admin.diff = buildDiff(rows, ALL);
+    admin.diff.info = parseWorkbook.lastInfo;
     renderAdmin();
   } catch (e) {
     console.error(e);
@@ -1503,11 +1624,23 @@ function parseWorkbook(buf){
   const wb = XLSX.read(buf, { type:'array', cellDates:true });
   const sheetName = wb.SheetNames[0];
   const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header:1, defval:'', blankrows:false, raw:true });
-  const headerRowIdx = rows.findIndex(r => r.some(c => normHeaderKey(c) === 'NRORECLAMO'));
-  if (headerRowIdx === -1) throw new Error('No encontré la columna "NroReclamo" en la primera hoja ("' + sheetName + '"). Revisá que sea la hoja correcta.');
-  const headers = rows[headerRowIdx].map(normHeaderKey);
+  const knownCount = r => r.reduce((n, c) => n + (XLSX_KEY_MAP[normHeaderKey(c)] ? 1 : 0), 0);
+  let headerRowIdx = rows.findIndex(r => r.some(c => normHeaderKey(c) === 'NRORECLAMO'));
+  if (headerRowIdx === -1) headerRowIdx = rows.findIndex(r => knownCount(r) >= 6);
+  if (headerRowIdx === -1) throw new Error('No encontré la fila de encabezados en la primera hoja ("' + sheetName + '"). Revisá que sea la hoja correcta.');
+  const rawHeaders = rows[headerRowIdx];
+  const headers = rawHeaders.map(normHeaderKey);
+  let assumedNro = false;
+  if (!headers.includes('NRORECLAMO')) {
+    if (headers[0] === '') { headers[0] = 'NRORECLAMO'; assumedNro = true; }
+    else throw new Error('No encontré la columna "NroReclamo" ni una primera columna sin título para usarla como N° de reclamo.');
+  }
+  const ignored = rawHeaders
+    .map((h, i) => ({ h: String(h ?? '').replace(/^[\s']+/, '').trim(), k: headers[i] }))
+    .filter(x => x.k && !XLSX_KEY_MAP[x.k]).map(x => x.h);
   const dataRows = rows.slice(headerRowIdx + 1);
   const records = [];
+  let skipped = 0;
   for (const r of dataRows) {
     const obj = {};
     let hasData = false;
@@ -1519,26 +1652,47 @@ function parseWorkbook(buf){
       if (raw !== '') hasData = true;
       if (NUMERIC_FIELDS.includes(key)) obj[key] = parseNumber(raw);
       else if (DATE_FIELDS.includes(key)) obj[key] = parseDateVal(raw);
+      else if (key === 'hora') obj[key] = normHora(raw);
       else obj[key] = String(raw).trim();
     });
-    if (hasData && obj.nroReclamo) records.push(obj);
+    if (!hasData) continue;
+    if (/^\d+$/.test(obj.nroReclamo || '')) records.push(obj); else skipped++;
   }
   if (!records.length) throw new Error('No encontré filas de reclamos con datos debajo del encabezado.');
+  parseWorkbook.lastInfo = { sheetName, headerRow: headerRowIdx + 1, assumedNro, ignored, skipped };
   return records;
 }
 
+function isEmptyVal(f, v){
+  if (v === undefined || v === null || v === '') return true;
+  if (v instanceof Date) return isNaN(v);
+  if (NUMERIC_FIELDS.includes(f) && v === 0) return true;
+  return false;
+}
+function sameVal(a, b){
+  if (a instanceof Date || b instanceof Date) {
+    return a instanceof Date && b instanceof Date && a.toDateString() === b.toDateString();
+  }
+  if (typeof a === 'number' && typeof b === 'number') return Math.abs(a - b) < 0.005;
+  return String(a ?? '').trim() === String(b ?? '').trim();
+}
+
+// Un reclamo que ya existe se actualiza solo con los campos que la planilla trae con valor:
+// lo que la planilla deja vacío (o lo que se cargó/editó en la app y no está en la planilla) no se pisa.
 function buildDiff(rows, existing){
   const byId = new Map(existing.map(r => [String(r.nroReclamo), r]));
   const nuevos = [], actualizados = [], sinCambios = [];
   for (const row of rows) {
     const match = byId.get(String(row.nroReclamo));
     if (!match) { nuevos.push(row); continue; }
-    const changed = XLSX_FIELDS.some(f => {
-      const a = row[f], b = match[f];
-      if (a instanceof Date || b instanceof Date) return +(a||0) !== +(b||0);
-      return String(a ?? '') !== String(b ?? '');
+    const merged = { ...match };
+    let changed = false;
+    XLSX_FIELDS.forEach(f => {
+      const v = row[f];
+      if (isEmptyVal(f, v)) return;
+      if (!sameVal(v, match[f])) { merged[f] = v; changed = true; }
     });
-    (changed ? actualizados : sinCambios).push(row);
+    (changed ? actualizados : sinCambios).push(merged);
   }
   return { nuevos, actualizados, sinCambios };
 }
@@ -1548,7 +1702,14 @@ function renderAdminPreview(){
   const listHtml = items => items.length
     ? items.slice(0, 60).map(r => `<p>N° ${esc(r.nroReclamo)}${r.causa ? ' · ' + esc(r.causa) : ''}</p>`).join('') + (items.length > 60 ? `<p class="admin-note">+${items.length-60} más</p>` : '')
     : `<p class="admin-note">Ninguno.</p>`;
+  const info = d.info || {};
+  const notes = [
+    info.assumedNro ? 'La primera columna no tenía título: la tomé como N° de reclamo.' : '',
+    info.ignored && info.ignored.length ? 'Columnas que no reconozco y no se cargan: ' + info.ignored.join(', ') + '.' : '',
+    info.skipped ? info.skipped + ' fila(s) sin N° de reclamo numérico se saltearon.' : ''
+  ].filter(Boolean).map(t => `<p class="admin-note">${esc(t)}</p>`).join('');
   document.getElementById('adminBody').innerHTML = `
+    ${notes}
     <div class="diff-summary">
       <div class="diff-stat"><div class="n">${d.nuevos.length}</div><div class="l">Nuevos</div></div>
       <div class="diff-stat"><div class="n">${d.actualizados.length}</div><div class="l">Modificados</div></div>
@@ -1588,7 +1749,11 @@ async function confirmUpdate(){
       const cur = snap.exists ? (snap.data().last || 0) : 0;
       if (maxNro > cur) tx.set(counterRef, { last: maxNro }, { merge:true });
     });
-    ALL = await loadData();
+    const idx = new Map(ALL.map((r, i) => [String(r.nroReclamo), i]));
+    toWrite.forEach(r => {
+      const i = idx.get(String(r.nroReclamo));
+      if (i === undefined) ALL.push(r); else ALL[i] = r;
+    });
     renderFilterSheetOptions();
     document.getElementById('adminBody').innerHTML = `
       <p class="admin-p"><b>¡Listo!</b> Se actualizaron ${toWrite.length} reclamos (${d.nuevos.length} nuevos, ${d.actualizados.length} modificados). El panel ya se actualizó solo.</p>

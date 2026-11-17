@@ -78,6 +78,19 @@
       "port": 8901
     },
     {
+      "name": "alberdi-sac",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        ".claude/serve-static.ps1",
+        "alberdi-sac-src",
+        "8903"
+      ],
+      "port": 8903
+    },
+    {
       "name": "union-industrial",
       "runtimeExecutable": "npm",
       "runtimeArgs": [

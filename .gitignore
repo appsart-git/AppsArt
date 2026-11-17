@@ -7,3 +7,7 @@ marketing/*.mp4
 
 # Cache local de Firebase CLI
 .firebase/
+
+# Planillas de reclamos con datos de clientes (no subir a GitHub) y archivos temporales de Excel
+anexo*.xlsx
+~$*
