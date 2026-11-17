@@ -809,16 +809,22 @@ function costoOf(r){
   return Math.max(r.totalGastos||0, comp, nc);
 }
 
+// Qué se mide en los gráficos: cantidad de reclamos ("count") o metros cuadrados ("m2").
+function metricVal(r){ return state.trendMetric === 'm2' ? (r.metros || 0) : state.trendMetric === 'cost' ? costoOf(r) : 1; }
+function fmtMetric(n){ return state.trendMetric === 'm2' ? fmtNum(n, 0) + ' m²' : state.trendMetric === 'cost' ? fmtMoney(n) : fmtNum(n, 0); }
+function fmtMetricTip(n){ return state.trendMetric === 'm2' ? fmtNum(n, 1) + ' m²' : state.trendMetric === 'cost' ? fmtMoney(n) : fmtNum(n, 0); }
+
 function buildTimeSeries(rows, dateField, granularity){
-  const count = {}, cost = {};
+  const count = {}, cost = {}, m2 = {};
   rows.forEach(r => {
     const k = periodKey(r[dateField], granularity);
     if (!k) return;
     count[k] = (count[k]||0) + 1;
     cost[k] = (cost[k]||0) + costoOf(r);
+    m2[k] = (m2[k]||0) + (r.metros||0);
   });
   const periods = Object.keys(count).sort();
-  return { periods, count, cost };
+  return { periods, count, cost, m2 };
 }
 
 // Compara el mismo mes/trimestre a través de distintos años (interanual).
@@ -922,7 +928,12 @@ function renderDashboard(rows, ctx){
     kpiCard(s.cerrados, 'Finalizados', 'good')
   ].join('');
 
+  const unidad = state.trendMetric === 'm2' ? 'Metros cuadrados' : 'Cantidad de reclamos';
   document.getElementById('dashControls').innerHTML =
+    controlToggle('Ver por', [
+      { val:'count', label:'Cantidad' },
+      { val:'m2', label:'Metros cuadrados' }
+    ], state.trendMetric, 'metric') +
     controlToggle('Fecha base', [
       { val:'fechaReclamo', label:'Fecha de reclamo' },
       { val:'fechaProd', label:'Fecha de producción' }
@@ -958,7 +969,11 @@ function renderDashboard(rows, ctx){
       <div class="chart-wrap"><canvas id="chYoY"></canvas></div>
     </div>` : '';
 
-  const GROUP_TITLES = { nivel:'Cantidad de reclamos por nivel · Total › Planta › Línea / Horno › Marca', causa:'Causas por nivel · las 9 causas con más reclamos y el resto, comparadas por trimestre', general:'Otros gráficos' };
+  const GROUP_TITLES = {
+    nivel: `${unidad} por nivel · Total › Planta › Línea / Horno › Marca`,
+    causa: `Causas por nivel · las 9 causas con más ${state.trendMetric === 'm2' ? 'metros cuadrados' : 'reclamos'} y el resto, comparadas por período`,
+    general: 'Otros gráficos'
+  };
   let lastGroup = null;
   const optionalCardsHtml = OPTIONAL_CHARTS
     .filter(c => chartVisibility[c.id] && !c.custom)
@@ -975,11 +990,7 @@ function renderDashboard(rows, ctx){
   document.getElementById('chartGrid').innerHTML = `
     <div class="chart-card wide">
       <div class="chart-card-head">
-        <h4>Evolución (${state.dateBasis==='fechaReclamo'?'fecha de reclamo':'fecha de producción'})</h4>
-        <div class="chart-toggle">
-          <button data-metric="count" class="${state.trendMetric==='count'?'active':''}">Reclamos</button>
-          <button data-metric="cost" class="${state.trendMetric==='cost'?'active':''}">Costo</button>
-        </div>
+        <h4>Evolución · ${unidad.toLowerCase()} (${state.dateBasis==='fechaReclamo'?'fecha de reclamo':'fecha de producción'})</h4>
       </div>
       <div class="chart-wrap"><canvas id="chTrend"></canvas></div>
     </div>
@@ -1031,9 +1042,8 @@ function renderDashboard(rows, ctx){
     const el = document.getElementById(id);
     if (!el) return;
     const nodeRows = rows.filter(TREE_NODES[CAUSE_SCOPE[id]].rows);
-    const metric = state.trendMetric;
-    const val = r => metric === 'cost' ? costoOf(r) : 1;
-    const fmtTot = n => metric === 'cost' ? fmtMoney(n) : fmtNum(n, 0);
+    const val = metricVal;
+    const fmtTot = fmtMetric;
     const totCausa = {};
     nodeRows.forEach(r => { const c = causaOf(r); totCausa[c] = (totCausa[c] || 0) + val(r); });
     const top = Object.entries(totCausa).sort((a, b) => b[1] - a[1]).slice(0, 9).map(e => e[0]);
@@ -1072,7 +1082,7 @@ function renderDashboard(rows, ctx){
         })) },
       options:{ indexAxis: horiz ? 'y' : 'x', responsive:true, maintainAspectRatio:false,
         plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{size:11} } },
-          tooltip:{ callbacks:{ title: items => cats[items[0].dataIndex], label: c => c.dataset.label.split(' (')[0] + ': ' + (metric === 'cost' ? fmtMoney(valOf(c)) : valOf(c)) } } },
+          tooltip:{ callbacks:{ title: items => cats[items[0].dataIndex], label: c => c.dataset.label.split(' (')[0] + ': ' + fmtMetricTip(valOf(c)) } } },
         scales: horiz
           ? { x:{ grid:{color:grid}, beginAtZero:true }, y:{ grid:{display:false}, ticks:{ font:{size:10.5}, autoSkip:false } } }
           : { x:{ grid:{display:false}, ticks:{ font:{size:10.5}, maxRotation:0, autoSkip:false } }, y:{ grid:{color:grid}, beginAtZero:true } } }
@@ -1083,12 +1093,11 @@ function renderDashboard(rows, ctx){
   function stackedChart(id, nodeRows, by, order, colorOf){
     const el = document.getElementById(id);
     if (!el) return;
-    const metric = state.trendMetric;
     const totals = {}, byLabel = {}, periods = new Set(windowPeriods);
     let dated = 0;
     nodeRows.forEach(r => {
       const lab = by(r);
-      const v = metric === 'cost' ? costoOf(r) : 1;
+      const v = metricVal(r);
       totals[lab] = (totals[lab] || 0) + v;
       const p = periodKey(r[state.dateBasis], state.granularity);
       if (!p) return;
@@ -1106,7 +1115,7 @@ function renderDashboard(rows, ctx){
     const labels = order.filter(l => totals[l]);
     if (!labels.length || !periods.size) { el.closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
     const pl = [...periods].sort();
-    const fmtTot = n => metric === 'cost' ? fmtMoney(n) : fmtNum(n, 0);
+    const fmtTot = fmtMetric;
     makeChart(id, {
       type:'bar',
       data:{ labels: pl.map(p => periodLabel(p, state.granularity)),
@@ -1116,7 +1125,7 @@ function renderDashboard(rows, ctx){
         })) },
       options:{ responsive:true, maintainAspectRatio:false,
         plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{size:11} } },
-          tooltip:{ mode:'index', callbacks:{ label: ctx => ctx.dataset.label.split(' (')[0] + ': ' + (metric === 'cost' ? fmtMoney(ctx.parsed.y) : ctx.parsed.y) } } },
+          tooltip:{ mode:'index', callbacks:{ label: ctx => ctx.dataset.label.split(' (')[0] + ': ' + fmtMetricTip(ctx.parsed.y) } } },
         scales:{ x:{ stacked:true, grid:{display:false} }, y:{ stacked:true, grid:{color:grid}, beginAtZero:true } } }
     });
   }
@@ -1125,11 +1134,11 @@ function renderDashboard(rows, ctx){
   makeChart('chTrend', {
     type:'bar',
     data:{ labels: trendPeriods.map(p => periodLabel(p, state.granularity)),
-      datasets:[{ label: state.trendMetric==='count'?'Reclamos':'Costo',
-        data: trendPeriods.map(p => (state.trendMetric==='count' ? s.trend.count[p] : s.trend.cost[p]) || 0),
+      datasets:[{ label: state.trendMetric==='m2' ? 'Metros cuadrados' : 'Reclamos',
+        data: trendPeriods.map(p => s.trend[state.trendMetric === 'm2' ? 'm2' : state.trendMetric === 'cost' ? 'cost' : 'count'][p] || 0),
         backgroundColor:'#E8A33D', borderRadius:4 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false},
-      tooltip:{ callbacks:{ label: ctx => state.trendMetric==='count' ? ctx.parsed.y+' reclamos' : fmtMoney(ctx.parsed.y) } } },
+      tooltip:{ callbacks:{ label: ctx => state.trendMetric==='count' ? ctx.parsed.y+' reclamos' : fmtMetricTip(ctx.parsed.y) } } },
       scales:{ x:{ grid:{display:false} }, y:{ grid:{color:grid}, beginAtZero:true } } }
   });
 
