@@ -114,6 +114,26 @@
   .chart-wrap{position:relative; height:230px;}
   .chart-empty{padding:60px 0; text-align:center; color:var(--text-faint); font-size:12.5px;}
 
+  /* ---------- Modo "PDF para imprimir": fondo blanco, un gráfico por hoja (A4 apaisado) ---------- */
+  .print-meta{display:none;}
+  @page{size:A4 landscape; margin:10mm;}
+  body.print-mode{background:#fff; color:#111; min-height:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
+  body.print-mode > *:not(main){display:none !important;}
+  body.print-mode #emptyState, body.print-mode #tableView, body.print-mode #kpiGrid, body.print-mode #dashControls, body.print-mode .chart-section-title{display:none !important;}
+  body.print-mode .chart-grid{display:block; max-width:1040px; width:100%; margin:0 auto; padding:0;}
+  body.print-mode .chart-card{background:#fff; border:0; border-radius:0; padding:0; margin:0 0 24px; width:100%;}
+  body.print-mode .chart-card h4{color:#111; font-size:18px;}
+  body.print-mode .chart-sub{color:#555; font-size:13px;}
+  body.print-mode .chart-empty{color:#777;}
+  body.print-mode .print-meta{display:block; border-bottom:2px solid #E8A33D; padding-bottom:7px; margin-bottom:12px;}
+  .print-meta .pm-brand{font-weight:800; font-size:15px; color:#111;}
+  .print-meta .pm-line{font-size:11.5px; color:#444; margin-top:2px;}
+  body.print-mode .chart-wrap{height:520px !important;}
+  @media print{
+    body.print-mode .chart-card{break-after:page; page-break-after:always; break-inside:avoid; margin:0;}
+    body.print-mode .chart-card:last-child{break-after:auto; page-break-after:auto;}
+  }
+
   .empty-state{padding:60px 20px; text-align:center; color:var(--text-muted);}
   .empty-state .big{font-size:34px; margin-bottom:8px;}
   .empty-state .btn-primary{max-width:260px; margin:16px auto 0;}
@@ -646,6 +666,7 @@ const state = {
   dateBasis: 'fechaReclamo',
   granularity: 'quarter',
   showAll: false,
+  printing: false,   // modo "PDF para imprimir": fondo blanco, un gráfico por hoja
   dateFrom: '', dateTo: '',
   dateFromProd: '', dateToProd: '',
   filters: {}, pendingFilters: {},
@@ -912,6 +933,24 @@ function kpiCard(value, label, cls){
   return `<div class="kpi-card ${cls||''}"><div class="v">${value}</div><div class="l">${esc(label)}</div></div>`;
 }
 
+// "PDF para imprimir": redibuja los gráficos sobre fondo blanco, uno por hoja, y abre la impresión
+// (en el diálogo se elige "Guardar como PDF"). Al terminar vuelve al tema oscuro.
+function printDashboard(){
+  if (state.view !== 'dashboard' || !ALL.length) return;
+  state.printing = true;
+  document.body.classList.add('print-mode');
+  window.scrollTo(0, 0);
+  renderAll();
+  setTimeout(() => { Object.values(charts).forEach(c => c.resize()); window.print(); }, 300);
+}
+function endPrintDashboard(){
+  if (!state.printing) return;
+  state.printing = false;
+  document.body.classList.remove('print-mode');
+  renderAll();
+}
+window.addEventListener('afterprint', endPrintDashboard);
+
 function controlToggle(groupLabel, options, activeVal, action){
   return `<div class="dash-control-group"><span>${esc(groupLabel)}</span><div class="chart-toggle">
     ${options.map(o => `<button data-${action}="${o.val}" class="${activeVal===o.val?'active':''}">${esc(o.label)}</button>`).join('')}
@@ -949,22 +988,41 @@ function renderDashboard(rows, ctx){
           { val:'year', label:'Últimos 4 trimestres' },
           { val:'all', label:'Todo el historial' }
         ], state.showAll ? 'all' : 'year', 'range')) +
-    `<div class="dash-control-group"><button class="icon-btn" data-action="open-chart-settings">⚙ Editar gráficos</button></div>` +
+    `<div class="dash-control-group"><button class="icon-btn" data-action="open-chart-settings">⚙ Editar gráficos</button>` +
+    `<button class="icon-btn" data-action="print-dashboard" title="Abre la impresión con fondo blanco y un gráfico por hoja; elegí «Guardar como PDF»">🖨 PDF para imprimir</button></div>` +
     (ctx.windowed
       ? `<div class="dash-note" style="flex-basis:100%;">Mostrando ${esc(windowLabel(ctx.w))} (4 trimestres completos; el trimestre en curso no se incluye) según ${state.dateBasis === 'fechaProd' ? 'fecha de producción' : 'fecha de reclamo'}`
         + (() => { const n = ctx.all.filter(r => !(r[state.dateBasis] instanceof Date)).length; return n ? ` · ${fmtNum(n,0)} reclamo(s) sin esa fecha no se incluyen` : ''; })()
         + `.</div>`
       : '');
 
-  Chart.defaults.color = '#8B92A0';
+  const printing = state.printing;
+  Chart.defaults.color = printing ? '#222' : '#8B92A0';
   Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
   Chart.defaults.animation = false;
   Chart.defaults.responsiveAnimationDuration = 0;
-  const grid = 'rgba(46,52,60,.7)';
+  Chart.defaults.devicePixelRatio = printing ? 2 : (window.devicePixelRatio || 1);
+  const grid = printing ? 'rgba(0,0,0,.12)' : 'rgba(46,52,60,.7)';
+
+  // Encabezado que solo se ve al imprimir: se repite en cada hoja.
+  const filtrosTxt = (() => {
+    const parts = [];
+    FILTERABLE.forEach(f => state.filters[f.key].forEach(v => parts.push(`${f.label}: ${v}`)));
+    if (state.dateFrom || state.dateTo) parts.push(`Fecha de reclamo ${state.dateFrom || '…'} a ${state.dateTo || '…'}`);
+    if (state.dateFromProd || state.dateToProd) parts.push(`Fecha de producción ${state.dateFromProd || '…'} a ${state.dateToProd || '…'}`);
+    return parts.join(' · ');
+  })();
+  const basisTxt = state.dateBasis === 'fechaProd' ? 'fecha de producción' : 'fecha de reclamo';
+  const rangoTxt = ctx.windowed ? `${windowLabel(ctx.w)} (4 trimestres completos)` : hasDateFilter() ? 'según los filtros de fecha' : 'todo el historial';
+  const printMeta = `<div class="print-meta"><div class="pm-brand">SAC · Reclamos – Cerámica Alberdi</div>
+    <div class="pm-line">${esc(rangoTxt)} · según ${basisTxt} · ${esc(unidad.toLowerCase())}</div>
+    <div class="pm-line">${fmtNum(s.total,0)} reclamos · ${fmtNum(s.abiertos,0)} abiertos · ${fmtNum(s.cerrados,0)} finalizados · ${fmtNum(s.totalMetros,0)} m² reclamados${filtrosTxt ? ' · ' + esc(filtrosTxt) : ''}</div>
+    <div class="pm-line pm-date">Generado el ${esc(new Date().toLocaleDateString('es-AR'))}</div></div>`;
 
   const showYoY = chartVisibility.chYoY && s.yoy && s.yoy.years.length > 1;
   const yoyCardHtml = showYoY ? `
     <div class="chart-card wide">
+      ${printMeta}
       <div class="chart-card-head"><h4>Comparación interanual (${state.granularity==='quarter'?'por trimestre':'por mes'}${ctx.windowed ? ' · todo el historial' : ''})</h4></div>
       <div class="chart-wrap"><canvas id="chYoY"></canvas></div>
     </div>` : '';
@@ -982,6 +1040,7 @@ function renderDashboard(rows, ctx){
       const title = g !== lastGroup ? `<div class="chart-section-title">${esc(GROUP_TITLES[g])}</div>` : '';
       lastGroup = g;
       return `${title}<div class="chart-card${c.wide ? ' wide' : ''}">
+        ${printMeta}
         <div class="chart-card-head"><div><h4>${esc(c.title)}</h4>${c.sub ? `<small class="chart-sub" id="${c.id}Sub">${esc(c.sub)}</small>` : ''}</div></div>
         <div class="chart-wrap"${c.group === 'causa' ? ' style="height:310px"' : ''}><canvas id="${c.id}"></canvas></div></div>`;
     })
@@ -989,6 +1048,7 @@ function renderDashboard(rows, ctx){
 
   document.getElementById('chartGrid').innerHTML = `
     <div class="chart-card wide">
+      ${printMeta}
       <div class="chart-card-head">
         <h4>Evolución · ${unidad.toLowerCase()} (${state.dateBasis==='fechaReclamo'?'fecha de reclamo':'fecha de producción'})</h4>
       </div>
@@ -1023,7 +1083,7 @@ function renderDashboard(rows, ctx){
     if (!entries.length) { el.closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
     makeChart(id, {
       type:'doughnut',
-      data:{ labels: entries.map(e=>e[0]), datasets:[{ data: entries.map(e=>e[1]), backgroundColor: COLORS, borderColor: '#1D2126', borderWidth:2 }] },
+      data:{ labels: entries.map(e=>e[0]), datasets:[{ data: entries.map(e=>e[1]), backgroundColor: COLORS, borderColor: printing ? '#fff' : '#1D2126', borderWidth:2 }] },
       options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{size:11} } } } }
     });
   }
@@ -1070,7 +1130,7 @@ function renderDashboard(rows, ctx){
     if (!cats.length || !periods.size) { el.closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
     const pl = [...periods].sort();
     // Vertical en pantallas anchas (etiquetas rotadas, una línea por causa); horizontal solo en celular
-    const horiz = window.innerWidth < 700;
+    const horiz = window.innerWidth < 700 && !printing;
     el.closest('.chart-wrap').style.height = horiz ? Math.max(320, cats.length * pl.length * 15 + 90) + 'px' : '480px';
     const valOf = c => horiz ? c.parsed.x : c.parsed.y;
     makeChart(id, {
@@ -1983,6 +2043,7 @@ function bindEvents(){
     if (e.target.closest('[data-action="open-informe"]')) openInforme();
     if (e.target.closest('[data-action="open-edit-reclamo"]')) openEditReclamo();
     if (e.target.closest('[data-action="open-chart-settings"]')) openChartSettings();
+    if (e.target.closest('[data-action="print-dashboard"]')) printDashboard();
     if (e.target.closest('[data-action="close-chart-settings"]')) closeChartSettings();
     if (e.target.closest('[data-action="charts-default"]')) resetChartsToDefault();
     if (e.target.closest('[data-action="charts-show-all"]')) setAllCharts(true);
