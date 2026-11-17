@@ -459,12 +459,12 @@ const OPTIONAL_CHARTS = [
   { id:'chNivH4', group:'nivel', title:'JCP H4 · por marca', sub:'JCP › H4 › VIT | ALB' },
   { id:'chNivH5', group:'nivel', title:'JCP H5 · por marca', sub:'JCP › H5 › VIT | ALB' },
   { id:'chNivJcpMarca', group:'nivel', title:'JCP · por marca (H4 + H5)', sub:'JCP › VIT | ALB' },
-  // Los mismos nodos del árbol, comparando las 9 causas con más reclamos (+ "Otras") a lo largo de los trimestres.
-  { id:'chCauTotal', group:'causa', wide:true, title:'Total · por causa', sub:'Total · 9 causas + resto' },
-  { id:'chCauSalta', group:'causa', wide:true, title:'Salta · por causa', sub:'Salta · 9 causas + resto' },
-  { id:'chCauJcp', group:'causa', wide:true, title:'JCP · por causa', sub:'JCP · 9 causas + resto' },
-  { id:'chCauH4', group:'causa', wide:true, title:'JCP H4 · por causa', sub:'JCP › H4 · 9 causas + resto' },
-  { id:'chCauH5', group:'causa', wide:true, title:'JCP H5 · por causa', sub:'JCP › H5 · 9 causas + resto' },
+  // Los mismos nodos del árbol, comparando las 20 causas con más reclamos (+ "Otras") a lo largo de los trimestres.
+  { id:'chCauTotal', group:'causa', wide:true, title:'Total · por causa', sub:'Total · 20 causas + resto' },
+  { id:'chCauSalta', group:'causa', wide:true, title:'Salta · por causa', sub:'Salta · 20 causas + resto' },
+  { id:'chCauJcp', group:'causa', wide:true, title:'JCP · por causa', sub:'JCP · 20 causas + resto' },
+  { id:'chCauH4', group:'causa', wide:true, title:'JCP H4 · por causa', sub:'JCP › H4 · 20 causas + resto' },
+  { id:'chCauH5', group:'causa', wide:true, title:'JCP H5 · por causa', sub:'JCP › H5 · 20 causas + resto' },
   // Resto de los gráficos: disponibles en "Editar gráficos", apagados por defecto.
   { id:'chYoY', off:true, custom:true, title:'Comparación interanual' },
   { id:'chEstado', off:true, title:'Estado de los reclamos' },
@@ -971,7 +971,7 @@ function renderDashboard(rows, ctx){
 
   const GROUP_TITLES = {
     nivel: `${unidad} por nivel · Total › Planta › Línea / Horno › Marca`,
-    causa: `Causas por nivel · las 9 causas con más ${state.trendMetric === 'm2' ? 'metros cuadrados' : 'reclamos'} y el resto, comparadas por período`,
+    causa: `Causas por nivel · las 20 causas con más ${state.trendMetric === 'm2' ? 'metros cuadrados' : 'reclamos'} y el resto, comparadas por período`,
     general: 'Otros gráficos'
   };
   let lastGroup = null;
@@ -1036,7 +1036,7 @@ function renderDashboard(rows, ctx){
     stackedChart(id, rows.filter(node.rows), node.by, node.order, l => TREE_COLORS[l] || '#5C6470');
   }
 
-  // Causas: las 9 con más reclamos del grupo + "Otras" (10 grupos de barras), con una barra por período
+  // Causas: las 20 con más reclamos del grupo + "Otras" (21 grupos de barras), con una barra por período
   // dentro de cada grupo, para comparar cómo evoluciona cada causa.
   function causeChart(id){
     const el = document.getElementById(id);
@@ -1046,7 +1046,7 @@ function renderDashboard(rows, ctx){
     const fmtTot = fmtMetric;
     const totCausa = {};
     nodeRows.forEach(r => { const c = causaOf(r); totCausa[c] = (totCausa[c] || 0) + val(r); });
-    const top = Object.entries(totCausa).sort((a, b) => b[1] - a[1]).slice(0, 9).map(e => e[0]);
+    const top = Object.entries(totCausa).sort((a, b) => b[1] - a[1]).slice(0, 20).map(e => e[0]);
     const catOf = r => { const c = causaOf(r); return top.includes(c) ? c : 'Otras'; };
     const totCat = {}, byPeriod = {}, periods = new Set(windowPeriods);
     let dated = 0;
@@ -1069,8 +1069,9 @@ function renderDashboard(rows, ctx){
     const cats = [...top, 'Otras'].filter(c => totCat[c]);
     if (!cats.length || !periods.size) { el.closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
     const pl = [...periods].sort();
-    const horiz = window.innerWidth < 700;   // en celular las etiquetas largas no entran debajo de las barras
-    el.closest('.chart-wrap').style.height = horiz ? Math.max(320, cats.length * pl.length * 17 + 90) + 'px' : '310px';
+    // Barras horizontales en celular o cuando hay muchas causas: las etiquetas largas no entran debajo de las barras
+    const horiz = window.innerWidth < 700 || cats.length > 12;
+    el.closest('.chart-wrap').style.height = horiz ? Math.max(320, cats.length * pl.length * 15 + 90) + 'px' : '310px';
     const valOf = c => horiz ? c.parsed.x : c.parsed.y;
     makeChart(id, {
       type:'bar',
