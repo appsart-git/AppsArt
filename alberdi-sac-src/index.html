@@ -80,8 +80,8 @@
 
   /* ---------- KPIs ---------- */
   .kpi-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; padding:6px 14px 4px; max-width:1200px; margin:0 auto;}
-  @media (min-width:640px){ .kpi-grid{grid-template-columns:repeat(3,1fr);} }
-  @media (min-width:900px){ .kpi-grid{grid-template-columns:repeat(5,1fr); gap:14px; padding:6px 24px 4px;} }
+  @media (min-width:640px){ .kpi-grid{grid-template-columns:repeat(4,1fr);} }
+  @media (min-width:900px){ .kpi-grid{gap:14px; padding:6px 24px 4px;} }
   .kpi-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 15px 12px;}
   .kpi-card .v{font-size:21px; font-weight:800; color:var(--text); line-height:1.15;}
   .kpi-card .l{font-size:11.5px; color:var(--text-muted); margin-top:5px; font-weight:600;}
@@ -459,28 +459,38 @@ const OPTIONAL_CHARTS = [
   { id:'chNivH4', group:'nivel', title:'JCP H4 · por marca', sub:'JCP › H4 › VIT | ALB' },
   { id:'chNivH5', group:'nivel', title:'JCP H5 · por marca', sub:'JCP › H5 › VIT | ALB' },
   { id:'chNivJcpMarca', group:'nivel', title:'JCP · por marca (H4 + H5)', sub:'JCP › VIT | ALB' },
-  { id:'chEstado', title:'Estado de los reclamos' },
-  { id:'chOrigen', title:'Origen del reclamo' },
-  { id:'chAging', title:'Reclamos abiertos por antigüedad' },
-  { id:'chCostos', title:'Distribución de costos' },
-  { id:'chCausaCant', title:'Top causas por cantidad' },
-  { id:'chCausaCosto', title:'Top causas por costo' },
-  { id:'chLinea', title:'Reclamos por línea de producción' },
-  { id:'chHorno', title:'Reclamos por horno' },
-  { id:'chTurno', title:'Reclamos por turno' },
-  { id:'chMarca', title:'Top marcas con más reclamos' },
-  { id:'chProvincia', title:'Reclamos por provincia' },
-  { id:'chInspector', title:'Carga por inspector' }
+  // Los mismos nodos del árbol, pero apilando las causas (las 8 más frecuentes del nodo + "Otras").
+  { id:'chCauTotal', group:'causa', wide:true, title:'Total · por causa', sub:'Total' },
+  { id:'chCauSalta', group:'causa', title:'Salta · por causa', sub:'Salta' },
+  { id:'chCauJcp', group:'causa', title:'JCP · por causa', sub:'JCP' },
+  { id:'chCauH4', group:'causa', title:'JCP H4 · por causa', sub:'JCP › H4' },
+  { id:'chCauH5', group:'causa', title:'JCP H5 · por causa', sub:'JCP › H5' },
+  // Resto de los gráficos: disponibles en "Editar gráficos", apagados por defecto.
+  { id:'chYoY', off:true, custom:true, title:'Comparación interanual' },
+  { id:'chEstado', off:true, title:'Estado de los reclamos' },
+  { id:'chOrigen', off:true, title:'Origen del reclamo' },
+  { id:'chAging', off:true, title:'Reclamos abiertos por antigüedad' },
+  { id:'chCostos', off:true, title:'Distribución de costos' },
+  { id:'chCausaCant', off:true, title:'Top causas por cantidad' },
+  { id:'chCausaCosto', off:true, title:'Top causas por costo' },
+  { id:'chLinea', off:true, title:'Reclamos por línea de producción' },
+  { id:'chHorno', off:true, title:'Reclamos por horno' },
+  { id:'chTurno', off:true, title:'Reclamos por turno' },
+  { id:'chMarca', off:true, title:'Top marcas con más reclamos' },
+  { id:'chProvincia', off:true, title:'Reclamos por provincia' },
+  { id:'chInspector', off:true, title:'Carga por inspector' }
 ];
 
+// v2: los valores por defecto cambiaron (solo quedan encendidos los gráficos por nivel y por causa).
+const CHART_VIS_KEY = 'sac_chart_visibility_v2';
 function loadChartVisibility(){
   let stored = {};
-  try { stored = JSON.parse(localStorage.getItem('sac_chart_visibility') || '{}'); } catch(e) { stored = {}; }
+  try { stored = JSON.parse(localStorage.getItem(CHART_VIS_KEY) || '{}'); } catch(e) { stored = {}; }
   const out = {};
-  OPTIONAL_CHARTS.forEach(c => out[c.id] = stored[c.id] !== false);
+  OPTIONAL_CHARTS.forEach(c => out[c.id] = stored[c.id] !== undefined ? !!stored[c.id] : !c.off);
   return out;
 }
-function saveChartVisibility(){ localStorage.setItem('sac_chart_visibility', JSON.stringify(chartVisibility)); }
+function saveChartVisibility(){ localStorage.setItem(CHART_VIS_KEY, JSON.stringify(chartVisibility)); }
 let chartVisibility = loadChartVisibility();
 const MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
@@ -584,6 +594,35 @@ const TREE_NODES = {
 };
 const TREE_COLORS = { SALTA:'#5B8DEF', JCP:'#E8A33D', SGR:'#4FB6C7', ESMA:'#9B6BDE', H4:'#D98BD9', H5:'#6FCF97', VIT:'#E15252', ALB:'#C9A227', Otros:'#5C6470' };
 
+// Gráficos por causa: cada uno usa el mismo grupo de reclamos (nodo) que su gráfico de cantidad.
+const CAUSE_SCOPE = { chCauTotal:'chNivTotal', chCauSalta:'chNivSalta', chCauJcp:'chNivJcp', chCauH4:'chNivH4', chCauH5:'chNivH5' };
+const CAUSE_PALETTE = ['#E8A33D','#5B8DEF','#4C8B5A','#E15252','#9B6BDE','#4FB6C7','#D98BD9','#C9A227','#F28B66','#8BC34A','#B39DDB','#F06292','#7FA1C3','#6FCF97'];
+
+// La misma causa escrita distinto (mayúsculas, acentos, espacios) cuenta como una sola.
+function causaKey(c){ return stripAccents(String(c || '')).toLowerCase().replace(/\s+/g, ' ').trim(); }
+let CAUSA_CANON = new Map();
+function buildCausaCanon(rows){
+  const counts = new Map();
+  rows.forEach(r => {
+    const raw = String(r.causa || '').replace(/\s+/g, ' ').trim();
+    if (!raw) return;
+    const k = causaKey(raw);
+    const m = counts.get(k) || counts.set(k, new Map()).get(k);
+    m.set(raw, (m.get(raw) || 0) + 1);
+  });
+  CAUSA_CANON = new Map([...counts].map(([k, m]) => [k, [...m.entries()].sort((a, b) => b[1] - a[1])[0][0]]));
+}
+function causaOf(r){
+  const raw = String(r.causa || '').replace(/\s+/g, ' ').trim();
+  return raw ? (CAUSA_CANON.get(causaKey(raw)) || raw) : 'Sin causa';
+}
+// Períodos (según el agrupado elegido) que cubre la ventana por defecto, aunque no tengan reclamos.
+function periodsInWindow(w){
+  const set = new Set(), d = new Date(w.from);
+  while (d < w.end) { set.add(periodKey(d, state.granularity)); d.setMonth(d.getMonth() + 1); }
+  return [...set];
+}
+
 /* ===================== Estado ===================== */
 
 let ALL = [];
@@ -592,7 +631,7 @@ const state = {
   search: '',
   trendMetric: 'count',
   dateBasis: 'fechaReclamo',
-  granularity: 'month',
+  granularity: 'quarter',
   showAll: false,
   dateFrom: '', dateTo: '',
   dateFromProd: '', dateToProd: '',
@@ -646,16 +685,23 @@ function applyFilters(rows){
 
 function getFiltered(){ return applyFilters(ALL); }
 
-// El Panel muestra por defecto los últimos 13 meses (mes actual + los 12 anteriores, así queda el mismo mes del año pasado para comparar),
-// salvo que se filtre por fecha o se elija "Todo el historial".
+// El Panel muestra por defecto los últimos 4 trimestres COMPLETOS (el trimestre en curso queda afuera),
+// salvo que se filtre por fecha o se elija "Todo el historial". Se corre solo con la fecha de hoy:
+// en nov-2026 va de T4 '25 a T3 '26; el 1/1/2027 pasa a T1 '26 – T4 '26.
 function hasDateFilter(){ return !!(state.dateFrom || state.dateTo || state.dateFromProd || state.dateToProd); }
-function lastYearStart(){ const d = new Date(); return new Date(d.getFullYear(), d.getMonth() - 12, 1); }
+function windowRange(){
+  const d = new Date();
+  const end = new Date(d.getFullYear(), Math.floor(d.getMonth() / 3) * 3, 1);   // inicio del trimestre en curso (excluido)
+  const from = new Date(end.getFullYear(), end.getMonth() - 12, 1);
+  return { from, end, last: new Date(end.getTime() - 86400000) };
+}
+function windowLabel(w){ return `${quarterLabel(quarterKey(w.from))} a ${quarterLabel(quarterKey(w.last))}`; }
 function dashboardRows(){
   const all = getFiltered();
   if (state.showAll || hasDateFilter()) return { rows: all, all, windowed: false };
-  const from = lastYearStart();
-  const rows = all.filter(r => r[state.dateBasis] instanceof Date && r[state.dateBasis] >= from);
-  return { rows, all, windowed: true, from };
+  const w = windowRange();
+  const rows = all.filter(r => { const x = r[state.dateBasis]; return x instanceof Date && x >= w.from && x < w.end; });
+  return { rows, all, windowed: true, w };
 }
 
 function distinctValues(key){
@@ -837,7 +883,7 @@ function renderAll(){
   document.getElementById('dashboardView').classList.toggle('hidden', ALL.length === 0 || state.view !== 'dashboard');
   document.getElementById('tableView').classList.toggle('hidden', ALL.length === 0 || state.view !== 'table');
   document.getElementById('resultCount').textContent = ALL.length
-    ? `${rows.length} reclamo(s)` + (dash && dash.windowed ? ` · últimos 13 meses (desde ${monthLabel(monthKey(dash.from))})` : '')
+    ? `${rows.length} reclamo(s)` + (dash && dash.windowed ? ` · últimos 4 trimestres (${windowLabel(dash.w)})` : '')
     : '';
   if (!ALL.length) return;
   if (dash) renderDashboard(dash.rows, dash); else renderTableView(rows);
@@ -860,10 +906,6 @@ function renderDashboard(rows, ctx){
     kpiCard(fmtNum(s.total,0), 'Reclamos'),
     kpiCard(s.abiertos, 'Abiertos', 'warn'),
     kpiCard(fmtNum(s.totalMetros,0)+' m²', 'Metros reclamados'),
-    kpiCard(fmtMoney(s.totalCosto), 'Costo total', 'accent'),
-    kpiCard(fmtMoney(s.costoPromedio), 'Costo promedio / reclamo'),
-    kpiCard(s.lagProdReclamo!=null ? fmtNum(s.lagProdReclamo,0)+' días' : '—', 'Prod. → reclamo (prom.)'),
-    kpiCard(s.lagColocReclamo!=null ? fmtNum(s.lagColocReclamo,0)+' días' : '—', 'Colocación → reclamo (prom.)'),
     kpiCard(s.cerrados, 'Finalizados', 'good')
   ].join('');
 
@@ -880,14 +922,14 @@ function renderDashboard(rows, ctx){
     (hasDateFilter()
       ? `<div class="dash-control-group"><span>Rango</span><div class="dash-note">según los filtros de fecha</div></div>`
       : controlToggle('Rango', [
-          { val:'year', label:'Últimos 13 meses' },
+          { val:'year', label:'Últimos 4 trimestres' },
           { val:'all', label:'Todo el historial' }
         ], state.showAll ? 'all' : 'year', 'range')) +
     `<div class="dash-control-group"><button class="icon-btn" data-action="open-chart-settings">⚙ Editar gráficos</button></div>` +
     (ctx.windowed
-      ? `<div class="dash-note" style="flex-basis:100%;">Mostrando desde ${esc(monthLabel(monthKey(ctx.from)))} según ${state.dateBasis === 'fechaProd' ? 'fecha de producción' : 'fecha de reclamo'}`
+      ? `<div class="dash-note" style="flex-basis:100%;">Mostrando ${esc(windowLabel(ctx.w))} (4 trimestres completos; el trimestre en curso no se incluye) según ${state.dateBasis === 'fechaProd' ? 'fecha de producción' : 'fecha de reclamo'}`
         + (() => { const n = ctx.all.filter(r => !(r[state.dateBasis] instanceof Date)).length; return n ? ` · ${fmtNum(n,0)} reclamo(s) sin esa fecha no se incluyen` : ''; })()
-        + `. La comparación interanual usa todo el historial.</div>`
+        + `.</div>`
       : '');
 
   Chart.defaults.color = '#8B92A0';
@@ -896,16 +938,17 @@ function renderDashboard(rows, ctx){
   Chart.defaults.responsiveAnimationDuration = 0;
   const grid = 'rgba(46,52,60,.7)';
 
-  const yoyCardHtml = s.yoy && s.yoy.years.length > 1 ? `
+  const showYoY = chartVisibility.chYoY && s.yoy && s.yoy.years.length > 1;
+  const yoyCardHtml = showYoY ? `
     <div class="chart-card wide">
       <div class="chart-card-head"><h4>Comparación interanual (${state.granularity==='quarter'?'por trimestre':'por mes'}${ctx.windowed ? ' · todo el historial' : ''})</h4></div>
       <div class="chart-wrap"><canvas id="chYoY"></canvas></div>
     </div>` : '';
 
-  const GROUP_TITLES = { nivel:'Por nivel · Total › Planta › Línea / Horno › Marca', general:'Otros gráficos' };
+  const GROUP_TITLES = { nivel:'Cantidad de reclamos por nivel · Total › Planta › Línea / Horno › Marca', causa:'Causas por nivel · Total › Planta › Línea / Horno', general:'Otros gráficos' };
   let lastGroup = null;
   const optionalCardsHtml = OPTIONAL_CHARTS
-    .filter(c => chartVisibility[c.id])
+    .filter(c => chartVisibility[c.id] && !c.custom)
     .map(c => {
       const g = c.group || 'general';
       const title = g !== lastGroup ? `<div class="chart-section-title">${esc(GROUP_TITLES[g])}</div>` : '';
@@ -961,16 +1004,34 @@ function renderDashboard(rows, ctx){
     });
   }
 
+  buildCausaCanon(ALL);
+  const windowPeriods = ctx.windowed ? periodsInWindow(ctx.w) : [];
+  const causaRank = new Map();
+  { const t = {}; rows.forEach(r => { const c = causaOf(r); t[c] = (t[c] || 0) + 1; });
+    Object.entries(t).sort((a, b) => b[1] - a[1]).forEach(([c], i) => causaRank.set(c, i)); }
+  const causaColor = c => c === 'Otras' ? '#5C6470' : CAUSE_PALETTE[(causaRank.get(c) ?? 0) % CAUSE_PALETTE.length];
+
   function treeChart(id){
+    const node = TREE_NODES[id];
+    stackedChart(id, rows.filter(node.rows), node.by, node.order, l => TREE_COLORS[l] || '#5C6470');
+  }
+  function causeChart(id){
+    const nodeRows = rows.filter(TREE_NODES[CAUSE_SCOPE[id]].rows);
+    const tot = {};
+    nodeRows.forEach(r => { const c = causaOf(r); tot[c] = (tot[c] || 0) + (state.trendMetric === 'cost' ? costoOf(r) : 1); });
+    const top = Object.entries(tot).sort((a, b) => b[1] - a[1]).slice(0, 8).map(e => e[0]);
+    stackedChart(id, nodeRows, r => { const c = causaOf(r); return top.includes(c) ? c : 'Otras'; }, [...top, 'Otras'], causaColor);
+  }
+
+  // Barras apiladas por período: una serie por rama del árbol (o por causa).
+  function stackedChart(id, nodeRows, by, order, colorOf){
     const el = document.getElementById(id);
     if (!el) return;
-    const node = TREE_NODES[id];
     const metric = state.trendMetric;
-    const nodeRows = rows.filter(node.rows);
-    const totals = {}, byLabel = {}, periods = new Set();
+    const totals = {}, byLabel = {}, periods = new Set(windowPeriods);
     let dated = 0;
     nodeRows.forEach(r => {
-      const lab = node.by(r);
+      const lab = by(r);
       const v = metric === 'cost' ? costoOf(r) : 1;
       totals[lab] = (totals[lab] || 0) + v;
       const p = periodKey(r[state.dateBasis], state.granularity);
@@ -986,7 +1047,7 @@ function renderDashboard(rows, ctx){
       const sinFecha = nodeRows.length - dated;
       sub.textContent = `${base} · ${fmtNum(nodeRows.length,0)} reclamos` + (sinFecha ? ` (${fmtNum(sinFecha,0)} sin ${state.dateBasis === 'fechaProd' ? 'fecha de producción' : 'fecha'})` : '');
     }
-    const labels = node.order.filter(l => totals[l]);
+    const labels = order.filter(l => totals[l]);
     if (!labels.length || !periods.size) { el.closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
     const pl = [...periods].sort();
     const fmtTot = n => metric === 'cost' ? fmtMoney(n) : fmtNum(n, 0);
@@ -994,7 +1055,7 @@ function renderDashboard(rows, ctx){
       type:'bar',
       data:{ labels: pl.map(p => periodLabel(p, state.granularity)),
         datasets: labels.map(l => ({
-          label: `${l} (${fmtTot(totals[l])})`, backgroundColor: TREE_COLORS[l] || '#5C6470', borderRadius:2,
+          label: `${l} (${fmtTot(totals[l])})`, backgroundColor: colorOf(l), borderRadius:2,
           data: pl.map(p => (byLabel[l] && byLabel[l][p]) || 0)
         })) },
       options:{ responsive:true, maintainAspectRatio:false,
@@ -1004,18 +1065,19 @@ function renderDashboard(rows, ctx){
     });
   }
 
+  const trendPeriods = [...new Set([...windowPeriods, ...s.trend.periods])].sort();
   makeChart('chTrend', {
     type:'bar',
-    data:{ labels: s.trend.periods.map(p => periodLabel(p, state.granularity)),
+    data:{ labels: trendPeriods.map(p => periodLabel(p, state.granularity)),
       datasets:[{ label: state.trendMetric==='count'?'Reclamos':'Costo',
-        data: s.trend.periods.map(p => state.trendMetric==='count' ? s.trend.count[p] : s.trend.cost[p]),
+        data: trendPeriods.map(p => (state.trendMetric==='count' ? s.trend.count[p] : s.trend.cost[p]) || 0),
         backgroundColor:'#E8A33D', borderRadius:4 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false},
       tooltip:{ callbacks:{ label: ctx => state.trendMetric==='count' ? ctx.parsed.y+' reclamos' : fmtMoney(ctx.parsed.y) } } },
       scales:{ x:{ grid:{display:false} }, y:{ grid:{color:grid}, beginAtZero:true } } }
   });
 
-  if (s.yoy && s.yoy.years.length > 1) {
+  if (showYoY) {
     makeChart('chYoY', {
       type:'bar',
       data:{ labels: s.yoy.subLabels,
@@ -1030,6 +1092,7 @@ function renderDashboard(rows, ctx){
   }
 
   Object.keys(TREE_NODES).forEach(treeChart);
+  Object.keys(CAUSE_SCOPE).forEach(causeChart);
   donut('chEstado', s.estadoCounts);
   donut('chOrigen', s.origenCounts);
   hbar('chAging', Object.entries(s.aging), '#E15252');
@@ -1329,12 +1392,15 @@ function closeFilters(){
 
 function renderChartSettings(){
   document.getElementById('chartSettingsBody').innerHTML = `
-    <p class="admin-p">Elegí qué gráficos mostrar en el panel (se recuerda en este navegador).</p>
+    <p class="admin-p">Elegí qué gráficos mostrar en el panel (se recuerda en este navegador). La evolución general siempre se muestra.</p>
+    ${[['nivel','Cantidad de reclamos por nivel'], ['causa','Causas por nivel'], ['general','Otros gráficos']].map(([g, titulo]) => `
     <div class="filter-group">
+      <h4>${esc(titulo)}</h4>
       <div class="opts">
-        ${OPTIONAL_CHARTS.map(c => `<button class="opt-chip ${chartVisibility[c.id]?'active':''}" data-chart-toggle="${c.id}">${chartVisibility[c.id]?'✓ ':''}${esc(c.title)}</button>`).join('')}
+        ${OPTIONAL_CHARTS.filter(c => (c.group || 'general') === g).map(c => `<button class="opt-chip ${chartVisibility[c.id]?'active':''}" data-chart-toggle="${c.id}">${chartVisibility[c.id]?'✓ ':''}${esc(c.title)}</button>`).join('')}
       </div>
-    </div>
+    </div>`).join('')}
+    <button class="btn-primary" data-action="charts-default" style="margin-bottom:10px;">Volver a lo recomendado</button>
     <button class="btn-primary" data-action="charts-show-all" style="background:var(--surface-2); color:var(--text); margin-bottom:10px;">Mostrar todos</button>
     <button class="btn-primary" data-action="charts-hide-all" style="background:var(--surface-2); color:var(--text);">Ocultar todos</button>
   `;
@@ -1352,6 +1418,12 @@ function closeChartSettings(){
 }
 function toggleChart(id){
   chartVisibility[id] = !chartVisibility[id];
+  saveChartVisibility();
+  renderChartSettings();
+  renderAll();
+}
+function resetChartsToDefault(){
+  OPTIONAL_CHARTS.forEach(c => chartVisibility[c.id] = !c.off);
   saveChartVisibility();
   renderChartSettings();
   renderAll();
@@ -1845,6 +1917,7 @@ function bindEvents(){
     if (e.target.closest('[data-action="open-edit-reclamo"]')) openEditReclamo();
     if (e.target.closest('[data-action="open-chart-settings"]')) openChartSettings();
     if (e.target.closest('[data-action="close-chart-settings"]')) closeChartSettings();
+    if (e.target.closest('[data-action="charts-default"]')) resetChartsToDefault();
     if (e.target.closest('[data-action="charts-show-all"]')) setAllCharts(true);
     if (e.target.closest('[data-action="charts-hide-all"]')) setAllCharts(false);
     const chartToggleBtn = e.target.closest('[data-chart-toggle]');
