@@ -459,12 +459,12 @@ const OPTIONAL_CHARTS = [
   { id:'chNivH4', group:'nivel', title:'JCP H4 · por marca', sub:'JCP › H4 › VIT | ALB' },
   { id:'chNivH5', group:'nivel', title:'JCP H5 · por marca', sub:'JCP › H5 › VIT | ALB' },
   { id:'chNivJcpMarca', group:'nivel', title:'JCP · por marca (H4 + H5)', sub:'JCP › VIT | ALB' },
-  // Los mismos nodos del árbol, pero apilando las causas (las 8 más frecuentes del nodo + "Otras").
-  { id:'chCauTotal', group:'causa', wide:true, title:'Total · por causa', sub:'Total' },
-  { id:'chCauSalta', group:'causa', title:'Salta · por causa', sub:'Salta' },
-  { id:'chCauJcp', group:'causa', title:'JCP · por causa', sub:'JCP' },
-  { id:'chCauH4', group:'causa', title:'JCP H4 · por causa', sub:'JCP › H4' },
-  { id:'chCauH5', group:'causa', title:'JCP H5 · por causa', sub:'JCP › H5' },
+  // Los mismos nodos del árbol, comparando las 5 causas con más reclamos (+ "Otras") a lo largo de los trimestres.
+  { id:'chCauTotal', group:'causa', wide:true, title:'Total · por causa', sub:'Total · 5 causas + resto' },
+  { id:'chCauSalta', group:'causa', title:'Salta · por causa', sub:'Salta · 5 causas + resto' },
+  { id:'chCauJcp', group:'causa', title:'JCP · por causa', sub:'JCP · 5 causas + resto' },
+  { id:'chCauH4', group:'causa', title:'JCP H4 · por causa', sub:'JCP › H4 · 5 causas + resto' },
+  { id:'chCauH5', group:'causa', title:'JCP H5 · por causa', sub:'JCP › H5 · 5 causas + resto' },
   // Resto de los gráficos: disponibles en "Editar gráficos", apagados por defecto.
   { id:'chYoY', off:true, custom:true, title:'Comparación interanual' },
   { id:'chEstado', off:true, title:'Estado de los reclamos' },
@@ -597,6 +597,19 @@ const TREE_COLORS = { SALTA:'#5B8DEF', JCP:'#E8A33D', SGR:'#4FB6C7', ESMA:'#9B6B
 // Gráficos por causa: cada uno usa el mismo grupo de reclamos (nodo) que su gráfico de cantidad.
 const CAUSE_SCOPE = { chCauTotal:'chNivTotal', chCauSalta:'chNivSalta', chCauJcp:'chNivJcp', chCauH4:'chNivH4', chCauH5:'chNivH5' };
 const CAUSE_PALETTE = ['#E8A33D','#5B8DEF','#4C8B5A','#E15252','#9B6BDE','#4FB6C7','#D98BD9','#C9A227','#F28B66','#8BC34A','#B39DDB','#F06292','#7FA1C3','#6FCF97'];
+
+// Color de cada trimestre (o período) en los gráficos de causas: del más viejo (gris) al más reciente (dorado).
+const PERIOD_COLORS_4 = ['#5C6470', '#7FA1C3', '#5B8DEF', '#E8A33D'];
+function periodColor(i, n){ return n <= 4 ? PERIOD_COLORS_4[4 - n + i] : CAUSE_PALETTE[i % CAUSE_PALETTE.length]; }
+// Parte un rótulo largo en varias líneas para que entre debajo de las barras.
+function wrapLabel(text, max){
+  const lines = []; let cur = '';
+  String(text).split(' ').forEach(w => {
+    if (cur && (cur + ' ' + w).length > max) { lines.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w;
+  });
+  if (cur) lines.push(cur);
+  return lines;
+}
 
 // La misma causa escrita distinto (mayúsculas, acentos, espacios) cuenta como una sola.
 function causaKey(c){ return stripAccents(String(c || '')).toLowerCase().replace(/\s+/g, ' ').trim(); }
@@ -945,7 +958,7 @@ function renderDashboard(rows, ctx){
       <div class="chart-wrap"><canvas id="chYoY"></canvas></div>
     </div>` : '';
 
-  const GROUP_TITLES = { nivel:'Cantidad de reclamos por nivel · Total › Planta › Línea / Horno › Marca', causa:'Causas por nivel · Total › Planta › Línea / Horno', general:'Otros gráficos' };
+  const GROUP_TITLES = { nivel:'Cantidad de reclamos por nivel · Total › Planta › Línea / Horno › Marca', causa:'Causas por nivel · las 5 causas con más reclamos y el resto, comparadas por trimestre', general:'Otros gráficos' };
   let lastGroup = null;
   const optionalCardsHtml = OPTIONAL_CHARTS
     .filter(c => chartVisibility[c.id] && !c.custom)
@@ -955,7 +968,7 @@ function renderDashboard(rows, ctx){
       lastGroup = g;
       return `${title}<div class="chart-card${c.wide ? ' wide' : ''}">
         <div class="chart-card-head"><div><h4>${esc(c.title)}</h4>${c.sub ? `<small class="chart-sub" id="${c.id}Sub">${esc(c.sub)}</small>` : ''}</div></div>
-        <div class="chart-wrap"><canvas id="${c.id}"></canvas></div></div>`;
+        <div class="chart-wrap"${c.group === 'causa' ? ' style="height:310px"' : ''}><canvas id="${c.id}"></canvas></div></div>`;
     })
     .join('');
 
@@ -1006,21 +1019,64 @@ function renderDashboard(rows, ctx){
 
   buildCausaCanon(ALL);
   const windowPeriods = ctx.windowed ? periodsInWindow(ctx.w) : [];
-  const causaRank = new Map();
-  { const t = {}; rows.forEach(r => { const c = causaOf(r); t[c] = (t[c] || 0) + 1; });
-    Object.entries(t).sort((a, b) => b[1] - a[1]).forEach(([c], i) => causaRank.set(c, i)); }
-  const causaColor = c => c === 'Otras' ? '#5C6470' : CAUSE_PALETTE[(causaRank.get(c) ?? 0) % CAUSE_PALETTE.length];
 
   function treeChart(id){
     const node = TREE_NODES[id];
     stackedChart(id, rows.filter(node.rows), node.by, node.order, l => TREE_COLORS[l] || '#5C6470');
   }
+
+  // Causas: las 5 con más reclamos del grupo + "Otras" (6 grupos de barras), con una barra por período
+  // dentro de cada grupo, para comparar cómo evoluciona cada causa.
   function causeChart(id){
+    const el = document.getElementById(id);
+    if (!el) return;
     const nodeRows = rows.filter(TREE_NODES[CAUSE_SCOPE[id]].rows);
-    const tot = {};
-    nodeRows.forEach(r => { const c = causaOf(r); tot[c] = (tot[c] || 0) + (state.trendMetric === 'cost' ? costoOf(r) : 1); });
-    const top = Object.entries(tot).sort((a, b) => b[1] - a[1]).slice(0, 8).map(e => e[0]);
-    stackedChart(id, nodeRows, r => { const c = causaOf(r); return top.includes(c) ? c : 'Otras'; }, [...top, 'Otras'], causaColor);
+    const metric = state.trendMetric;
+    const val = r => metric === 'cost' ? costoOf(r) : 1;
+    const fmtTot = n => metric === 'cost' ? fmtMoney(n) : fmtNum(n, 0);
+    const totCausa = {};
+    nodeRows.forEach(r => { const c = causaOf(r); totCausa[c] = (totCausa[c] || 0) + val(r); });
+    const top = Object.entries(totCausa).sort((a, b) => b[1] - a[1]).slice(0, 5).map(e => e[0]);
+    const catOf = r => { const c = causaOf(r); return top.includes(c) ? c : 'Otras'; };
+    const totCat = {}, byPeriod = {}, periods = new Set(windowPeriods);
+    let dated = 0;
+    nodeRows.forEach(r => {
+      const cat = catOf(r);
+      totCat[cat] = (totCat[cat] || 0) + val(r);
+      const p = periodKey(r[state.dateBasis], state.granularity);
+      if (!p) return;
+      dated++;
+      periods.add(p);
+      byPeriod[p] = byPeriod[p] || {};
+      byPeriod[p][cat] = (byPeriod[p][cat] || 0) + val(r);
+    });
+    const sub = document.getElementById(id + 'Sub');
+    if (sub) {
+      const base = OPTIONAL_CHARTS.find(c => c.id === id).sub;
+      const sinFecha = nodeRows.length - dated;
+      sub.textContent = `${base} · ${fmtNum(nodeRows.length,0)} reclamos` + (sinFecha ? ` (${fmtNum(sinFecha,0)} sin ${state.dateBasis === 'fechaProd' ? 'fecha de producción' : 'fecha'})` : '');
+    }
+    const cats = [...top, 'Otras'].filter(c => totCat[c]);
+    if (!cats.length || !periods.size) { el.closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
+    const pl = [...periods].sort();
+    const horiz = window.innerWidth < 700;   // en celular las etiquetas largas no entran debajo de las barras
+    el.closest('.chart-wrap').style.height = horiz ? Math.max(320, cats.length * pl.length * 17 + 90) + 'px' : '310px';
+    const valOf = c => horiz ? c.parsed.x : c.parsed.y;
+    makeChart(id, {
+      type:'bar',
+      data:{ labels: cats.map(c => horiz ? `${c} (${fmtTot(totCat[c])})` : [...wrapLabel(c, 14), `(${fmtTot(totCat[c])})`]),
+        datasets: pl.map((p, i) => ({
+          label: `${periodLabel(p, state.granularity)} (${fmtTot(cats.reduce((a, c) => a + ((byPeriod[p] && byPeriod[p][c]) || 0), 0))})`,
+          backgroundColor: periodColor(i, pl.length), borderRadius:3,
+          data: cats.map(c => (byPeriod[p] && byPeriod[p][c]) || 0)
+        })) },
+      options:{ indexAxis: horiz ? 'y' : 'x', responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{size:11} } },
+          tooltip:{ callbacks:{ title: items => cats[items[0].dataIndex], label: c => c.dataset.label.split(' (')[0] + ': ' + (metric === 'cost' ? fmtMoney(valOf(c)) : valOf(c)) } } },
+        scales: horiz
+          ? { x:{ grid:{color:grid}, beginAtZero:true }, y:{ grid:{display:false}, ticks:{ font:{size:10.5}, autoSkip:false } } }
+          : { x:{ grid:{display:false}, ticks:{ font:{size:10.5}, maxRotation:0, autoSkip:false } }, y:{ grid:{color:grid}, beginAtZero:true } } }
+    });
   }
 
   // Barras apiladas por período: una serie por rama del árbol (o por causa).
