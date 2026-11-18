@@ -82,7 +82,10 @@
 
   /* ---------- KPIs ---------- */
   .kpi-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; padding:6px 14px 4px; max-width:1200px; margin:0 auto;}
+  .kpi-card.kpi-wide{grid-column:1/-1;}
   @media (min-width:640px){ .kpi-grid{grid-template-columns:repeat(4,1fr);} }
+  @media (min-width:900px){ .kpi-grid{grid-template-columns:repeat(5,1fr);} .kpi-card.kpi-wide{grid-column:auto;} }
+  .kpi-card .sub{font-size:10.5px; color:var(--text-faint); margin-top:3px; font-weight:600; line-height:1.25;}
   @media (min-width:900px){ .kpi-grid{gap:14px; padding:6px 24px 4px;} }
   .kpi-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 15px 12px;}
   .kpi-card .v{font-size:21px; font-weight:800; color:var(--text); line-height:1.15;}
@@ -679,6 +682,67 @@ function clienteOf(r){
   return raw ? (CLIENTE_CANON.get(causaKey(raw)) || raw) : 'Sin cliente';
 }
 // Períodos (según el agrupado elegido) que cubre la ventana por defecto, aunque no tengan reclamos.
+/* ===================== Días hábiles (lunes a viernes, sin feriados nacionales de Argentina) ===================== */
+
+// Feriados nacionales y días no laborables con fines turísticos (MM-DD), por año. Fuente: argentinadatos.com (feriados).
+// Para agregar un año nuevo o corregir un día, editar esta tabla. Un año que no esté acá usa solo los feriados fijos.
+const FERIADOS_AR = {
+  2021: '01-01 02-15 02-16 03-24 04-02 05-01 05-24 05-25 06-20 06-21 07-09 08-16 10-08 10-11 11-20 11-22 12-08 12-25',
+  2022: '01-01 02-28 03-01 03-24 04-02 04-15 05-01 05-18 05-25 06-17 06-20 07-09 08-15 09-02 10-07 10-10 11-20 11-21 12-08 12-09 12-20 12-25',
+  2023: '01-01 02-20 02-21 03-24 04-02 04-07 05-01 05-25 05-26 06-17 06-19 06-20 07-09 08-21 10-13 10-16 11-20 12-08 12-25',
+  2024: '01-01 02-12 02-13 03-24 03-29 04-01 04-02 05-01 05-25 06-17 06-20 06-21 07-09 08-17 10-11 10-12 11-18 12-08 12-25',
+  2025: '01-01 03-03 03-04 03-24 04-02 04-18 05-01 05-02 05-25 06-16 06-20 07-09 08-15 08-17 10-10 10-12 11-21 11-24 12-08 12-25',
+  2026: '01-01 02-16 02-17 03-23 03-24 04-02 04-03 05-01 05-25 06-15 06-20 07-09 07-10 08-17 10-12 11-23 12-07 12-08 12-25',
+  2027: '01-01 02-08 02-09 03-24 03-26 04-02 05-01 05-25 06-17 06-20 07-09 08-17 10-12 11-20 12-08 12-25'
+};
+const FERIADOS_FIJOS = '01-01 03-24 04-02 05-01 05-25 06-20 07-09 12-08 12-25';
+function isFeriado(d){
+  const mmdd = `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return (FERIADOS_AR[d.getFullYear()] || FERIADOS_FIJOS).split(' ').includes(mmdd);
+}
+// Cantidad de días hábiles entre dos fechas, ambas incluidas.
+function businessDays(from, to){
+  let n = 0;
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+  while (d <= end) {
+    const wd = d.getDay();
+    if (wd !== 0 && wd !== 6 && !isFeriado(d)) n++;
+    d.setDate(d.getDate() + 1);
+  }
+  return n;
+}
+// Índice de reclamos por día hábil del período que muestra el Panel: los 4 trimestres completos, o el rango de los filtros
+// de fecha, o (todo el historial) desde el primer hasta el último reclamo.
+function claimsPerBusinessDay(rows, ctx){
+  const basis = state.dateBasis;
+  const dated = rows.filter(r => r[basis] instanceof Date);
+  if (!dated.length) return null;
+  let from, to;
+  if (ctx.windowed) { from = ctx.w.from; to = ctx.w.last; }
+  else {
+    const fStr = basis === 'fechaProd' ? state.dateFromProd : state.dateFrom;
+    const tStr = basis === 'fechaProd' ? state.dateToProd : state.dateTo;
+    const ts = dated.map(r => +r[basis]);
+    const local = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };   // 'YYYY-MM-DD' como fecha local
+    from = fStr ? local(fStr) : new Date(Math.min(...ts));
+    to = tStr ? local(tStr) : new Date(Math.min(Math.max(...ts), Date.now()));
+  }
+  const days = businessDays(from, to);
+  if (!days) return null;
+  const out = { count: dated.length, days, index: dated.length / days, from, to, byQuarter: [] };
+  if (ctx.windowed) {
+    const q = new Date(from);
+    while (q < ctx.w.end) {
+      const qEnd = new Date(q.getFullYear(), q.getMonth() + 3, 0);   // último día del trimestre
+      const key = quarterKey(q), n = dated.filter(r => quarterKey(r[basis]) === key).length, dq = businessDays(q, qEnd);
+      out.byQuarter.push({ label: quarterLabel(key), count: n, days: dq, index: dq ? n / dq : 0 });
+      q.setMonth(q.getMonth() + 3);
+    }
+  }
+  return out;
+}
+
 function periodsInWindow(w){
   const set = new Set(), d = new Date(w.from);
   while (d < w.end) { set.add(periodKey(d, state.granularity)); d.setMonth(d.getMonth() + 1); }
@@ -978,8 +1042,8 @@ function renderAll(){
   if (dash) renderDashboard(dash.rows, dash); else renderTableView(rows);
 }
 
-function kpiCard(value, label, cls){
-  return `<div class="kpi-card ${cls||''}"><div class="v">${value}</div><div class="l">${esc(label)}</div></div>`;
+function kpiCard(value, label, cls, sub, tip){
+  return `<div class="kpi-card ${cls||''}"${tip ? ` title="${esc(tip)}"` : ''}><div class="v">${value}</div><div class="l">${esc(label)}</div>${sub ? `<div class="sub">${esc(sub)}</div>` : ''}</div>`;
 }
 
 // "PDF para imprimir": redibuja los gráficos sobre fondo blanco, uno por hoja, y abre la impresión
@@ -1090,11 +1154,17 @@ function controlToggle(groupLabel, options, activeVal, action){
 function renderDashboard(rows, ctx){
   ctx = ctx || { all: rows, windowed: false };
   const s = computeStats(rows, ctx.all);
+  const bd = claimsPerBusinessDay(rows, ctx);
   document.getElementById('kpiGrid').innerHTML = [
     kpiCard(fmtNum(s.total,0), 'Reclamos'),
     kpiCard(s.abiertos, 'Abiertos', 'warn'),
     kpiCard(fmtNum(s.totalMetros,0)+' m²', 'Metros reclamados'),
-    kpiCard(s.cerrados, 'Finalizados', 'good')
+    kpiCard(s.cerrados, 'Finalizados', 'good'),
+    bd ? kpiCard(fmtNum(bd.index, 2), 'Reclamos por día hábil', 'accent kpi-wide',
+        `${fmtNum(bd.count, 0)} reclamos ingresados ÷ ${fmtNum(bd.days, 0)} días hábiles`,
+        `${fmtDate(bd.from)} al ${fmtDate(bd.to)} · lunes a viernes sin feriados nacionales` +
+        (bd.byQuarter.length ? '\n' + bd.byQuarter.map(q => `${q.label}: ${fmtNum(q.count, 0)} reclamos ÷ ${q.days} días hábiles = ${fmtNum(q.index, 2)} por día`).join('\n') : ''))
+      : ''
   ].join('');
 
   const unidad = state.trendMetric === 'm2' ? 'Metros cuadrados' : 'Cantidad de reclamos';
@@ -1147,7 +1217,7 @@ function renderDashboard(rows, ctx){
   const rangoTxt = ctx.windowed ? `${windowLabel(ctx.w)} (4 trimestres completos)` : hasDateFilter() ? 'según los filtros de fecha' : 'todo el historial';
   const printMeta = `<div class="print-meta"><div class="pm-brand">SAC · Reclamos – Cerámica Alberdi</div>
     <div class="pm-line">${esc(rangoTxt)} · según ${basisTxt} · ${esc(unidad.toLowerCase())}</div>
-    <div class="pm-line">${fmtNum(s.total,0)} reclamos · ${fmtNum(s.abiertos,0)} abiertos · ${fmtNum(s.cerrados,0)} finalizados · ${fmtNum(s.totalMetros,0)} m² reclamados${filtrosTxt ? ' · ' + esc(filtrosTxt) : ''}</div>
+    <div class="pm-line">${fmtNum(s.total,0)} reclamos · ${fmtNum(s.abiertos,0)} abiertos · ${fmtNum(s.cerrados,0)} finalizados · ${fmtNum(s.totalMetros,0)} m² reclamados${bd ? ` · ${fmtNum(bd.index, 2)} reclamos por día hábil (${fmtNum(bd.count, 0)} reclamos ÷ ${fmtNum(bd.days, 0)} días hábiles)` : ''}${filtrosTxt ? ' · ' + esc(filtrosTxt) : ''}</div>
     <div class="pm-line pm-date">Generado el ${esc(new Date().toLocaleDateString('es-AR'))}</div></div>`;
 
   const showYoY = chartVisibility.chYoY && s.yoy && s.yoy.years.length > 1;
