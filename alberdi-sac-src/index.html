@@ -116,6 +116,14 @@
   .chart-wrap{position:relative; height:230px;}
   .chart-empty{padding:60px 0; text-align:center; color:var(--text-faint); font-size:12.5px;}
 
+  /* ---------- Informe del reclamo (iframe a pantalla completa) ---------- */
+  .informe-overlay{position:fixed; inset:0; z-index:400; background:#d9d9d9; display:none; flex-direction:column;}
+  .informe-overlay.show{display:flex;}
+  .informe-top{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; padding:10px 14px; background:var(--surface); border-bottom:1px solid var(--border); color:var(--text); font-weight:700; font-size:13px;}
+  .informe-btn{background:var(--surface-2); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:8px 14px; font-size:13px; font-weight:700; cursor:pointer; margin-left:6px;}
+  .informe-btn.primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink);}
+  #informeFrame{flex:1; width:100%; border:0; background:#fff;}
+
   /* ---------- Modo "PDF para imprimir": fondo blanco, un gráfico por hoja (A4 apaisado) ---------- */
   .print-meta{display:none;}
   @page{size:A4 landscape; margin:0;}   /* margen 0: el navegador no agrega su encabezado/pie (fecha, URL); el margen lo pone el propio gráfico */
@@ -1036,7 +1044,11 @@ const barLabelsPlugin = {
           total += v; x = bar.x; top = Math.min(top, bar.y, bar.base);
           const h = Math.abs(bar.base - bar.y);
           if (h < 17) return;   // tramo muy finito: solo cuenta en el total
-          const txt = fmt(v); ctx.font = font(11.5, true); ctx.textAlign = 'center';
+          // "SALTA: 6" — la descripción de la serie junto al número (si no entra en la columna, solo el número)
+          const name = String(chart.data.datasets[m.index].label || '').split(' (')[0];
+          ctx.font = font(11.5, true); ctx.textAlign = 'center';
+          let txt = name ? `${name}: ${fmt(v)}` : fmt(v);
+          if (ctx.measureText(txt).width + 8 > (bar.width || 999) - 4) txt = fmt(v);
           const w = ctx.measureText(txt).width + 8, cy = (bar.y + bar.base) / 2;
           ctx.fillStyle = '#fff'; ctx.fillRect(bar.x - w / 2, cy - 9, w, 18);
           ctx.strokeStyle = '#000'; ctx.lineWidth = 0.6; ctx.strokeRect(bar.x - w / 2, cy - 9, w, 18);
@@ -1550,9 +1562,6 @@ function openInforme(){
   const nro = document.getElementById('detail').dataset.nro;
   const r = ALL.find(x => String(x.nroReclamo) === String(nro));
   if (!r) return;
-  const w = window.open('', '_blank');
-  if (!w) { alert('El navegador bloqueó la ventana del informe. Habilitá los pop-ups para este sitio.'); return; }
-
   const extraCosts = ['manoDeObra','materialesPropios','materialesDeTerceros','viaticos','fletes','totalGastos'];
   const extraSection = extraCosts.some(f => (r[f]||0) !== 0) ? `
   <div class="jc-section">
@@ -1560,7 +1569,7 @@ function openInforme(){
     <div class="jc-fields">${extraCosts.map(f => jcField(r,f)).join('')}</div>
   </div>` : '';
 
-  w.document.write(`<!DOCTYPE html><html lang="es-AR"><head><meta charset="UTF-8">
+  const html = `<!DOCTYPE html><html lang="es-AR"><head><meta charset="UTF-8">
   <title>Registro JC N° ${esc(r.nroReclamo)} - Alberdi</title>
   <style>
     *{box-sizing:border-box;} body{font-family:Arial,Helvetica,sans-serif; color:#222; max-width:820px; margin:24px auto; padding:0 20px;}
@@ -1581,8 +1590,6 @@ function openInforme(){
     .foot{margin-top:20px; padding-top:12px; border-top:1px solid #ddd; font-size:11px; color:#999; display:flex; justify-content:space-between;}
     @media print{ .print-bar{display:none;} body{margin:0; max-width:none;} }
   </style></head><body>
-  <div class="print-bar"><button onclick="window.print()">🖨 Imprimir / Guardar PDF</button></div>
-
   <div class="jc-header">
     <div class="co">CERAMICA ALBERDI S.A.</div>
     <div class="doc">REGISTRO - JC</div>
@@ -1667,8 +1674,34 @@ function openInforme(){
   ${extraSection}
 
   <div class="foot"><span>SAC · Reclamos - Cerámica Alberdi</span><span>App desarrollada por AppsArt</span></div>
-  </body></html>`);
-  w.document.close();
+  </body></html>`;
+
+  // El informe se muestra dentro de la misma página (iframe a pantalla completa): no depende de pop-ups,
+  // que el navegador puede bloquear. "Imprimir / Guardar PDF" imprime solo el informe.
+  let ov = document.getElementById('informeOverlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'informeOverlay';
+    ov.className = 'informe-overlay';
+    ov.innerHTML = `<div class="informe-top"><span>Informe · Registro JC</span><div>
+        <button class="informe-btn primary" data-action="print-informe">🖨 Imprimir / Guardar PDF</button>
+        <button class="informe-btn" data-action="close-informe">✕ Cerrar</button></div></div>
+      <iframe id="informeFrame" title="Informe del reclamo"></iframe>`;
+    document.body.appendChild(ov);
+  }
+  document.getElementById('informeFrame').srcdoc = html;
+  ov.classList.add('show');
+}
+function closeInforme(){
+  const ov = document.getElementById('informeOverlay');
+  if (ov) ov.classList.remove('show');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeInforme(); });
+function printInforme(){
+  const f = document.getElementById('informeFrame');
+  if (!f || !f.contentWindow) return;
+  f.contentWindow.focus();
+  f.contentWindow.print();
 }
 
 /* ===================== Filtros: sheet ===================== */
@@ -2211,6 +2244,8 @@ function bindEvents(){
     if (e.target.closest('[data-action="export-xlsx"]')) exportXlsx(listRows());
     if (e.target.closest('[data-action="clear-drill"]')) { state.drill = null; state.page = 1; renderAll(); }
     if (e.target.closest('[data-action="open-informe"]')) openInforme();
+    if (e.target.closest('[data-action="close-informe"]')) closeInforme();
+    if (e.target.closest('[data-action="print-informe"]')) printInforme();
     if (e.target.closest('[data-action="open-edit-reclamo"]')) openEditReclamo();
     if (e.target.closest('[data-action="open-chart-settings"]')) openChartSettings();
     const printBtn = e.target.closest('[data-print-mode]');
