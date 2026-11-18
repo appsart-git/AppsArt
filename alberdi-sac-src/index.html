@@ -82,9 +82,16 @@
 
   /* ---------- KPIs ---------- */
   .kpi-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:10px; padding:6px 14px 4px; max-width:1200px; margin:0 auto;}
-  .kpi-card.kpi-wide{grid-column:1/-1;}
   @media (min-width:640px){ .kpi-grid{grid-template-columns:repeat(4,1fr);} }
-  @media (min-width:900px){ .kpi-grid{grid-template-columns:repeat(5,1fr);} .kpi-card.kpi-wide{grid-column:auto;} }
+  /* Segunda fila: reclamos por día hábil (total del período + un recuadro por trimestre) */
+  .bd-grid:empty{display:none;}
+  .bd-grid .bd-title{grid-column:1/-1; font-size:11.5px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--text-muted); margin-top:4px;}
+  .bd-grid .bd-title small{text-transform:none; letter-spacing:0; font-weight:600; color:var(--text-faint); margin-left:6px;}
+  .bd-grid .kpi-card{padding:11px 14px 10px;}
+  .bd-grid .kpi-card .v{font-size:19px;}
+  .bd-grid .kpi-card.bd-total{grid-column:1/-1;}
+  @media (min-width:640px){ .bd-grid{grid-template-columns:repeat(3,1fr);} .bd-grid .kpi-card.bd-total{grid-column:auto;} }
+  @media (min-width:900px){ .bd-grid{grid-template-columns:repeat(5,1fr);} }
   .kpi-card .sub{font-size:10.5px; color:var(--text-faint); margin-top:3px; font-weight:600; line-height:1.25;}
   @media (min-width:900px){ .kpi-grid{gap:14px; padding:6px 24px 4px;} }
   .kpi-card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:14px 15px 12px;}
@@ -132,7 +139,7 @@
   @page{size:A4 landscape; margin:0;}   /* margen 0: el navegador no agrega su encabezado/pie (fecha, URL); el margen lo pone el propio gráfico */
   body.print-mode{background:#fff; color:#111; min-height:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
   body.print-mode > *:not(main){display:none !important;}
-  body.print-mode #emptyState, body.print-mode #tableView, body.print-mode #kpiGrid, body.print-mode #dashControls, body.print-mode .chart-section-title{display:none !important;}
+  body.print-mode #emptyState, body.print-mode #tableView, body.print-mode #kpiGrid, body.print-mode #bdGrid,body.print-mode #dashControls, body.print-mode .chart-section-title{display:none !important;}
   body.print-mode .chart-grid{display:block; max-width:1040px; width:100%; margin:0 auto; padding:0;}
   body.print-mode .chart-card{background:#fff; border:0; border-radius:0; padding:0; margin:0 0 24px; width:100%;}
   body.print-mode .chart-card h4{color:#111; font-size:18px;}
@@ -324,6 +331,7 @@
 
   <div id="dashboardView">
     <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="kpi-grid bd-grid" id="bdGrid"></div>
     <div class="dash-controls" id="dashControls"></div>
     <div class="chart-grid" id="chartGrid"></div>
   </div>
@@ -586,6 +594,7 @@ function normHora(v){
 }
 function fmtMoney(n){ return (n||0).toLocaleString('es-AR', { style:'currency', currency:'ARS', maximumFractionDigits:0 }); }
 function fmtNum(n, dec){ return (n||0).toLocaleString('es-AR', { maximumFractionDigits: dec ?? 1 }); }
+function fmtIdx(n){ return (n || 0).toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function fmtDate(d){ return d ? d.toLocaleDateString('es-AR') : '—'; }
 function monthKey(d){ return d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` : null; }
 function monthLabel(k){ const [y,m] = k.split('-'); return `${MONTH_NAMES[+m-1]} '${y.slice(2)}`; }
@@ -731,14 +740,14 @@ function claimsPerBusinessDay(rows, ctx){
   const days = businessDays(from, to);
   if (!days) return null;
   const out = { count: dated.length, days, index: dated.length / days, from, to, byQuarter: [] };
-  if (ctx.windowed) {
-    const q = new Date(from);
-    while (q < ctx.w.end) {
-      const qEnd = new Date(q.getFullYear(), q.getMonth() + 3, 0);   // último día del trimestre
-      const key = quarterKey(q), n = dated.filter(r => quarterKey(r[basis]) === key).length, dq = businessDays(q, qEnd);
-      out.byQuarter.push({ label: quarterLabel(key), count: n, days: dq, index: dq ? n / dq : 0 });
-      q.setMonth(q.getMonth() + 3);
-    }
+  // Detalle por trimestre (los trimestres de los extremos del rango se recortan y se marcan "parcial")
+  const q = new Date(from.getFullYear(), Math.floor(from.getMonth() / 3) * 3, 1);
+  while (q <= to) {
+    const qEnd = new Date(q.getFullYear(), q.getMonth() + 3, 0);   // último día del trimestre
+    const s = q < from ? from : q, e = qEnd > to ? to : qEnd;
+    const key = quarterKey(q), n = dated.filter(r => quarterKey(r[basis]) === key).length, dq = businessDays(s, e);
+    out.byQuarter.push({ label: quarterLabel(key), count: n, days: dq, index: dq ? n / dq : 0, partial: s > q || e < qEnd });
+    q.setMonth(q.getMonth() + 3);
   }
   return out;
 }
@@ -1159,13 +1168,17 @@ function renderDashboard(rows, ctx){
     kpiCard(fmtNum(s.total,0), 'Reclamos'),
     kpiCard(s.abiertos, 'Abiertos', 'warn'),
     kpiCard(fmtNum(s.totalMetros,0)+' m²', 'Metros reclamados'),
-    kpiCard(s.cerrados, 'Finalizados', 'good'),
-    bd ? kpiCard(fmtNum(bd.index, 2), 'Reclamos por día hábil', 'accent kpi-wide',
-        `${fmtNum(bd.count, 0)} reclamos ingresados ÷ ${fmtNum(bd.days, 0)} días hábiles`,
-        `${fmtDate(bd.from)} al ${fmtDate(bd.to)} · lunes a viernes sin feriados nacionales` +
-        (bd.byQuarter.length ? '\n' + bd.byQuarter.map(q => `${q.label}: ${fmtNum(q.count, 0)} reclamos ÷ ${q.days} días hábiles = ${fmtNum(q.index, 2)} por día`).join('\n') : ''))
-      : ''
+    kpiCard(s.cerrados, 'Finalizados', 'good')
   ].join('');
+  // Reclamos por día hábil: total del período + un recuadro por trimestre (los últimos 8 si el rango es largo).
+  document.getElementById('bdGrid').innerHTML = bd ? [
+    `<div class="bd-title">Reclamos por día hábil<small>reclamos ingresados ÷ días hábiles (lunes a viernes, sin feriados nacionales)</small></div>`,
+    kpiCard(fmtIdx(bd.index), 'Total del período', 'accent bd-total',
+      `${fmtNum(bd.count, 0)} reclamos ÷ ${fmtNum(bd.days, 0)} días hábiles`,
+      `${fmtDate(bd.from)} al ${fmtDate(bd.to)}`),
+    ...bd.byQuarter.slice(-8).map(q => kpiCard(fmtIdx(q.index), q.label + (q.partial ? ' (parcial)' : ''), '',
+      `${fmtNum(q.count, 0)} reclamos ÷ ${fmtNum(q.days, 0)} días hábiles`))
+  ].join('') : '';
 
   const unidad = state.trendMetric === 'm2' ? 'Metros cuadrados' : 'Cantidad de reclamos';
   document.getElementById('dashControls').innerHTML =
@@ -1217,7 +1230,8 @@ function renderDashboard(rows, ctx){
   const rangoTxt = ctx.windowed ? `${windowLabel(ctx.w)} (4 trimestres completos)` : hasDateFilter() ? 'según los filtros de fecha' : 'todo el historial';
   const printMeta = `<div class="print-meta"><div class="pm-brand">SAC · Reclamos – Cerámica Alberdi</div>
     <div class="pm-line">${esc(rangoTxt)} · según ${basisTxt} · ${esc(unidad.toLowerCase())}</div>
-    <div class="pm-line">${fmtNum(s.total,0)} reclamos · ${fmtNum(s.abiertos,0)} abiertos · ${fmtNum(s.cerrados,0)} finalizados · ${fmtNum(s.totalMetros,0)} m² reclamados${bd ? ` · ${fmtNum(bd.index, 2)} reclamos por día hábil (${fmtNum(bd.count, 0)} reclamos ÷ ${fmtNum(bd.days, 0)} días hábiles)` : ''}${filtrosTxt ? ' · ' + esc(filtrosTxt) : ''}</div>
+    <div class="pm-line">${fmtNum(s.total,0)} reclamos · ${fmtNum(s.abiertos,0)} abiertos · ${fmtNum(s.cerrados,0)} finalizados · ${fmtNum(s.totalMetros,0)} m² reclamados${bd ? ` · ${fmtIdx(bd.index)} reclamos por día hábil (${fmtNum(bd.count, 0)} reclamos ÷ ${fmtNum(bd.days, 0)} días hábiles)` : ''}${filtrosTxt ? ' · ' + esc(filtrosTxt) : ''}</div>
+    ${bd && bd.byQuarter.length ? `<div class="pm-line">Por día hábil: ${bd.byQuarter.slice(-8).map(q => `${esc(q.label)} ${fmtIdx(q.index)} (${fmtNum(q.count, 0)} ÷ ${fmtNum(q.days, 0)})`).join(' · ')}</div>` : ''}
     <div class="pm-line pm-date">Generado el ${esc(new Date().toLocaleDateString('es-AR'))}</div></div>`;
 
   const showYoY = chartVisibility.chYoY && s.yoy && s.yoy.years.length > 1;
