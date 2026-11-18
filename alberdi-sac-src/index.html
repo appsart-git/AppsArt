@@ -485,6 +485,8 @@ const OPTIONAL_CHARTS = [
   { id:'chCauJcp', group:'causa', wide:true, title:'JCP · por causa', sub:'JCP · 20 causas + resto' },
   { id:'chCauH4', group:'causa', wide:true, title:'JCP H4 · por causa', sub:'JCP › H4 · 20 causas + resto' },
   { id:'chCauH5', group:'causa', wide:true, title:'JCP H5 · por causa', sub:'JCP › H5 · 20 causas + resto' },
+  // Reclamos por cliente: los 20 clientes con más reclamos + el resto, una barra por período.
+  { id:'chCliente', group:'cliente', wide:true, title:'Total · por cliente', sub:'Total · 20 clientes + resto' },
   // Resto de los gráficos: disponibles en "Editar gráficos", apagados por defecto.
   { id:'chYoY', off:true, custom:true, title:'Comparación interanual' },
   { id:'chEstado', off:true, title:'Estado de los reclamos' },
@@ -648,6 +650,23 @@ function buildCausaCanon(rows){
 function causaOf(r){
   const raw = String(r.causa || '').replace(/\s+/g, ' ').trim();
   return raw ? (CAUSA_CANON.get(causaKey(raw)) || raw) : 'Sin causa';
+}
+// Cliente (nombre de cliente de la planilla): mismo criterio, el mismo nombre escrito distinto cuenta como uno solo.
+let CLIENTE_CANON = new Map();
+function buildClienteCanon(rows){
+  const counts = new Map();
+  rows.forEach(r => {
+    const raw = String(r.nombreCliente || '').replace(/\s+/g, ' ').trim();
+    if (!raw) return;
+    const k = causaKey(raw);
+    const m = counts.get(k) || counts.set(k, new Map()).get(k);
+    m.set(raw, (m.get(raw) || 0) + 1);
+  });
+  CLIENTE_CANON = new Map([...counts].map(([k, m]) => [k, [...m.entries()].sort((a, b) => b[1] - a[1])[0][0]]));
+}
+function clienteOf(r){
+  const raw = String(r.nombreCliente || '').replace(/\s+/g, ' ').trim();
+  return raw ? (CLIENTE_CANON.get(causaKey(raw)) || raw) : 'Sin cliente';
 }
 // Períodos (según el agrupado elegido) que cubre la ventana por defecto, aunque no tengan reclamos.
 function periodsInWindow(w){
@@ -1107,6 +1126,7 @@ function renderDashboard(rows, ctx){
   const GROUP_TITLES = {
     nivel: `${unidad} por nivel · Total › Planta › Línea / Horno › Marca`,
     causa: `Causas por nivel · las 20 causas con más ${state.trendMetric === 'm2' ? 'metros cuadrados' : 'reclamos'} y el resto, comparadas por período`,
+    cliente: `Clientes · los 20 con más ${state.trendMetric === 'm2' ? 'metros cuadrados' : 'reclamos'} y el resto, comparados por período`,
     general: 'Otros gráficos'
   };
   let lastGroup = null;
@@ -1119,7 +1139,7 @@ function renderDashboard(rows, ctx){
       return `${title}<div class="chart-card${c.wide ? ' wide' : ''}">
         ${printMeta}
         <div class="chart-card-head"><div><h4>${esc(c.title)}</h4>${c.sub ? `<small class="chart-sub" id="${c.id}Sub">${esc(c.sub)}</small>` : ''}</div></div>
-        <div class="chart-wrap"${c.group === 'causa' ? ' style="height:310px"' : ''}><canvas id="${c.id}"></canvas></div></div>`;
+        <div class="chart-wrap"${c.group === 'causa' || c.group === 'cliente' ? ' style="height:310px"' : ''}><canvas id="${c.id}"></canvas></div></div>`;
     })
     .join('');
 
@@ -1191,6 +1211,7 @@ function renderDashboard(rows, ctx){
   }
 
   buildCausaCanon(ALL);
+  buildClienteCanon(ALL);
   const windowPeriods = ctx.windowed ? periodsInWindow(ctx.w) : [];
 
   function treeChart(id){
@@ -1200,16 +1221,19 @@ function renderDashboard(rows, ctx){
 
   // Causas: las 20 con más reclamos del grupo + "Otras" (21 grupos de barras), con una barra por período
   // dentro de cada grupo, para comparar cómo evoluciona cada causa.
-  function causeChart(id){
+  // Los dos usan siempre `rows`: los reclamos del período y de los filtros activos (los mismos que los gráficos de cantidad).
+  function causeChart(id){ groupedChart(id, rows.filter(TREE_NODES[CAUSE_SCOPE[id]].rows), causaOf, 'Otras'); }
+  function clientChart(id){ groupedChart(id, rows, clienteOf, 'Otros clientes'); }
+
+  function groupedChart(id, nodeRows, keyOf, restLabel){
     const el = document.getElementById(id);
     if (!el) return;
-    const nodeRows = rows.filter(TREE_NODES[CAUSE_SCOPE[id]].rows);
     const val = metricVal;
     const fmtTot = fmtMetric;
     const totCausa = {};
-    nodeRows.forEach(r => { const c = causaOf(r); totCausa[c] = (totCausa[c] || 0) + val(r); });
+    nodeRows.forEach(r => { const c = keyOf(r); totCausa[c] = (totCausa[c] || 0) + val(r); });
     const top = Object.entries(totCausa).sort((a, b) => b[1] - a[1]).slice(0, 20).map(e => e[0]);
-    const catOf = r => { const c = causaOf(r); return top.includes(c) ? c : 'Otras'; };
+    const catOf = r => { const c = keyOf(r); return top.includes(c) ? c : restLabel; };
     const totCat = {}, byPeriod = {}, periods = new Set(windowPeriods);
     let dated = 0;
     nodeRows.forEach(r => {
@@ -1228,7 +1252,7 @@ function renderDashboard(rows, ctx){
       const sinFecha = nodeRows.length - dated;
       sub.textContent = `${base} · ${fmtNum(nodeRows.length,0)} reclamos` + (sinFecha ? ` (${fmtNum(sinFecha,0)} sin ${state.dateBasis === 'fechaProd' ? 'fecha de producción' : 'fecha'})` : '');
     }
-    const cats = [...top, 'Otras'].filter(c => totCat[c]);
+    const cats = [...top, restLabel].filter(c => totCat[c]);
     if (!cats.length || !periods.size) { el.closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
     const pl = [...periods].sort();
     // Vertical en pantallas anchas (etiquetas rotadas, una línea por causa); horizontal solo en celular
@@ -1322,6 +1346,7 @@ function renderDashboard(rows, ctx){
 
   Object.keys(TREE_NODES).forEach(treeChart);
   Object.keys(CAUSE_SCOPE).forEach(causeChart);
+  clientChart('chCliente');
   donut('chEstado', s.estadoCounts);
   donut('chOrigen', s.origenCounts);
   hbar('chAging', Object.entries(s.aging), '#E15252');
@@ -1622,7 +1647,7 @@ function closeFilters(){
 function renderChartSettings(){
   document.getElementById('chartSettingsBody').innerHTML = `
     <p class="admin-p">Elegí qué gráficos mostrar en el panel (se recuerda en este navegador). La evolución general siempre se muestra.</p>
-    ${[['nivel','Cantidad de reclamos por nivel'], ['causa','Causas por nivel'], ['general','Otros gráficos']].map(([g, titulo]) => `
+    ${[['nivel','Cantidad de reclamos por nivel'], ['causa','Causas por nivel'], ['cliente','Reclamos por cliente'], ['general','Otros gráficos']].map(([g, titulo]) => `
     <div class="filter-group">
       <h4>${esc(titulo)}</h4>
       <div class="opts">
