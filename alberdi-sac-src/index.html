@@ -1032,7 +1032,9 @@ const barLabelsPlugin = {
       metas.forEach(m => m.data.forEach((bar, i) => {
         const v = chart.data.datasets[m.index].data[i];
         if (!v) return;
-        ctx.save(); ctx.translate(bar.x + 3.5, bar.y - 4); ctx.rotate(-Math.PI / 2); ctx.fillText(fmt(v), 0, 0); ctx.restore();
+        // "50 · T4 '25": el valor y a qué período (trimestre) corresponde esa barra
+        const name = String(chart.data.datasets[m.index].label || '').split(' (')[0];
+        ctx.save(); ctx.translate(bar.x + 3.5, bar.y - 4); ctx.rotate(-Math.PI / 2); ctx.fillText(name ? `${fmt(v)} · ${name}` : fmt(v), 0, 0); ctx.restore();
       }));
     } else if (opts.kind === 'stacked') {
       const n = (metas[0] && metas[0].data.length) || 0;
@@ -1225,7 +1227,7 @@ function renderDashboard(rows, ctx){
       if (kind) {
         pl.barLabels = { kind, fmt: n => fmtNum(n, 0) };
         config.plugins = [barLabelsPlugin];
-        config.options.layout = { padding:{ top: 28 } };
+        config.options.layout = { padding:{ top: kind === 'grouped' ? 72 : 28 } };   // las etiquetas girados sobre las barras necesitan más lugar arriba
       }
     }
     charts[id] = new Chart(el, config);
@@ -1296,9 +1298,12 @@ function renderDashboard(rows, ctx){
       const sinFecha = nodeRows.length - dated;
       sub.textContent = `${base} · ${fmtNum(nodeRows.length,0)} reclamos` + (sinFecha ? ` (${fmtNum(sinFecha,0)} sin ${state.dateBasis === 'fechaProd' ? 'fecha de producción' : 'fecha'})` : '');
     }
-    const cats = [...top, restLabel].filter(c => totCat[c]);
-    if (!cats.length || !periods.size) { el.closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
     const pl = [...periods].sort();
+    // Orden de mayor a menor según el valor del ÚLTIMO período (el más reciente); si empatan, por el total. "Otras" va siempre al final.
+    const lastP = pl[pl.length - 1];
+    const lastVal = c => (byPeriod[lastP] && byPeriod[lastP][c]) || 0;
+    const cats = [...top.filter(c => totCat[c]).sort((a, b) => (lastVal(b) - lastVal(a)) || (totCat[b] - totCat[a])), ...(totCat[restLabel] ? [restLabel] : [])];
+    if (!cats.length || !periods.size) { el.closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
     // Vertical en pantallas anchas (etiquetas rotadas, una línea por causa); horizontal solo en celular
     const horiz = window.innerWidth < 700 && !printing;
     el.closest('.chart-wrap').style.height = horiz ? Math.max(320, cats.length * pl.length * 15 + 90) + 'px' : '480px';
