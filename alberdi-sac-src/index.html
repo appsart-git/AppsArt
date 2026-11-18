@@ -116,7 +116,7 @@
 
   /* ---------- Modo "PDF para imprimir": fondo blanco, un gráfico por hoja (A4 apaisado) ---------- */
   .print-meta{display:none;}
-  @page{size:A4 landscape; margin:10mm;}
+  @page{size:A4 landscape; margin:0;}   /* margen 0: el navegador no agrega su encabezado/pie (fecha, URL); el margen lo pone el propio gráfico */
   body.print-mode{background:#fff; color:#111; min-height:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
   body.print-mode > *:not(main){display:none !important;}
   body.print-mode #emptyState, body.print-mode #tableView, body.print-mode #kpiGrid, body.print-mode #dashControls, body.print-mode .chart-section-title{display:none !important;}
@@ -128,9 +128,9 @@
   body.print-mode .print-meta{display:block; border-bottom:2px solid #E8A33D; padding-bottom:7px; margin-bottom:12px;}
   .print-meta .pm-brand{font-weight:800; font-size:15px; color:#111;}
   .print-meta .pm-line{font-size:11.5px; color:#444; margin-top:2px;}
-  body.print-mode .chart-wrap{height:520px !important;}
+  body.print-mode .chart-wrap{height:580px !important;}
   @media print{
-    body.print-mode .chart-card{break-after:page; page-break-after:always; break-inside:avoid; margin:0;}
+    body.print-mode .chart-card{break-after:page; page-break-after:always; break-inside:avoid; margin:0; padding:11mm 0 0;}
     body.print-mode .chart-card:last-child{break-after:auto; page-break-after:auto;}
   }
 
@@ -667,6 +667,7 @@ const state = {
   granularity: 'quarter',
   showAll: false,
   printing: false,   // modo "PDF para imprimir": fondo blanco, un gráfico por hoja
+  printMode: 'color', // 'color' | 'bw' (blanco y negro: grises y tramas)
   dateFrom: '', dateTo: '',
   dateFromProd: '', dateToProd: '',
   filters: {}, pendingFilters: {},
@@ -935,9 +936,84 @@ function kpiCard(value, label, cls){
 
 // "PDF para imprimir": redibuja los gráficos sobre fondo blanco, uno por hoja, y abre la impresión
 // (en el diálogo se elige "Guardar como PDF"). Al terminar vuelve al tema oscuro.
-function printDashboard(){
+// Rellenos para imprimir en blanco y negro: tonos de gris + tramas, para que cada serie se distinga aunque salga sin color.
+const BW_FILLS = [
+  { t:'solid', bg:'#dcdcdc' }, { t:'diag', bg:'#ffffff' }, { t:'solid', bg:'#6b6b6b' }, { t:'solid', bg:'#111111' },
+  { t:'dots', bg:'#ffffff' }, { t:'cross', bg:'#ffffff' }, { t:'hline', bg:'#ffffff' }, { t:'back', bg:'#dcdcdc' },
+  { t:'vline', bg:'#ffffff' }, { t:'solid', bg:'#a0a0a0' }
+];
+const _bwCache = {};
+function bwFill(i){
+  const k = BW_FILLS[i % BW_FILLS.length];
+  if (k.t === 'solid') return k.bg;
+  const key = k.t + k.bg;
+  if (_bwCache[key]) return _bwCache[key];
+  const c = document.createElement('canvas'); c.width = c.height = 8;
+  const g = c.getContext('2d');
+  g.fillStyle = k.bg; g.fillRect(0, 0, 8, 8);
+  g.strokeStyle = g.fillStyle = '#111'; g.lineWidth = 1.3;
+  g.beginPath();
+  if (k.t === 'diag' || k.t === 'cross') { g.moveTo(0, 8); g.lineTo(8, 0); g.moveTo(-2, 2); g.lineTo(2, -2); g.moveTo(6, 10); g.lineTo(10, 6); }
+  if (k.t === 'back' || k.t === 'cross') { g.moveTo(0, 0); g.lineTo(8, 8); g.moveTo(-2, 6); g.lineTo(2, 10); g.moveTo(6, -2); g.lineTo(10, 2); }
+  if (k.t === 'hline') { g.moveTo(0, 4); g.lineTo(8, 4); }
+  if (k.t === 'vline') { g.moveTo(4, 0); g.lineTo(4, 8); }
+  g.stroke();
+  if (k.t === 'dots') { g.beginPath(); g.arc(4, 4, 1.4, 0, Math.PI * 2); g.fill(); }
+  return _bwCache[key] = c.getContext('2d').createPattern(c, 'repeat');
+}
+
+// Etiquetas con el valor sobre las columnas (solo al imprimir):
+//  single = valor arriba de cada columna · stacked = valor en cada tramo + total arriba · grouped = valor girado sobre cada barra.
+const barLabelsPlugin = {
+  id: 'barLabels',
+  afterDatasetsDraw(chart, args, opts){
+    if (!opts || !opts.kind) return;
+    const ctx = chart.ctx, fmt = opts.fmt || (n => String(n));
+    const metas = chart.data.datasets.map((_, i) => chart.getDatasetMeta(i)).filter(m => !m.hidden);
+    ctx.save();
+    ctx.fillStyle = '#000'; ctx.textBaseline = 'alphabetic';
+    const font = (px, bold) => `${bold ? '700 ' : '500 '}${px}px -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
+    if (opts.kind === 'single') {
+      ctx.font = font(13, true); ctx.textAlign = 'center';
+      metas.forEach(m => m.data.forEach((bar, i) => {
+        const v = chart.data.datasets[m.index].data[i];
+        if (v) ctx.fillText(fmt(v), bar.x, bar.y - 6);
+      }));
+    } else if (opts.kind === 'grouped') {
+      ctx.font = font(9.5, true); ctx.textAlign = 'left';
+      metas.forEach(m => m.data.forEach((bar, i) => {
+        const v = chart.data.datasets[m.index].data[i];
+        if (!v) return;
+        ctx.save(); ctx.translate(bar.x + 3.5, bar.y - 4); ctx.rotate(-Math.PI / 2); ctx.fillText(fmt(v), 0, 0); ctx.restore();
+      }));
+    } else if (opts.kind === 'stacked') {
+      const n = (metas[0] && metas[0].data.length) || 0;
+      for (let i = 0; i < n; i++) {
+        let total = 0, top = Infinity, x = 0;
+        metas.forEach(m => {
+          const v = chart.data.datasets[m.index].data[i], bar = m.data[i];
+          if (!v || !bar) return;
+          total += v; x = bar.x; top = Math.min(top, bar.y, bar.base);
+          const h = Math.abs(bar.base - bar.y);
+          if (h < 17) return;   // tramo muy finito: solo cuenta en el total
+          const txt = fmt(v); ctx.font = font(11.5, true); ctx.textAlign = 'center';
+          const w = ctx.measureText(txt).width + 8, cy = (bar.y + bar.base) / 2;
+          ctx.fillStyle = '#fff'; ctx.fillRect(bar.x - w / 2, cy - 9, w, 18);
+          ctx.strokeStyle = '#000'; ctx.lineWidth = 0.6; ctx.strokeRect(bar.x - w / 2, cy - 9, w, 18);
+          ctx.fillStyle = '#000'; ctx.fillText(txt, bar.x, cy + 4);
+        });
+        if (total) { ctx.font = font(14, true); ctx.textAlign = 'center'; ctx.fillStyle = '#000'; ctx.fillText(fmt(total), x, top - 7); }
+      }
+    }
+    ctx.restore();
+  }
+};
+
+// mode: 'color' | 'bw'
+function printDashboard(mode){
   if (state.view !== 'dashboard' || !ALL.length) return;
   state.printing = true;
+  state.printMode = mode === 'bw' ? 'bw' : 'color';
   document.body.classList.add('print-mode');
   window.scrollTo(0, 0);
   renderAll();
@@ -989,7 +1065,8 @@ function renderDashboard(rows, ctx){
           { val:'all', label:'Todo el historial' }
         ], state.showAll ? 'all' : 'year', 'range')) +
     `<div class="dash-control-group"><button class="icon-btn" data-action="open-chart-settings">⚙ Editar gráficos</button>` +
-    `<button class="icon-btn" data-action="print-dashboard" title="Abre la impresión con fondo blanco y un gráfico por hoja; elegí «Guardar como PDF»">🖨 PDF para imprimir</button></div>` +
+    `<button class="icon-btn" data-print-mode="color" title="Fondo blanco, un gráfico por hoja, con colores y valores sobre las columnas. En el diálogo elegí «Guardar como PDF» o tu impresora">🖨 PDF color</button>` +
+    `<button class="icon-btn" data-print-mode="bw" title="Fondo blanco, un gráfico por hoja, en grises y tramas (para impresoras blanco y negro) y valores sobre las columnas">🖨 PDF blanco y negro</button></div>` +
     (ctx.windowed
       ? `<div class="dash-note" style="flex-basis:100%;">Mostrando ${esc(windowLabel(ctx.w))} (4 trimestres completos; el trimestre en curso no se incluye) según ${state.dateBasis === 'fechaProd' ? 'fecha de producción' : 'fecha de reclamo'}`
         + (() => { const n = ctx.all.filter(r => !(r[state.dateBasis] instanceof Date)).length; return n ? ` · ${fmtNum(n,0)} reclamo(s) sin esa fecha no se incluyen` : ''; })()
@@ -997,7 +1074,7 @@ function renderDashboard(rows, ctx){
       : '');
 
   const printing = state.printing;
-  Chart.defaults.color = printing ? '#222' : '#8B92A0';
+  Chart.defaults.color = printing ? (state.printMode === 'bw' ? '#000' : '#222') : '#8B92A0';
   Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
   Chart.defaults.animation = false;
   Chart.defaults.responsiveAnimationDuration = 0;
@@ -1062,6 +1139,31 @@ function renderDashboard(rows, ctx){
     const el = document.getElementById(id);
     if (!el) return;
     if (charts[id]) charts[id].destroy();
+    const kind = config.barLabels; delete config.barLabels;
+    if (printing) {
+      // Impresión: rellenos según color / blanco y negro, bordes definidos, leyenda más grande y valores sobre las columnas.
+      const bw = state.printMode === 'bw';
+      config.options = config.options || {};
+      const pl = config.options.plugins = config.options.plugins || {};
+      if (config.type === 'doughnut') {
+        config.data.datasets.forEach(d => {
+          if (bw) d.backgroundColor = d.data.map((_, i) => bwFill(i));
+          d.borderColor = bw ? '#000' : '#fff'; d.borderWidth = bw ? 1 : 2;
+        });
+      } else {
+        config.data.datasets.forEach((d, i) => {
+          if (bw) { d.backgroundColor = bwFill(i); d.borderColor = '#000'; d.borderWidth = 1; }
+          else { d.borderColor = 'rgba(0,0,0,.45)'; d.borderWidth = 0.6; }
+          d.borderRadius = 0;
+        });
+      }
+      if (pl.legend && pl.legend.labels) { pl.legend.labels.boxWidth = 18; pl.legend.labels.boxHeight = 12; pl.legend.labels.font = { size:12.5 }; pl.legend.labels.color = '#000'; }
+      if (kind) {
+        pl.barLabels = { kind, fmt: n => fmtNum(n, 0) };
+        config.plugins = [barLabelsPlugin];
+        config.options.layout = { padding:{ top: 28 } };
+      }
+    }
     charts[id] = new Chart(el, config);
   }
   function hbar(id, entries, color){
@@ -1134,7 +1236,7 @@ function renderDashboard(rows, ctx){
     el.closest('.chart-wrap').style.height = horiz ? Math.max(320, cats.length * pl.length * 15 + 90) + 'px' : '480px';
     const valOf = c => horiz ? c.parsed.x : c.parsed.y;
     makeChart(id, {
-      type:'bar',
+      type:'bar', barLabels:'grouped',
       data:{ labels: cats.map(c => `${c} (${fmtTot(totCat[c])})`),
         datasets: pl.map((p, i) => ({
           label: `${periodLabel(p, state.granularity)} (${fmtTot(cats.reduce((a, c) => a + ((byPeriod[p] && byPeriod[p][c]) || 0), 0))})`,
@@ -1179,7 +1281,7 @@ function renderDashboard(rows, ctx){
     const pl = [...periods].sort();
     const fmtTot = fmtMetric;
     makeChart(id, {
-      type:'bar',
+      type:'bar', barLabels:'stacked',
       data:{ labels: pl.map(p => periodLabel(p, state.granularity)),
         datasets: labels.map(l => ({
           label: `${l} (${fmtTot(totals[l])})`, backgroundColor: colorOf(l), borderRadius:2,
@@ -1194,7 +1296,7 @@ function renderDashboard(rows, ctx){
 
   const trendPeriods = [...new Set([...windowPeriods, ...s.trend.periods])].sort();
   makeChart('chTrend', {
-    type:'bar',
+    type:'bar', barLabels:'single',
     data:{ labels: trendPeriods.map(p => periodLabel(p, state.granularity)),
       datasets:[{ label: state.trendMetric==='m2' ? 'Metros cuadrados' : 'Reclamos',
         data: trendPeriods.map(p => s.trend[state.trendMetric === 'm2' ? 'm2' : state.trendMetric === 'cost' ? 'cost' : 'count'][p] || 0),
@@ -1206,7 +1308,7 @@ function renderDashboard(rows, ctx){
 
   if (showYoY) {
     makeChart('chYoY', {
-      type:'bar',
+      type:'bar', barLabels:'grouped',
       data:{ labels: s.yoy.subLabels,
         datasets: s.yoy.years.map((y,i) => ({
           label:String(y), backgroundColor: COLORS[i % COLORS.length], borderRadius:4,
@@ -2043,7 +2145,8 @@ function bindEvents(){
     if (e.target.closest('[data-action="open-informe"]')) openInforme();
     if (e.target.closest('[data-action="open-edit-reclamo"]')) openEditReclamo();
     if (e.target.closest('[data-action="open-chart-settings"]')) openChartSettings();
-    if (e.target.closest('[data-action="print-dashboard"]')) printDashboard();
+    const printBtn = e.target.closest('[data-print-mode]');
+    if (printBtn) printDashboard(printBtn.dataset.printMode);
     if (e.target.closest('[data-action="close-chart-settings"]')) closeChartSettings();
     if (e.target.closest('[data-action="charts-default"]')) resetChartsToDefault();
     if (e.target.closest('[data-action="charts-show-all"]')) setAllCharts(true);
