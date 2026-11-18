@@ -1427,6 +1427,14 @@ const TABLE_COLS = [
   { key:'finalizado', label:'Estado' }
 ];
 
+// Al venir de una barra del gráfico se agregan Horno y Marca: son los datos que clasifican el reclamo
+// en SALTA / JCP / H4 / H5 / VIT / ALB y sirven para ver por qué algo cayó en "Otros".
+const DRILL_EXTRA_COLS = [
+  { key:'horno', label:'Horno' },
+  { key:'marca', label:'Marca' }
+];
+function tableCols(){ return state.drill ? [...TABLE_COLS, ...DRILL_EXTRA_COLS] : TABLE_COLS; }
+
 function rowValue(r, key){
   if (key === 'clienteDisplay') return r.nombreCliente || r.nombreUsuario || '—';
   if (key === 'productoDisplay') return [r.articulo, r.nombre].filter(Boolean).join(' · ') || '—';
@@ -1450,15 +1458,17 @@ function renderTableView(rows){
   state.page = Math.min(state.page, totalPages);
   const pageRows = sorted.slice((state.page-1)*state.pageSize, state.page*state.pageSize);
 
-  document.getElementById('tableHead').innerHTML = TABLE_COLS.map(c => {
+  const cols = tableCols();
+  document.getElementById('tableHead').innerHTML = cols.map(c => {
     const active = state.sortKey === (c.sortKey||c.key);
     const arrow = active ? (state.sortDir==='asc'?'▲':'▼') : '';
     return `<th data-sort="${c.sortKey||c.key}">${esc(c.label)} <span class="arrow">${arrow}</span></th>`;
   }).join('');
 
   document.getElementById('tableBody').innerHTML = pageRows.map(r => {
-    const cells = TABLE_COLS.map(c => {
+    const cells = cols.map(c => {
       let v = rowValue(r, c.key);
+      if ((c.key === 'horno' || c.key === 'marca') && !String(v || '').trim()) v = '—';
       if (c.key === 'fechaReclamo' || c.key === 'fechaProd') v = fmtDate(v);
       else if (c.key === 'metros') v = fmtNum(v,1);
       else if (c.key === 'totalGastos') v = fmtMoney(costoOf(r));
@@ -1468,7 +1478,7 @@ function renderTableView(rows){
       return `<td class="${cls}">${v}</td>`;
     }).join('');
     return `<tr data-id="${esc(r.nroReclamo)}">${cells}</tr>`;
-  }).join('') || `<tr><td colspan="${TABLE_COLS.length}" style="text-align:center;color:var(--text-faint);padding:30px;">Sin resultados.</td></tr>`;
+  }).join('') || `<tr><td colspan="${cols.length}" style="text-align:center;color:var(--text-faint);padding:30px;">Sin resultados.</td></tr>`;
 
   document.getElementById('tablePager').innerHTML = `
     <button data-page="prev" ${state.page<=1?'disabled':''}>‹ Anterior</button>
