@@ -74,6 +74,8 @@
     border-radius:20px; padding:5px 10px 5px 12px; font-size:12.5px; font-weight:600;
   }
   .af-chip button{background:none; border:none; color:var(--accent); cursor:pointer; font-size:14px; line-height:1; padding:0;}
+  .drill-chip{display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap; background:var(--accent-soft); color:var(--accent); border-radius:20px; padding:6px 8px 6px 13px; font-size:12.5px; font-weight:700;}
+  .drill-chip button{background:var(--accent); color:var(--accent-ink); border:none; border-radius:14px; padding:3px 10px; font-size:11.5px; font-weight:800; cursor:pointer;}
   .clear-all{background:none; border:none; color:var(--text-muted); font-size:12.5px; text-decoration:underline; cursor:pointer; padding:5px 4px;}
 
   .result-count{padding:12px 14px 6px; font-size:12.5px; color:var(--text-muted); font-weight:600;}
@@ -317,7 +319,7 @@
 
   <div id="tableView" class="hidden">
     <div class="table-toolbar">
-      <span></span>
+      <span id="drillBar"></span>
       <div style="display:flex; gap:8px;">
         <button class="btn-ghost" data-action="export-csv">⬇ CSV</button>
         <button class="btn-ghost" data-action="export-xlsx">⬇ Excel</button>
@@ -687,6 +689,7 @@ const state = {
   showAll: false,
   printing: false,   // modo "PDF para imprimir": fondo blanco, un gráfico por hoja
   printMode: 'color', // 'color' | 'bw' (blanco y negro: grises y tramas)
+  drill: null,        // { title, ids:Set } cuando el Listado viene de un click en una barra
   dateFrom: '', dateTo: '',
   dateFromProd: '', dateToProd: '',
   filters: {}, pendingFilters: {},
@@ -738,6 +741,24 @@ function applyFilters(rows){
 }
 
 function getFiltered(){ return applyFilters(ALL); }
+
+// Click en una barra de un gráfico: el Listado muestra solo los reclamos de esa barra (state.drill) hasta que se quita
+// o se vuelve al Panel.
+function listRows(){
+  const all = getFiltered();
+  return state.drill ? all.filter(r => state.drill.ids.has(String(r.nroReclamo))) : all;
+}
+function showView(view){
+  state.view = view;
+  document.querySelectorAll('#viewTabs .tab-chip').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  renderAll();
+}
+function openDrill(title, list){
+  state.drill = { title, ids: new Set(list.map(r => String(r.nroReclamo))) };
+  state.page = 1;
+  showView('table');
+  window.scrollTo(0, 0);
+}
 
 // El Panel muestra por defecto los últimos 4 trimestres COMPLETOS (el trimestre en curso queda afuera),
 // salvo que se filtre por fecha o se elija "Todo el historial". Se corre solo con la fecha de hoy:
@@ -938,7 +959,7 @@ function renderAll(){
   updateFilterCount();
   renderActiveFilters();
   const dash = state.view === 'dashboard' ? dashboardRows() : null;
-  const rows = dash ? dash.rows : getFiltered();
+  const rows = dash ? dash.rows : listRows();
   document.getElementById('emptyState').classList.toggle('hidden', ALL.length > 0);
   document.getElementById('dashboardView').classList.toggle('hidden', ALL.length === 0 || state.view !== 'dashboard');
   document.getElementById('tableView').classList.toggle('hidden', ALL.length === 0 || state.view !== 'table');
@@ -1160,6 +1181,17 @@ function renderDashboard(rows, ctx){
     if (!el) return;
     if (charts[id]) charts[id].destroy();
     const kind = config.barLabels; delete config.barLabels;
+    const drillFn = config.drill; delete config.drill;
+    if (drillFn && !printing) {
+      // Click en una barra → Listado con los reclamos de esa barra.
+      config.options = config.options || {};
+      config.options.onClick = (evt, els) => {
+        if (!els.length) return;
+        const d = drillFn(els[0].datasetIndex, els[0].index);
+        if (d && d.rows.length) openDrill(d.title, d.rows);
+      };
+      config.options.onHover = (evt, els) => { if (evt.native && evt.native.target) evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; };
+    }
     if (printing) {
       // Impresión: rellenos según color / blanco y negro, bordes definidos, leyenda más grande y valores sobre las columnas.
       const bw = state.printMode === 'bw';
@@ -1259,8 +1291,11 @@ function renderDashboard(rows, ctx){
     const horiz = window.innerWidth < 700 && !printing;
     el.closest('.chart-wrap').style.height = horiz ? Math.max(320, cats.length * pl.length * 15 + 90) + 'px' : '480px';
     const valOf = c => horiz ? c.parsed.x : c.parsed.y;
+    const cardTitle = OPTIONAL_CHARTS.find(c => c.id === id).title;
     makeChart(id, {
       type:'bar', barLabels:'grouped',
+      drill: (di, i) => ({ title: `${cardTitle} · ${cats[i]} · ${periodLabel(pl[di], state.granularity)}`,
+        rows: nodeRows.filter(r => catOf(r) === cats[i] && periodKey(r[state.dateBasis], state.granularity) === pl[di]) }),
       data:{ labels: cats.map(c => `${c} (${fmtTot(totCat[c])})`),
         datasets: pl.map((p, i) => ({
           label: `${periodLabel(p, state.granularity)} (${fmtTot(cats.reduce((a, c) => a + ((byPeriod[p] && byPeriod[p][c]) || 0), 0))})`,
@@ -1304,8 +1339,11 @@ function renderDashboard(rows, ctx){
     if (!labels.length || !periods.size) { el.closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
     const pl = [...periods].sort();
     const fmtTot = fmtMetric;
+    const cardTitle = OPTIONAL_CHARTS.find(c => c.id === id).title;
     makeChart(id, {
       type:'bar', barLabels:'stacked',
+      drill: (di, i) => ({ title: `${cardTitle} · ${labels[di]} · ${periodLabel(pl[i], state.granularity)}`,
+        rows: nodeRows.filter(r => by(r) === labels[di] && periodKey(r[state.dateBasis], state.granularity) === pl[i]) }),
       data:{ labels: pl.map(p => periodLabel(p, state.granularity)),
         datasets: labels.map(l => ({
           label: `${l} (${fmtTot(totals[l])})`, backgroundColor: colorOf(l), borderRadius:2,
@@ -1321,6 +1359,8 @@ function renderDashboard(rows, ctx){
   const trendPeriods = [...new Set([...windowPeriods, ...s.trend.periods])].sort();
   makeChart('chTrend', {
     type:'bar', barLabels:'single',
+    drill: (di, i) => ({ title: `Evolución · ${periodLabel(trendPeriods[i], state.granularity)}`,
+      rows: rows.filter(r => periodKey(r[state.dateBasis], state.granularity) === trendPeriods[i]) }),
     data:{ labels: trendPeriods.map(p => periodLabel(p, state.granularity)),
       datasets:[{ label: state.trendMetric==='m2' ? 'Metros cuadrados' : 'Reclamos',
         data: trendPeriods.map(p => s.trend[state.trendMetric === 'm2' ? 'm2' : state.trendMetric === 'cost' ? 'cost' : 'count'][p] || 0),
@@ -1382,6 +1422,9 @@ function rowValue(r, key){
 }
 
 function renderTableView(rows){
+  document.getElementById('drillBar').innerHTML = state.drill
+    ? `<span class="drill-chip">🔎 ${esc(state.drill.title)} · ${fmtNum(rows.length, 0)} reclamo(s)<button data-action="clear-drill">✕ Ver todos</button></span>`
+    : '';
   const sorted = [...rows].sort((a,b) => {
     const ka = state.sortKey, kb = state.sortKey;
     let va = rowValue(a, ka), vb = rowValue(b, kb);
@@ -2130,9 +2173,8 @@ function bindEvents(){
   document.getElementById('viewTabs').addEventListener('click', e => {
     const btn = e.target.closest('[data-view]');
     if (!btn) return;
-    state.view = btn.dataset.view;
-    document.querySelectorAll('#viewTabs .tab-chip').forEach(b => b.classList.toggle('active', b===btn));
-    renderAll();
+    if (btn.dataset.view === 'dashboard') state.drill = null;   // al volver al Panel se descarta la selección de la barra
+    showView(btn.dataset.view);
   });
 
   document.querySelector('[data-action="open-filters"]').addEventListener('click', openFilters);
@@ -2165,8 +2207,9 @@ function bindEvents(){
     const rm = e.target.closest('[data-rm-key]');
     if (rm) { state.filters[rm.dataset.rmKey].delete(rm.dataset.rmVal); state.page = 1; renderAll(); }
     if (e.target.closest('[data-action="refresh"]')) init();
-    if (e.target.closest('[data-action="export-csv"]')) exportCsv(getFiltered());
-    if (e.target.closest('[data-action="export-xlsx"]')) exportXlsx(getFiltered());
+    if (e.target.closest('[data-action="export-csv"]')) exportCsv(listRows());
+    if (e.target.closest('[data-action="export-xlsx"]')) exportXlsx(listRows());
+    if (e.target.closest('[data-action="clear-drill"]')) { state.drill = null; state.page = 1; renderAll(); }
     if (e.target.closest('[data-action="open-informe"]')) openInforme();
     if (e.target.closest('[data-action="open-edit-reclamo"]')) openEditReclamo();
     if (e.target.closest('[data-action="open-chart-settings"]')) openChartSettings();
@@ -2187,14 +2230,14 @@ function bindEvents(){
     const pageBtn = e.target.closest('[data-page]');
     if (pageBtn && !pageBtn.disabled) {
       state.page += pageBtn.dataset.page === 'next' ? 1 : -1;
-      renderTableView(getFiltered());
+      renderTableView(listRows());
     }
     const th = e.target.closest('#tableHead th');
     if (th) {
       const key = th.dataset.sort;
       if (state.sortKey === key) state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
       else { state.sortKey = key; state.sortDir = 'asc'; }
-      renderTableView(getFiltered());
+      renderTableView(listRows());
     }
     const metricBtn = e.target.closest('.chart-toggle button[data-metric]');
     if (metricBtn) { state.trendMetric = metricBtn.dataset.metric; renderAll(); }
