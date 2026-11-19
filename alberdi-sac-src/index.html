@@ -1101,7 +1101,8 @@ const barLabelsPlugin = {
     const ctx = chart.ctx, fmt = opts.fmt || (n => String(n));
     const metas = chart.data.datasets.map((_, i) => chart.getDatasetMeta(i)).filter(m => !m.hidden);
     ctx.save();
-    ctx.fillStyle = '#000'; ctx.textBaseline = 'alphabetic';
+    const ink = opts.color || '#000';
+    ctx.fillStyle = ink; ctx.textBaseline = 'alphabetic';
     const font = (px, bold) => `${bold ? '700 ' : '500 '}${px}px -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
     if (opts.kind === 'single') {
       ctx.font = font(13, true); ctx.textAlign = 'center';
@@ -1436,11 +1437,8 @@ function renderDashboard(rows, ctx){
     const lastVal = c => (byPeriod[lastP] && byPeriod[lastP][c]) || 0;
     const cats = [...top.filter(c => totCat[c]).sort((a, b) => (lastVal(b) - lastVal(a)) || (totCat[b] - totCat[a])), ...(totCat[restLabel] ? [restLabel] : [])];
     if (!cats.length || !periods.size) { el.closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
-    // Siempre horizontal: el nombre de la causa / cliente a la izquierda y una barra por período. En pantalla el gráfico crece
-    // según la cantidad de barras; en el PDF ocupa toda la hoja (alto fijo por CSS).
-    const horiz = true;
-    el.closest('.chart-wrap').classList.add('chart-hbar');
-    el.closest('.chart-wrap').style.height = Math.max(320, cats.length * pl.length * 14 + 90) + 'px';
+    // Siempre vertical (pedido del usuario, 19-nov-2026): una columna por período dentro de cada causa / cliente.
+    const horiz = false;
     const valOf = c => horiz ? c.parsed.x : c.parsed.y;
     const cardTitle = OPTIONAL_CHARTS.find(c => c.id === id).title;
     makeChart(id, {
