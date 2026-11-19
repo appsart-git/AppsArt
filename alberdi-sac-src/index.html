@@ -739,32 +739,20 @@ function businessDays(from, to){
   }
   return n;
 }
-// Índice de reclamos por día hábil del período que muestra el Panel: los 4 trimestres completos, o el rango de los filtros
-// de fecha, o (todo el historial) desde el primer hasta el último reclamo.
-function claimsPerBusinessDay(rows, ctx){
-  const basis = state.dateBasis;
-  const dated = rows.filter(r => r[basis] instanceof Date);
-  if (!dated.length) return null;
-  let from, to;
-  if (ctx.windowed) { from = ctx.w.from; to = ctx.w.last; }
-  else {
-    const fStr = basis === 'fechaProd' ? state.dateFromProd : state.dateFrom;
-    const tStr = basis === 'fechaProd' ? state.dateToProd : state.dateTo;
-    const ts = dated.map(r => +r[basis]);
-    const local = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };   // 'YYYY-MM-DD' como fecha local
-    from = fStr ? local(fStr) : new Date(Math.min(...ts));
-    to = tStr ? local(tStr) : new Date(Math.min(Math.max(...ts), Date.now()));
-  }
-  const days = businessDays(from, to);
-  if (!days) return null;
-  const out = { count: dated.length, days, index: dated.length / days, from, to, byQuarter: [] };
-  // Detalle por trimestre (los trimestres de los extremos del rango se recortan y se marcan "parcial")
-  const q = new Date(from.getFullYear(), Math.floor(from.getMonth() / 3) * 3, 1);
-  while (q <= to) {
+// Reclamos por día hábil = carga de trabajo del equipo de SAC: cuántos reclamos ingresaron (y hubo que atender) por trimestre
+// y en el último año. Es una estadística FIJA: siempre los últimos 4 trimestres completos, siempre por fecha de reclamo y
+// con TODOS los reclamos (ALL), sin importar filtros, búsqueda, fecha base ni de dónde vino el reclamo.
+function claimsPerBusinessDay(){
+  const w = windowRange();
+  const dated = ALL.filter(r => r.fechaReclamo instanceof Date && r.fechaReclamo >= w.from && r.fechaReclamo < w.end);
+  const days = businessDays(w.from, w.last);
+  if (!dated.length || !days) return null;
+  const out = { count: dated.length, days, index: dated.length / days, from: w.from, to: w.last, byQuarter: [] };
+  const q = new Date(w.from);
+  while (q < w.end) {
     const qEnd = new Date(q.getFullYear(), q.getMonth() + 3, 0);   // último día del trimestre
-    const s = q < from ? from : q, e = qEnd > to ? to : qEnd;
-    const key = quarterKey(q), n = dated.filter(r => quarterKey(r[basis]) === key).length, dq = businessDays(s, e);
-    out.byQuarter.push({ label: quarterLabel(key), count: n, days: dq, index: dq ? n / dq : 0, partial: s > q || e < qEnd });
+    const key = quarterKey(q), n = dated.filter(r => quarterKey(r.fechaReclamo) === key).length, dq = businessDays(q, qEnd);
+    out.byQuarter.push({ label: quarterLabel(key), count: n, days: dq, index: dq ? n / dq : 0 });
     q.setMonth(q.getMonth() + 3);
   }
   return out;
@@ -1182,7 +1170,7 @@ function controlToggle(groupLabel, options, activeVal, action){
 function renderDashboard(rows, ctx){
   ctx = ctx || { all: rows, windowed: false };
   const s = computeStats(rows, ctx.all);
-  const bd = claimsPerBusinessDay(rows, ctx);
+  const bd = claimsPerBusinessDay();   // fijo: últimos 4 trimestres, todos los reclamos, sin filtros
   const kpiHtml = [
     kpiCard(fmtNum(s.total,0), 'Reclamos'),
     kpiCard(s.abiertos, 'Abiertos', 'warn'),
@@ -1190,13 +1178,13 @@ function renderDashboard(rows, ctx){
     kpiCard(s.cerrados, 'Finalizados', 'good')
   ].join('');
   document.getElementById('kpiGrid').innerHTML = kpiHtml;
-  // Reclamos por día hábil: total del período + un recuadro por trimestre (los últimos 8 si el rango es largo).
+  // Reclamos por día hábil (carga de trabajo de SAC): último año + un recuadro por trimestre. No responde a ningún filtro.
   const bdHtml = bd ? [
-    `<div class="bd-title">Reclamos por día hábil<small>reclamos ingresados ÷ días hábiles (lunes a viernes, sin feriados nacionales)${bd.byQuarter.length > 8 ? ' · últimos 8 trimestres' : ''}</small></div>`,
-    kpiCard(fmtIdx(bd.index), 'Total del período', 'accent bd-total',
+    `<div class="bd-title">Reclamos atendidos por día hábil · carga de trabajo de SAC<small>fijo: últimos 4 trimestres (${esc(windowLabel(windowRange()))}), todos los reclamos, no cambia con los filtros · lunes a viernes sin feriados nacionales</small></div>`,
+    kpiCard(fmtIdx(bd.index), 'Último año (4 trimestres)', 'accent bd-total',
       `${fmtNum(bd.count, 0)} reclamos ÷ ${fmtNum(bd.days, 0)} días hábiles`,
       `${fmtDate(bd.from)} al ${fmtDate(bd.to)}`),
-    ...bd.byQuarter.slice(-8).map(q => kpiCard(fmtIdx(q.index), q.label + (q.partial ? ' (parcial)' : ''), '',
+    ...bd.byQuarter.map(q => kpiCard(fmtIdx(q.index), q.label, '',
       `${fmtNum(q.count, 0)} reclamos ÷ ${fmtNum(q.days, 0)} días hábiles`))
   ].join('') : '';
   document.getElementById('bdGrid').innerHTML = bdHtml;
@@ -1252,15 +1240,14 @@ function renderDashboard(rows, ctx){
   const printMeta = `<div class="print-meta"><div class="pm-brand">SAC · Reclamos – Cerámica Alberdi</div>
     <div class="pm-line">${esc(rangoTxt)} · según ${basisTxt} · ${esc(unidad.toLowerCase())}</div>
     ${filtrosTxt ? `<div class="pm-line">Filtros: ${esc(filtrosTxt)}</div>` : ''}
-    <div class="pm-line pm-first-hide">${fmtNum(s.total,0)} reclamos · ${fmtNum(s.abiertos,0)} abiertos · ${fmtNum(s.cerrados,0)} finalizados · ${fmtNum(s.totalMetros,0)} m² reclamados${bd ? ` · ${fmtIdx(bd.index)} reclamos por día hábil (${fmtNum(bd.count, 0)} reclamos ÷ ${fmtNum(bd.days, 0)} días hábiles)` : ''}</div>
-    ${bd && bd.byQuarter.length ? `<div class="pm-line pm-first-hide">Por día hábil: ${bd.byQuarter.slice(-8).map(q => `${esc(q.label)} ${fmtIdx(q.index)} (${fmtNum(q.count, 0)} ÷ ${fmtNum(q.days, 0)})`).join(' · ')}</div>` : ''}
+    <div class="pm-line pm-first-hide">${fmtNum(s.total,0)} reclamos · ${fmtNum(s.abiertos,0)} abiertos · ${fmtNum(s.cerrados,0)} finalizados · ${fmtNum(s.totalMetros,0)} m² reclamados</div>
     <div class="pm-line pm-date">Generado el ${esc(new Date().toLocaleDateString('es-AR'))}</div></div>`;
 
   // Solo en la primera hoja del PDF: las mismas tarjetas del Panel (salen de los mismos datos que los gráficos).
   const sinFecha = rows.filter(r => !(r[state.dateBasis] instanceof Date)).length;
   // Alto del gráfico de la primera hoja: lo que queda del A4 después de las tarjetas (dos filas de tarjetas, filtros y aviso lo achican).
   const firstChartH = printing
-    ? 440 - (filtrosTxt ? 18 : 0) - (bd && bd.byQuarter.slice(-8).length > 4 ? 86 : 0) - (sinFecha ? 18 : 0)
+    ? 440 - (filtrosTxt ? 18 : 0) - (sinFecha ? 18 : 0)
     : 230;
   const printKpis = `<div class="print-kpis">
       <div class="kpi-grid">${kpiHtml}</div>
