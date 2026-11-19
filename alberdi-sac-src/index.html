@@ -149,6 +149,7 @@
   .print-meta .pm-brand{font-weight:800; font-size:15px; color:#111;}
   .print-meta .pm-line{font-size:11.5px; color:#444; margin-top:2px;}
   body.print-mode .chart-wrap{height:550px !important;}
+  body.print-mode .chart-wrap.chart-hbar{height:580px !important;}
   /* Primera hoja: tarjetas de KPIs + reclamos por día hábil, y el gráfico de Evolución un poco más bajo para que entre todo */
   .print-kpis{display:none;}
   body.print-mode .print-kpis{display:block; margin:0 0 12px;}
@@ -1109,13 +1110,23 @@ const barLabelsPlugin = {
         if (v) ctx.fillText(fmt(v), bar.x, bar.y - 6);
       }));
     } else if (opts.kind === 'grouped') {
-      ctx.font = font(9.5, true); ctx.textAlign = 'left';
+      const horizontal = chart.options.indexAxis === 'y';
+      ctx.textAlign = 'left';
       metas.forEach(m => m.data.forEach((bar, i) => {
         const v = chart.data.datasets[m.index].data[i];
         if (!v) return;
         // "50 · T4 '25": el valor y a qué período (trimestre) corresponde esa barra
         const name = String(chart.data.datasets[m.index].label || '').split(' (')[0];
-        ctx.save(); ctx.translate(bar.x + 3.5, bar.y - 4); ctx.rotate(-Math.PI / 2); ctx.fillText(name ? `${fmt(v)} · ${name}` : fmt(v), 0, 0); ctx.restore();
+        const txt = name ? `${fmt(v)} · ${name}` : fmt(v);
+        if (horizontal) {
+          // barras horizontales: el texto va a la derecha del extremo de la barra, del alto de la barra
+          const fs = Math.min(10, Math.max(7.5, (bar.height || 8) * 1.25));
+          ctx.font = font(fs, true);
+          ctx.fillText(txt, bar.x + 4, bar.y + fs * 0.36);
+        } else {
+          ctx.font = font(9.5, true);
+          ctx.save(); ctx.translate(bar.x + 3.5, bar.y - 4); ctx.rotate(-Math.PI / 2); ctx.fillText(txt, 0, 0); ctx.restore();
+        }
       }));
     } else if (opts.kind === 'stacked') {
       const n = (metas[0] && metas[0].data.length) || 0;
@@ -1346,7 +1357,9 @@ function renderDashboard(rows, ctx){
       if (kind) {
         pl.barLabels = { kind, fmt: n => fmtNum(n, 0) };
         config.plugins = [barLabelsPlugin];
-        config.options.layout = { padding:{ top: kind === 'grouped' ? 72 : 28 } };   // las etiquetas girados sobre las barras necesitan más lugar arriba
+        // lugar para las etiquetas de valor: arriba (barras verticales) o a la derecha (barras horizontales)
+        const hz = config.options.indexAxis === 'y';
+        config.options.layout = { padding: kind === 'grouped' ? (hz ? { top:8, right:78 } : { top:72 }) : { top:28 } };
       }
     }
     charts[id] = new Chart(el, config);
@@ -1423,9 +1436,11 @@ function renderDashboard(rows, ctx){
     const lastVal = c => (byPeriod[lastP] && byPeriod[lastP][c]) || 0;
     const cats = [...top.filter(c => totCat[c]).sort((a, b) => (lastVal(b) - lastVal(a)) || (totCat[b] - totCat[a])), ...(totCat[restLabel] ? [restLabel] : [])];
     if (!cats.length || !periods.size) { el.closest('.chart-wrap').innerHTML = '<div class="chart-empty">Sin datos.</div>'; return; }
-    // Vertical en pantallas anchas (etiquetas rotadas, una línea por causa); horizontal solo en celular
-    const horiz = window.innerWidth < 700 && !printing;
-    el.closest('.chart-wrap').style.height = horiz ? Math.max(320, cats.length * pl.length * 15 + 90) + 'px' : '480px';
+    // Siempre horizontal: el nombre de la causa / cliente a la izquierda y una barra por período. En pantalla el gráfico crece
+    // según la cantidad de barras; en el PDF ocupa toda la hoja (alto fijo por CSS).
+    const horiz = true;
+    el.closest('.chart-wrap').classList.add('chart-hbar');
+    el.closest('.chart-wrap').style.height = Math.max(320, cats.length * pl.length * 14 + 90) + 'px';
     const valOf = c => horiz ? c.parsed.x : c.parsed.y;
     const cardTitle = OPTIONAL_CHARTS.find(c => c.id === id).title;
     makeChart(id, {
