@@ -1487,7 +1487,10 @@ function renderDashboard(rows, ctx){
         })) },
       options:{ responsive:true, maintainAspectRatio:false,
         plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{size:11} } },
-          tooltip:{ mode:'index', callbacks:{ label: ctx => ctx.dataset.label.split(' (')[0] + ': ' + fmtMetricTip(ctx.parsed.y) } } },
+          tooltip:{ mode:'index', callbacks:{
+            label: ctx => ctx.dataset.label.split(' (')[0] + ': ' + fmtMetricTip(ctx.parsed.y),
+            footer: items => 'Total: ' + fmtMetricTip(items.reduce((t, it) => t + (it.parsed.y || 0), 0))   // suma de todas las series de esa columna
+          } } },
         scales:{ x:{ stacked:true, grid:{display:false} }, y:{ stacked:true, grid:{color:grid}, beginAtZero:true } } }
     });
   }
