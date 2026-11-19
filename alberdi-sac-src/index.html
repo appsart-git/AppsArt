@@ -152,7 +152,8 @@
   /* Primera hoja: tarjetas de KPIs + reclamos por día hábil, y el gráfico de Evolución un poco más bajo para que entre todo */
   .print-kpis{display:none;}
   body.print-mode .print-kpis{display:block; margin:0 0 12px;}
-  body.print-mode .chart-card:first-child .pm-first-hide{display:none;}
+  body.print-mode .chart-card.pk-first .pm-first-hide{display:none;}
+  body.print-mode .chart-card.pk-first .chart-wrap{height:var(--first-h, 440px) !important;}
   body.print-mode .print-kpis .kpi-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; padding:0; max-width:none; margin:0 0 10px;}
   body.print-mode .print-kpis .bd-grid{grid-template-columns:repeat(5,1fr);}
   body.print-mode .print-kpis .kpi-card{background:#fff; border:1px solid #888; border-radius:8px; padding:8px 12px 7px;}
@@ -527,6 +528,7 @@ const OPTIONAL_CHARTS = [
   // Reclamos por cliente: los 20 clientes con más reclamos + el resto, una barra por período.
   { id:'chCliente', group:'cliente', wide:true, title:'Total · por cliente', sub:'Total · 20 clientes + resto' },
   // Resto de los gráficos: disponibles en "Editar gráficos", apagados por defecto.
+  { id:'chTrend', off:true, custom:true, title:'Evolución (solo el total)' },   // el gráfico "Total · por planta" ya muestra el mismo total con más detalle
   { id:'chYoY', off:true, custom:true, title:'Comparación interanual' },
   { id:'chEstado', off:true, title:'Estado de los reclamos' },
   { id:'chOrigen', off:true, title:'Origen del reclamo' },
@@ -1283,18 +1285,29 @@ function renderDashboard(rows, ctx){
     })
     .join('');
 
-  document.getElementById('chartGrid').innerHTML = `
+  // El gráfico de Evolución (solo el total) quedó opcional y apagado: "Total · por planta" muestra el mismo total con más detalle.
+  const trendCardHtml = chartVisibility.chTrend ? `
     <div class="chart-card wide">
       ${printMeta}
-      ${printKpis}
       <div class="chart-card-head">
         <h4>Evolución · ${unidad.toLowerCase()} (${state.dateBasis==='fechaReclamo'?'fecha de reclamo':'fecha de producción'})</h4>
       </div>
-      <div class="chart-wrap" style="height:${firstChartH}px !important"><canvas id="chTrend"></canvas></div>
-    </div>
+      <div class="chart-wrap"><canvas id="chTrend"></canvas></div>
+    </div>` : '';
+  const chartGridEl = document.getElementById('chartGrid');
+  chartGridEl.innerHTML = `
+    ${trendCardHtml}
     ${yoyCardHtml}
     ${optionalCardsHtml}
   `;
+  // La primera hoja del PDF (el primer gráfico que haya, cualquiera sea) lleva las tarjetas de KPIs.
+  const firstCard = chartGridEl.querySelector('.chart-card');
+  if (firstCard) {
+    firstCard.classList.add('pk-first');
+    firstCard.style.setProperty('--first-h', firstChartH + 'px');
+    const pm = firstCard.querySelector('.print-meta');
+    if (pm) pm.insertAdjacentHTML('afterend', printKpis);
+  }
 
   function makeChart(id, config){
     const el = document.getElementById(id);
