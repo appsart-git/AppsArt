@@ -814,10 +814,15 @@ async function init(){
 
 function applyFilters(rows){
   let out = rows;
-  const q = state.search.trim().toLowerCase();
-  if (q) {
-    out = out.filter(r => [r.nroReclamo, r.nombreCliente, r.nombreUsuario, r.articulo, r.nombre, r.causa, r.tono, r.calibre]
-      .some(v => String(v||'').toLowerCase().includes(q)));
+  // Búsqueda combinada: cada palabra escrita tiene que aparecer en alguno de los campos (sin importar mayúsculas ni acentos),
+  // así se puede escribir, por ejemplo, "urban pea eco nat 049 006" (artículo + tono + calibre).
+  const terms = stripAccents(state.search).toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length) {
+    out = out.filter(r => {
+      const hay = stripAccents([r.nroReclamo, r.nombreCliente, r.nombreUsuario, r.articulo, r.nombre, r.causa, r.tono, r.calibre]
+        .map(v => v ?? '').join(' ')).toLowerCase();
+      return terms.every(t => hay.includes(t));
+    });
   }
   FILTERABLE.forEach(f => {
     const set = state.filters[f.key];
