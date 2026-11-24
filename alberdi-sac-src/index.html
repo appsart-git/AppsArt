@@ -331,7 +331,7 @@
   </div>
   <div class="search-row">
     <span class="search-icon">🔎</span>
-    <input id="search" placeholder="Buscar por N° de reclamo, cliente, artículo o causa…" autocomplete="off">
+    <input id="search" placeholder="Buscar por N° de reclamo, cliente, artículo, causa, tono o calibre…" autocomplete="off">
   </div>
   <div class="view-tabs" id="viewTabs">
     <button class="tab-chip active" data-view="dashboard">📊 Panel</button>
@@ -816,7 +816,7 @@ function applyFilters(rows){
   let out = rows;
   const q = state.search.trim().toLowerCase();
   if (q) {
-    out = out.filter(r => [r.nroReclamo, r.nombreCliente, r.nombreUsuario, r.articulo, r.nombre, r.causa]
+    out = out.filter(r => [r.nroReclamo, r.nombreCliente, r.nombreUsuario, r.articulo, r.nombre, r.causa, r.tono, r.calibre]
       .some(v => String(v||'').toLowerCase().includes(q)));
   }
   FILTERABLE.forEach(f => {
