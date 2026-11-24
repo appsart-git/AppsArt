@@ -1099,6 +1099,25 @@ function bwFill(i){
 
 // Etiquetas con el valor sobre las columnas (solo al imprimir):
 //  single = valor arriba de cada columna · stacked = valor en cada tramo + total arriba · grouped = valor girado sobre cada barra.
+// Línea vertical punteada entre cada grupo de columnas (causa / cliente) para que no se mezclen a la vista.
+const catSepPlugin = {
+  id: 'catSep',
+  beforeDatasetsDraw(chart, args, opts){
+    if (!opts || !opts.color) return;
+    const x = chart.scales.x, area = chart.chartArea;
+    const n = (chart.data.labels || []).length;
+    if (!x || n < 2) return;
+    const ctx = chart.ctx;
+    ctx.save();
+    ctx.strokeStyle = opts.color; ctx.lineWidth = opts.width || 1; ctx.setLineDash([4, 3]);
+    for (let i = 0; i < n - 1; i++) {
+      const px = Math.round((x.getPixelForTick(i) + x.getPixelForTick(i + 1)) / 2) + 0.5;
+      ctx.beginPath(); ctx.moveTo(px, area.top); ctx.lineTo(px, area.bottom + 6); ctx.stroke();
+    }
+    ctx.restore();
+  }
+};
+
 const barLabelsPlugin = {
   id: 'barLabels',
   afterDatasetsDraw(chart, args, opts){
@@ -1362,7 +1381,7 @@ function renderDashboard(rows, ctx){
       if (pl.legend && pl.legend.labels) { pl.legend.labels.boxWidth = 18; pl.legend.labels.boxHeight = 12; pl.legend.labels.font = { size:12.5 }; pl.legend.labels.color = '#000'; }
       if (kind) {
         pl.barLabels = { kind, fmt: n => fmtNum(n, 0) };
-        config.plugins = [barLabelsPlugin];
+        config.plugins = [...(config.plugins || []), barLabelsPlugin];
         // lugar para las etiquetas de valor: arriba (barras verticales) o a la derecha (barras horizontales)
         const hz = config.options.indexAxis === 'y';
         config.options.layout = { padding: kind === 'grouped' ? (hz ? { top:8, right:78 } : { top:72 }) : { top:28 } };
@@ -1446,19 +1465,24 @@ function renderDashboard(rows, ctx){
     const horiz = false;
     const valOf = c => horiz ? c.parsed.x : c.parsed.y;
     const cardTitle = OPTIONAL_CHARTS.find(c => c.id === id).title;
+    // Dentro de cada causa / cliente las columnas van del trimestre MÁS RECIENTE al más antiguo (de izquierda a derecha).
+    // El color sigue siendo el de cada período (el más reciente, naranja).
+    const plr = [...pl].reverse();
     makeChart(id, {
       type:'bar', barLabels:'grouped',
-      drill: (di, i) => ({ title: `${cardTitle} · ${cats[i]} · ${periodLabel(pl[di], state.granularity)}`,
-        rows: nodeRows.filter(r => catOf(r) === cats[i] && periodKey(r[state.dateBasis], state.granularity) === pl[di]) }),
+      plugins: [catSepPlugin],
+      drill: (di, i) => ({ title: `${cardTitle} · ${cats[i]} · ${periodLabel(plr[di], state.granularity)}`,
+        rows: nodeRows.filter(r => catOf(r) === cats[i] && periodKey(r[state.dateBasis], state.granularity) === plr[di]) }),
       data:{ labels: cats.map(c => `${c} (${fmtTot(totCat[c])})`),
-        datasets: pl.map((p, i) => ({
+        datasets: plr.map(p => ({
           label: `${periodLabel(p, state.granularity)} (${fmtTot(cats.reduce((a, c) => a + ((byPeriod[p] && byPeriod[p][c]) || 0), 0))})`,
-          backgroundColor: periodColor(i, pl.length), borderRadius:2,
+          backgroundColor: periodColor(pl.indexOf(p), pl.length), borderRadius:2,
           categoryPercentage:0.92, barPercentage:0.96,
           data: cats.map(c => (byPeriod[p] && byPeriod[p][c]) || 0)
         })) },
       options:{ indexAxis: horiz ? 'y' : 'x', responsive:true, maintainAspectRatio:false,
         plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{size:11} } },
+          catSep:{ color: printing ? 'rgba(0,0,0,.5)' : 'rgba(255,255,255,.3)', width:1 },
           tooltip:{ callbacks:{ title: items => cats[items[0].dataIndex], label: c => c.dataset.label.split(' (')[0] + ': ' + fmtMetricTip(valOf(c)) } } },
         scales: horiz
           ? { x:{ grid:{color:grid}, beginAtZero:true }, y:{ grid:{display:false}, ticks:{ font:{size:10.5}, autoSkip:false } } }
