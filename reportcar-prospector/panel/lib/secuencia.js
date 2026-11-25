@@ -63,10 +63,14 @@ export function marcarRespondio(texto, objecion) {
   return { patch, evento: { tipo: 'respondio', texto: [texto, objecion && `Objeción: ${objecion}`].filter(Boolean).join('\n') } };
 }
 
-/** @param {string} motivo @param {boolean} noContactar */
-export function marcarDescartado(motivo, noContactar) {
+/**
+ * Guarda `estadoPrevio` para que las métricas cuenten hasta dónde había llegado.
+ * @param {string} motivo @param {boolean} noContactar @param {any} [n]
+ */
+export function marcarDescartado(motivo, noContactar, n) {
   /** @type {Record<string, any>} */
   const patch = { estado: 'descartado', proximoToque: null };
+  if (n && n.estado !== 'descartado') patch.estadoPrevio = n.estado;
   if (noContactar) patch.noContactar = true;
   return { patch, evento: { tipo: 'descartado', texto: (noContactar ? '[Pidió no ser contactado] ' : '') + (motivo || '') } };
 }
@@ -84,12 +88,15 @@ export function sinWhatsApp() {
 
 /**
  * Cambio de estado desde la ficha o el pipeline.
- * @param {any} n @param {string} estado @param {Record<string, any>} [extra]
+ * @param {any} n @param {string} estado @param {Record<string, any>} [extra] @param {string} [hoy]
  */
-export function cambiarEstado(n, estado, extra = {}) {
+export function cambiarEstado(n, estado, extra = {}, hoy) {
   /** @type {Record<string, any>} */
   const patch = { estado, ...extra };
   if (CORTAN.has(estado)) patch.proximoToque = null;
+  // Devuelto a "contactado" desde el pipeline con la secuencia a medias: vuelve a aparecer en Hoy.
+  if (estado === 'contactado' && CORTAN.has(n.estado) && !n.secuenciaTerminada && hoy) patch.proximoToque = hoy;
+  if (estado === 'sin_contactar') patch.proximoToque = null;
   const tipo = ['reunion', 'propuesta', 'cerrado', 'descartado'].includes(estado) ? estado : 'cambio_estado';
   return { patch, evento: { tipo, texto: `${ESTADO_LABEL[n.estado] || n.estado} → ${ESTADO_LABEL[estado] || estado}` } };
 }

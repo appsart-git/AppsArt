@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "listas": "bun run scripts/listas.ts"
+    "listas": "bun run scripts/listas.ts",
+    "panel": "bun scripts/serve.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "latest",

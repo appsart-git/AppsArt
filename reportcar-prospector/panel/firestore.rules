@@ -18,6 +18,9 @@ service cloud.firestore {
       match /mensajes/{paso} { allow read, write: if autorizado(); }
     }
 
+    // Métricas: consulta de grupo sobre todos los eventos (solo lectura).
+    match /{ruta=**}/eventos/{ev} { allow read: if autorizado(); }
+
     match /config/{doc} { allow read, write: if autorizado(); }
     match /rubros/{id} { allow read, write: if autorizado(); }
     // Lo escribe el generador (Admin SDK, no pasa por estas reglas); el panel solo lo lee.

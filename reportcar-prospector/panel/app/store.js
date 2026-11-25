@@ -76,6 +76,12 @@ async function crearFirestoreStore() {
       const s = await fs.getDocs(fs.query(fs.collection(db, 'negocios', id, 'eventos'), fs.orderBy('fecha', 'desc')));
       return s.docs.map((d) => ({ ...d.data(), id: d.id, fecha: aFecha(d.get('fecha')) }));
     },
+    /** Eventos de todos los negocios desde una fecha (métricas). Usa el índice de grupo de colección de `fecha`. */
+    async listarEventosDesde(desde) {
+      const q = fs.query(fs.collectionGroup(db, 'eventos'), fs.where('fecha', '>=', desde));
+      const s = await fs.getDocs(q);
+      return s.docs.map((d) => ({ tipo: d.get('tipo'), negocioId: d.ref.parent.parent?.id, fecha: aFecha(d.get('fecha')) }));
+    },
     async listarMensajes(id) {
       const s = await fs.getDocs(fs.collection(db, 'negocios', id, 'mensajes'));
       return Object.fromEntries(s.docs.map((d) => [d.id, d.data()]));
@@ -123,6 +129,10 @@ function crearDemoStore() {
     },
     async listarEventos(id) {
       return (leer().eventos[id] || []).map((e) => ({ ...e, fecha: new Date(e.fecha) })).sort((a, b) => b.fecha - a.fecha);
+    },
+    async listarEventosDesde(desde) {
+      return Object.entries(leer().eventos).flatMap(([negocioId, evs]) =>
+        evs.map((e) => ({ tipo: e.tipo, negocioId, fecha: new Date(e.fecha) })).filter((e) => e.fecha >= desde));
     },
     async listarMensajes() { return {}; },
   };

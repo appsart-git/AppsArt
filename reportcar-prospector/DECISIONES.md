@@ -10,8 +10,17 @@
 - Fase 2 (parte): pantalla **Hoy** (atrasados → seguimientos → nuevos A/B/C, contador, mensaje editable, WhatsApp, llamar + guion, Enviado/Llamé, Respondió, Sin WhatsApp, Posponer, Descartar con "no contactar"), **Lista** con filtros, **Ficha** editable con historial y botones de estado/reunión, **alta manual** con fuente.
 - Workflow `.github/workflows/prospector-deploy.yml` (Hosting + reglas). No hace nada hasta que existan los secrets.
 
+**Fase 2 completa (25/11/2026, PC con Bun), probada en modo demo:**
+- **Métricas** (pestaña nueva, `panel/lib/metricas.js`): embudo con lectura contra la referencia de §10; tablas por variante, canal, origen (frío contra cálidos: `fuente` o planilla/Maps/manual) y ciudad; objeciones más repetidas; contactos por día de las últimas 4 semanas con constancia (días hábiles con al menos un contacto, sin contar hoy).
+- Los descartados guardan `estadoPrevio` y cuentan en el embudo hasta donde habían llegado.
+- "Contactos por día" lee los eventos con una consulta de grupo sobre `eventos` (`fecha >=`): agregados el índice de grupo de colección en `firestore.indexes.json` y la regla de lectura `/{ruta=**}/eventos/{ev}`. El workflow de deploy ya publica reglas e índices.
+- Los eventos `enviado` guardan `mensaje` (`plantilla`/`claude`) y `editado` (si Martín lo retocó), para comparar plantilla contra Claude en la Fase 5.
+- **Lista → Columnas**: pipeline por estado (hasta 60 tarjetas por columna; el resto con filtros). Tocar una tarjeta abre el cambio de estado; en la compu también se arrastra. Reunión pide fecha y Descartar pide motivo, igual que en la ficha. Volver a "Contactado" desde un estado que corta la secuencia la reprograma para hoy.
+- Filtros nuevos en la lista: provincia y ola.
+- **Más → Editar plantillas**: contactos 1, 2 y 4 por variante, guion de llamada, texto `{previo}`, videos A/B y firma, con vista previa en vivo sobre un negocio real, aviso si aparece un precio o una variable desconocida, y "Restaurar las originales" (desde `rubros/talleres.json`). Se guarda en `rubros/{id}` de la base.
+- Servidor local sin PowerShell: `bun run panel` (o `node scripts/serve.js 8905`) → `http://localhost:8904/?demo`.
+
 **Falta:**
-- Fase 2: métricas, vista de columnas del pipeline, editor de plantillas en el panel.
 - Fase 1 con datos reales: crear el proyecto Firebase y la importación de los 50 (CSV fuera del repo).
 - `ganchoCorto` y `placeId` de los importados (workflow con Bun + Claude/Places).
 - Fases 3, 4 y 5.
