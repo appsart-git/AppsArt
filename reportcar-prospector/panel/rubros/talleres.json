@@ -1,0 +1,46 @@
+{
+  "id": "talleres",
+  "nombre": "Talleres mecánicos",
+  "marca": "ReportCar",
+  "firma": "Martín – ReportCar",
+  "videoUrl": { "A": "", "B": "" },
+  "busquedas": ["taller mecánico {ciudad}", "mecánica integral {ciudad}", "taller multimarca {ciudad}", "inyección electrónica {ciudad}"],
+  "tiposIncluidos": ["car_repair"],
+  "tiposExcluidos": ["car_dealer"],
+  "palabrasExcluidas": ["oficial", "concesionario", "gomería", "lubricentro", "lavadero"],
+  "minResenas": 30,
+  "producto": {
+    "base": ["ingreso del auto con fotos, daños y firma", "informe del trabajo en PDF con el logo del taller", "avisos de service y correa por WhatsApp", "historial por patente", "stock con aviso de reposición", "números del mes"],
+    "opcionales": ["ficha QR del auto", "compras y cuentas con proveedores", "estado del auto para el cliente", "presupuestos en PDF con seguimiento", "ganancia real", "campañas a clientes"],
+    "diferencial": "pago único, sin abono mensual; la app y los datos son del taller"
+  },
+  "senales": {
+    "recompra": ["clientes de años", "vuelvo siempre", "mi mecánico de confianza", "me avisó"],
+    "entregaProfesional": ["mandó fotos", "explicó todo", "transparente", "informe", "alta gama"],
+    "dolor": ["no me avisaron", "cobró más", "sin comprobante", "demoró", "no devolvió las piezas", "nunca más"],
+    "tamano": ["los chicos", "el equipo", "recepción", "grúa", "varios mecánicos", "turnos"]
+  },
+  "cadenciaDias": [0, 2, 5, 9],
+  "textoPrevioLlamada": "te escribí por WhatsApp hace unos días.",
+  "variantes": {
+    "A": "recompra: avisarle al cliente cuándo le toca el service",
+    "B": "económico: sistema propio con pago único, sin abono mensual"
+  },
+  "plantillas": {
+    "A": {
+      "1": "Hola, ¿cómo va? Soy Martín de ReportCar. Vi {taller} en Maps[[, {ganchoCorto} 👏|.]] Una consulta rápida: ¿cómo hacés hoy para avisarle a un cliente que le toca el service?\n1️⃣ Le escribo o lo llamo a mano\n2️⃣ Espero que vuelva solo\n3️⃣ Tengo un sistema",
+      "2": "Te pregunto porque muchas veces el cliente no se va por precio: se va porque nadie le escribió. Armamos para talleres un sistema que te muestra cada mañana a quién le toca el service, y el WhatsApp sale escrito con tu nombre.[[ Te dejo un video de 1 minuto: {video}.]] Es pago único, sin abono mensual. ¿Te muestro en 15 minutos cómo quedaría con {taller}?",
+      "4": "Hola, te escribí hace unos días por el sistema para {taller}. Entiendo que estás a full; si no es el momento, no hay problema. ¿Lo dejamos para más adelante o te interesa verlo?"
+    },
+    "B": {
+      "1": "Hola, ¿cómo va? Soy Martín de ReportCar. Vi {taller} en Maps[[, {ganchoCorto} 👏|.]] Una consulta: ¿hoy usan algún sistema para el taller?\n1️⃣ No, todo en papel o Excel\n2️⃣ Sí, uno que pago por mes\n3️⃣ Sí, uno propio",
+      "2": "Te pregunto porque hacemos sistemas para talleres que se pagan una sola vez: sin abono mensual, y la app y los datos quedan a tu nombre. El auto entra con fotos y firma, sale con un informe con tu logo, y el sistema te avisa a quién le toca el service.[[ Video de 1 minuto: {video}.]] ¿Te lo muestro en 15 minutos?",
+      "4": "Hola, te escribí hace unos días por el sistema para {taller}. Entiendo que estás a full; si no es el momento, no hay problema. ¿Lo dejamos para más adelante o te interesa verlo?"
+    },
+    "llamada": [
+      "Hola, ¿hablo con el encargado de {taller}? Soy Martín de ReportCar[[, {previo}|.]]",
+      "Te llamo porque ayudamos a talleres como el tuyo a que los clientes vuelvan solos a hacer el service. ¿Cómo lo manejan hoy?",
+      "Si hay interés → agendar videollamada de 15 minutos. Si no → «¿Te puedo escribir en unos meses?»"
+    ]
+  }
+}

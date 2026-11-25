@@ -1,7 +1,42 @@
 # Decisiones de la §2 (propuesta del 19/11/2026)
 
-> Para Claude Code en la otra PC: leé `SPEC.md` y este archivo antes de arrancar la Fase 1.
-> Están propuestas, todavía no confirmadas por Martín: revisalas con él antes de escribir código.
+> Para Claude Code (en cualquier PC): leé `SPEC.md` y este archivo antes de seguir.
+> El 25/11/2026 Martín pidió avanzar con estas decisiones y se arrancó en la PC corporativa (sin Bun/Node).
+
+## Estado (25/11/2026)
+
+**Hecho y probado en modo demo** (`panel/?demo`, datos en localStorage):
+- Fase 1: `rubros/talleres.json`, importación del CSV desde el panel (idempotente, alterna A/B, canal según teléfono), export a CSV, reglas de Firestore.
+- Fase 2 (parte): pantalla **Hoy** (atrasados → seguimientos → nuevos A/B/C, contador, mensaje editable, WhatsApp, llamar + guion, Enviado/Llamé, Respondió, Sin WhatsApp, Posponer, Descartar con "no contactar"), **Lista** con filtros, **Ficha** editable con historial y botones de estado/reunión, **alta manual** con fuente.
+- Workflow `.github/workflows/prospector-deploy.yml` (Hosting + reglas). No hace nada hasta que existan los secrets.
+
+**Falta:**
+- Fase 2: métricas, vista de columnas del pipeline, editor de plantillas en el panel.
+- Fase 1 con datos reales: crear el proyecto Firebase y la importación de los 50 (CSV fuera del repo).
+- `ganchoCorto` y `placeId` de los importados (workflow con Bun + Claude/Places).
+- Fases 3, 4 y 5.
+
+**Cambios respecto de la spec (a propósito):**
+- `proximoToque`, `primerContacto` y `ultimoContacto` se guardan como texto `YYYY-MM-DD` en hora de Argentina, no como Timestamp: se comparan sin problemas de zona horaria y el script del aviso usa la misma cuenta. `reunionFecha` es `YYYY-MM-DDTHH:mm` (hora AR). Eventos y `creado`/`actualizado` sí son Timestamp.
+- El `id` de los importados queda `manual_<slug de nombre+ciudad>` para siempre; si después se encuentra el lugar en Maps se guarda en el campo `placeId` (no se cambia el id, para no mover eventos).
+- La lógica compartida está en `panel/lib/` (no en `lib/`), para que Hosting la sirva sin build; los scripts de Bun la importan desde ahí.
+- Campos nuevos: `secuenciaTerminada`, `ultimoContacto`, `ciclo`, `fuente` (canal cálido: Meta, FAATRA…), `reunionFecha`, `reunionAvisada`.
+- Nuevos primeros contactos por día = `maxContactosDia` − primeros contactos ya hechos hoy. Los seguimientos no tienen tope.
+
+## Puesta en marcha de Firebase (una sola vez)
+
+1. console.firebase.google.com → Agregar proyecto (ej. `reportcar-prospector`), sin Analytics. Plan Spark.
+2. Build → Firestore Database → Crear (modo producción, región `southamerica-east1`).
+3. Build → Authentication → Comenzar → proveedor **Google** activado.
+4. Configuración del proyecto → Tus apps → App web → copiar la config a `panel/app/firebase-config.js`.
+5. Configuración del proyecto → Cuentas de servicio → Generar clave privada. En GitHub → Settings → Secrets → Actions: `PROSPECTOR_FIREBASE_SERVICE_ACCOUNT` (el JSON completo) y `PROSPECTOR_FIREBASE_PROJECT_ID`. A la cuenta de servicio darle el rol **Firebase Hosting Admin** y **Firebase Rules Admin** (o Editor) en console.cloud.google.com → IAM.
+6. Push → el workflow publica el panel en `https://<proyecto>.web.app`. En Authentication → Configuración → Dominios autorizados ya figura ese dominio.
+7. Entrar al panel con Google → muestra tu UID → en Firestore crear `usuarios/<UID>` con `rol: "admin"` → recargar.
+8. Más → Importar planilla → elegir `talleres-planilla.csv`.
+
+## Probar sin Firebase
+
+En la PC corporativa: preview `reportcar-prospector` de `.claude/launch.json` (servidor PowerShell en el puerto 8904) y abrir `http://localhost:8904/?demo`.
 
 ## Contexto que condiciona todo
 

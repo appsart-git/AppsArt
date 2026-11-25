@@ -91,6 +91,19 @@
       "port": 8903
     },
     {
+      "name": "reportcar-prospector",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": [
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        ".claude/serve-static.ps1",
+        "reportcar-prospector/panel",
+        "8904"
+      ],
+      "port": 8904
+    },
+    {
       "name": "union-industrial",
       "runtimeExecutable": "npm",
       "runtimeArgs": [

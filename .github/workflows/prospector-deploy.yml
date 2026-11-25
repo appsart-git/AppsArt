@@ -1,0 +1,47 @@
+# Publica el panel de prospección (reportcar-prospector/panel) en Firebase Hosting y sube las reglas de Firestore.
+# Secrets necesarios: PROSPECTOR_FIREBASE_PROJECT_ID y PROSPECTOR_FIREBASE_SERVICE_ACCOUNT (JSON de la cuenta de servicio).
+# Mientras no estén cargados, el workflow termina sin hacer nada.
+name: "Prospector: deploy del panel"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "reportcar-prospector/panel/**"
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: reportcar-prospector/panel
+    env:
+      PROJECT_ID: ${{ secrets.PROSPECTOR_FIREBASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ¿Está configurado?
+        id: check
+        run: |
+          if [ -z "$PROJECT_ID" ]; then
+            echo "Faltan los secrets PROSPECTOR_FIREBASE_*: no se publica nada."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.ok == 'true'
+        with:
+          node-version: "20"
+
+      - name: Guardar credencial
+        if: steps.check.outputs.ok == 'true'
+        run: echo '${{ secrets.PROSPECTOR_FIREBASE_SERVICE_ACCOUNT }}' > /tmp/prospector-sa.json
+
+      - name: Deploy de Hosting y reglas de Firestore
+        if: steps.check.outputs.ok == 'true'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/prospector-sa.json
+        run: npx --yes firebase-tools deploy --only hosting,firestore:rules,firestore:indexes --project "$PROJECT_ID" --non-interactive

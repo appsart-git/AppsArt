@@ -11,3 +11,8 @@ marketing/*.mp4
 # Planillas de reclamos con datos de clientes (no subir a GitHub) y archivos temporales de Excel
 anexo*.xlsx
 ~$*
+
+# Prospector: datos de talleres y claves nunca al repo (es público)
+reportcar-prospector/**/*.csv
+reportcar-prospector/**/.env
+reportcar-prospector/**/*service-account*.json

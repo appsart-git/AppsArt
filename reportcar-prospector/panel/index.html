@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#14100D">
+  <meta name="robots" content="noindex">
+  <title>ReportCar · Prospección</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="app/styles.css">
+  <script type="importmap">
+    { "imports": { "libphonenumber-js/max": "https://esm.sh/libphonenumber-js@1/max" } }
+  </script>
+</head>
+<body>
+  <header class="top">
+    <a href="#/hoy" class="marca"><img src="icons/icon-192.png" alt=""><span><b>REPORT</b>CAR</span></a>
+    <span id="modo" class="modo"></span>
+  </header>
+  <main id="vista"><p class="cargando">Cargando…</p></main>
+  <nav class="tabs" id="tabs" hidden>
+    <a href="#/hoy" data-tab="hoy">Hoy</a>
+    <a href="#/lista" data-tab="lista">Lista</a>
+    <a href="#/mas" data-tab="mas">Más</a>
+  </nav>
+  <dialog id="dlg"><form method="dialog" id="dlg-form"></form></dialog>
+  <div id="toast" class="toast" hidden></div>
+  <script type="module" src="app/main.js"></script>
+</body>
+</html>
