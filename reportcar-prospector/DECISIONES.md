@@ -78,3 +78,19 @@ reportcar-prospector/
   data/       ciudades.json
 .github/workflows/prospector-{deploy,aviso,resumen,listas,enriquecer,mensajes}.yml
 ```
+
+## Fase 4 — Generador de listas (25/11/2026)
+
+- Script `scripts/listas.ts` (Bun), corre en GitHub Actions: `.github/workflows/prospector-listas.yml`.
+- **Automático:** lunes a viernes 07:00 (hora AR) con `--auto`: si quedan menos de `config/general.umbralGenerador` (default 25) talleres sin contactar, busca la próxima ciudad de `data/ciudades.json` (por ola) que todavía no se haya corrido. Lo que ya se corrió queda en `generador/{rubro}`.
+- **A mano:** Actions → "Prospector: generador de listas" → Run workflow. Por defecto viene tildado "Solo prueba" (`--dry-run`): consulta Maps y lista lo que agregaría, sin llamar a Claude ni guardar.
+- Filtros (`panel/lib/generador.js`, probados en el navegador): cerrado, tipos incluidos/excluidos, palabras excluidas en el nombre, mínimo de reseñas, a más de 1,5 × radio del centro.
+- Cruce de duplicados: por `placeId` y por nombre + localidad contra lo importado de la planilla. Nunca pisa estado, notas ni eventos. Los que reaparecen con datos de Maps de más de 30 días se refrescan (solo datos de contacto, rating y reseñas).
+- Análisis: `claude-haiku-5-5`, salida estructurada validada con zod (`messages.parse` + `zodOutputFormat`), 1 reintento. Las reseñas se mandan sin autor y **no se guardan**; solo queda `analisis`. La variante se sigue alternando A/B (la sugerida queda en `analisis.varianteSugerida`).
+- `data/ciudades.json` arranca con el Alto Valle (Neuquén, Cipolletti, Plottier, Centenario → ola 1; Roca, Allen, Cinco Saltos → ola 2; Regina, Cutral Có, Zapala → ola 3). **Editarlo con las ciudades reales donde Martín quiere vender.**
+- **No probado de punta a punta todavía** (esta PC no tiene Bun): la primera corrida real en Actions va a ser la prueba.
+
+### Secrets que necesita (GitHub → Settings → Secrets and variables → Actions)
+- `PROSPECTOR_GOOGLE_PLACES_API_KEY`: console.cloud.google.com → (mismo proyecto de Firebase) → APIs y servicios → habilitar **Places API (New)** → Credenciales → Crear clave de API → restringirla a "Places API (New)". Requiere cuenta de facturación; poner una alerta de presupuesto (ej. US$ 10).
+- `PROSPECTOR_ANTHROPIC_API_KEY`: console.anthropic.com → API Keys. Poner límite de gasto mensual.
+- `PROSPECTOR_FIREBASE_SERVICE_ACCOUNT`: el mismo JSON del deploy. La cuenta de servicio necesita además el rol **Cloud Datastore User** para escribir en Firestore.

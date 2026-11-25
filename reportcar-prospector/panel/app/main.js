@@ -361,6 +361,7 @@ async function renderFicha(id) {
       </div>
       ${n.secuenciaTerminada && !puedeReactivar(n, hoy) && n.ultimoContacto ? `<p class="tenue chico">Se puede reactivar desde el ${fechaCorta(sumarDias(n.ultimoContacto, 60))}.</p>` : ''}
     </div>
+    ${seccionAnalisis(n.analisis)}
     <form class="seccion" onsubmit="return false">
       <h3>Datos</h3>
       <div class="grid2">${campo('nombre', 'Nombre')}${campo('ciudad', 'Ciudad')}${campo('provincia', 'Provincia')}${campo('direccion', 'Dirección')}
@@ -383,6 +384,17 @@ async function renderFicha(id) {
   cont.innerHTML = eventos.length ? eventos.map((e) => `<div class="evento">
     <div class="f">${e.fecha ? e.fecha.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : ''} · ${esc(e.tipo)}${e.paso ? ` · contacto ${e.paso}` : ''}${e.canal ? ` · ${esc(e.canal)}` : ''}</div>
     ${e.texto ? `<div class="t">${esc(e.texto)}</div>` : ''}</div>`).join('') : '<p class="tenue">Sin eventos.</p>';
+}
+
+/** Lo que dijo Claude al analizar las reseñas (Fase 4). */
+function seccionAnalisis(a) {
+  if (!a) return '';
+  const lista = (titulo, items) => (items?.length ? `<div class="chico"><b>${titulo}:</b> ${items.map(esc).join(' · ')}</div>` : '');
+  return `<div class="seccion"><h3>Análisis de reseñas</h3>
+    <div class="tenue chico">Prioridad ${esc(a.prioridad)} · score ${esc(a.score)} · tamaño ${esc(a.tamanoEstimado)} · variante sugerida ${esc(a.varianteSugerida)}</div>
+    ${lista('Recompra', a.senalesRecompra)}${lista('Entrega profesional', a.senalesEntrega)}${lista('Dolores', a.dolores)}
+    ${lista('Ya hace a mano', a.yaHaceManual)}${a.alertas?.length ? `<div class="chico aviso"><b>Alertas:</b> ${a.alertas.map(esc).join(' · ')}</div>` : ''}
+  </div>`;
 }
 
 // ───────────────────────── Alta manual ─────────────────────────

@@ -16,3 +16,5 @@ anexo*.xlsx
 reportcar-prospector/**/*.csv
 reportcar-prospector/**/.env
 reportcar-prospector/**/*service-account*.json
+reportcar-prospector/node_modules/
+reportcar-prospector/bun.lock*

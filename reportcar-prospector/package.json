@@ -1,0 +1,14 @@
+{
+  "name": "reportcar-prospector",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "listas": "bun run scripts/listas.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "latest",
+    "firebase-admin": "^13.0.0",
+    "libphonenumber-js": "^1.11.0",
+    "zod": "^4.1.0"
+  }
+}

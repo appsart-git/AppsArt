@@ -1,0 +1,12 @@
+[
+  { "nombre": "Neuquén", "provincia": "Neuquén", "ola": 1, "lat": -38.9516, "lng": -68.0591, "radioKm": 15 },
+  { "nombre": "Cipolletti", "provincia": "Río Negro", "ola": 1, "lat": -38.9339, "lng": -67.9903, "radioKm": 8 },
+  { "nombre": "Plottier", "provincia": "Neuquén", "ola": 1, "lat": -38.9667, "lng": -68.2333, "radioKm": 6 },
+  { "nombre": "Centenario", "provincia": "Neuquén", "ola": 1, "lat": -38.8296, "lng": -68.1318, "radioKm": 6 },
+  { "nombre": "General Roca", "provincia": "Río Negro", "ola": 2, "lat": -39.0333, "lng": -67.5833, "radioKm": 8 },
+  { "nombre": "Allen", "provincia": "Río Negro", "ola": 2, "lat": -38.9775, "lng": -67.8264, "radioKm": 6 },
+  { "nombre": "Cinco Saltos", "provincia": "Río Negro", "ola": 2, "lat": -38.8228, "lng": -68.0626, "radioKm": 5 },
+  { "nombre": "Villa Regina", "provincia": "Río Negro", "ola": 3, "lat": -39.0956, "lng": -67.0833, "radioKm": 6 },
+  { "nombre": "Cutral Có", "provincia": "Neuquén", "ola": 3, "lat": -38.9339, "lng": -69.2308, "radioKm": 6 },
+  { "nombre": "Zapala", "provincia": "Neuquén", "ola": 3, "lat": -38.8992, "lng": -70.0544, "radioKm": 6 }
+]

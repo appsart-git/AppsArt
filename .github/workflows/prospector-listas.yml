@@ -1,0 +1,84 @@
+# Generador de listas (Fase 4): Google Maps → análisis con Claude → Firestore.
+# - Automático: lunes a viernes 07:00 hora Argentina corre con --auto (solo busca una ciudad nueva si quedan
+#   menos de 25 talleres sin contactar; el umbral se cambia con config/general.umbralGenerador).
+# - A mano: Actions → "Prospector: generador de listas" → Run workflow (ciudad u ola, prueba sin gastar, límite).
+# Secrets: PROSPECTOR_GOOGLE_PLACES_API_KEY, PROSPECTOR_ANTHROPIC_API_KEY, PROSPECTOR_FIREBASE_SERVICE_ACCOUNT.
+name: "Prospector: generador de listas"
+
+on:
+  schedule:
+    - cron: "0 10 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      ciudad:
+        description: 'Ciudad de data/ciudades.json (vacío = usa "ola" o modo automático)'
+        required: false
+      ola:
+        description: "Ola completa (1, 2, 3…)"
+        required: false
+      prueba:
+        description: "Solo prueba: consulta Maps pero no llama a Claude ni guarda nada"
+        type: boolean
+        default: true
+      limite:
+        description: "Máximo de negocios nuevos a agregar (vacío = sin límite)"
+        required: false
+      force:
+        description: "Re-analizar con Claude los que ya están en la base"
+        type: boolean
+        default: false
+
+concurrency:
+  group: prospector-listas
+  cancel-in-progress: false
+
+jobs:
+  generar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: reportcar-prospector
+    env:
+      GOOGLE_PLACES_API_KEY: ${{ secrets.PROSPECTOR_GOOGLE_PLACES_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.PROSPECTOR_ANTHROPIC_API_KEY }}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.PROSPECTOR_FIREBASE_SERVICE_ACCOUNT }}
+      ANTHROPIC_MODEL_ANALISIS: claude-haiku-5-5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Armar argumentos
+        id: args
+        env:
+          CIUDAD: ${{ inputs.ciudad }}
+          OLA: ${{ inputs.ola }}
+          PRUEBA: ${{ inputs.prueba }}
+          LIMITE: ${{ inputs.limite }}
+          FORCE: ${{ inputs.force }}
+          EVENTO: ${{ github.event_name }}
+        run: |
+          if [ -z "$GOOGLE_PLACES_API_KEY" ]; then
+            echo "Falta el secret PROSPECTOR_GOOGLE_PLACES_API_KEY: no se hace nada."; echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          A=()
+          if [ -n "$CIUDAD" ]; then A+=(--ciudad "$CIUDAD"); elif [ -n "$OLA" ]; then A+=(--ola "$OLA"); else A+=(--auto); fi
+          if [ "$EVENTO" = "workflow_dispatch" ] && [ "$PRUEBA" = "true" ]; then A+=(--dry-run); fi
+          if [ -n "$LIMITE" ]; then A+=(--limit "$LIMITE"); fi
+          if [ "$FORCE" = "true" ]; then A+=(--force); fi
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT_JSON" ] && [[ ! " ${A[*]} " =~ " --dry-run " ]]; then
+            echo "Falta PROSPECTOR_FIREBASE_SERVICE_ACCOUNT: solo se puede correr en modo prueba."; echo "ok=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          printf '%s\n' "${A[@]}" > /tmp/args.txt
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+          echo "Argumentos: ${A[*]}"
+
+      - uses: oven-sh/setup-bun@v2
+        if: steps.args.outputs.ok == 'true'
+
+      - name: Instalar dependencias
+        if: steps.args.outputs.ok == 'true'
+        run: bun install
+
+      - name: Correr el generador
+        if: steps.args.outputs.ok == 'true'
+        run: mapfile -t A < /tmp/args.txt && bun run scripts/listas.ts "${A[@]}"
