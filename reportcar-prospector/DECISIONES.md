@@ -87,7 +87,7 @@ reportcar-prospector/
 - Filtros (`panel/lib/generador.js`, probados en el navegador): cerrado, tipos incluidos/excluidos, palabras excluidas en el nombre, mínimo de reseñas, a más de 1,5 × radio del centro.
 - Cruce de duplicados: por `placeId` y por nombre + localidad contra lo importado de la planilla. Nunca pisa estado, notas ni eventos. Los que reaparecen con datos de Maps de más de 30 días se refrescan (solo datos de contacto, rating y reseñas).
 - Análisis: `claude-haiku-5-5`, salida estructurada validada con zod (`messages.parse` + `zodOutputFormat`), 1 reintento. Las reseñas se mandan sin autor y **no se guardan**; solo queda `analisis`. La variante se sigue alternando A/B (la sugerida queda en `analisis.varianteSugerida`).
-- `data/ciudades.json` arranca con el Alto Valle (Neuquén, Cipolletti, Plottier, Centenario → ola 1; Roca, Allen, Cinco Saltos → ola 2; Regina, Cutral Có, Zapala → ola 3). **Editarlo con las ciudades reales donde Martín quiere vender.**
+- `data/ciudades.json` (34 entradas): ola 1 = Córdoba (5 zonas), Rosario (4 zonas) y Santa Fe, porque de ahí vienen la mayoría de las consultas; ola 2 = ciudades medianas de Córdoba y Santa Fe; olas 3 y 4 = resto de Córdoba/Santa Fe y Alto Valle. Las ciudades grandes se parten en zonas (campo `zona`) porque cada búsqueda de Maps devuelve como mucho 60 resultados; `--ciudad Córdoba` corre todas las zonas y `--ciudad "Córdoba Norte"` una sola. Coordenadas aproximadas: revisarlas si una zona trae pocos resultados.
 - **No probado de punta a punta todavía** (esta PC no tiene Bun): la primera corrida real en Actions va a ser la prueba.
 
 ### Secrets que necesita (GitHub → Settings → Secrets and variables → Actions)

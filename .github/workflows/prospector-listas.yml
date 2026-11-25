@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       ciudad:
-        description: 'Ciudad de data/ciudades.json (vacío = usa "ola" o modo automático)'
+        description: 'Ciudad de data/ciudades.json, ej. Córdoba (todas las zonas) o Córdoba Norte. Vacío = usa "ola" o modo automático'
         required: false
       ola:
         description: "Ola completa (1, 2, 3…)"

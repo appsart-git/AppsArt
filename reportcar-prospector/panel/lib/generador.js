@@ -19,7 +19,12 @@ export function distanciaKm(a, b) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-/** Textos de búsqueda para una ciudad. @param {any} rubro @param {any} ciudad */
+/** Nombre único de una entrada de ciudades.json (las ciudades grandes se parten en zonas). @param {any} ciudad */
+export function claveCiudad(ciudad) {
+  return ciudad.zona ? `${ciudad.nombre} · ${ciudad.zona}` : ciudad.nombre;
+}
+
+/** Textos de búsqueda para una ciudad (la zona solo cambia el centro de la búsqueda, no el texto). @param {any} rubro @param {any} ciudad */
 export function consultasPara(rubro, ciudad) {
   return (rubro.busquedas || []).map((b) => b.replace('{ciudad}', ciudad.nombre));
 }

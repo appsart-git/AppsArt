@@ -15,9 +15,9 @@ import Anthropic from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
 import {
-  FIELD_MASK, consultasPara, motivoExclusion, resenasSinAutor, placeANegocio, datosRefrescables, recortarPalabras,
+  FIELD_MASK, claveCiudad, consultasPara, motivoExclusion, resenasSinAutor, placeANegocio, datosRefrescables, recortarPalabras,
 } from '../panel/lib/generador.js';
-import { claveNombreCiudad } from '../panel/lib/importar.js';
+import { claveNombreCiudad, normalizarTexto } from '../panel/lib/importar.js';
 
 const { values: args } = parseArgs({
   options: {
@@ -36,7 +36,7 @@ const MODELO = process.env.ANTHROPIC_MODEL_ANALISIS || 'claude-haiku-5-5';
 const DIAS_REFRESCO = 30;
 const UMBRAL_DEFAULT = 25;
 
-type Ciudad = { nombre: string; provincia: string; ola: number; lat: number; lng: number; radioKm: number };
+type Ciudad = { nombre: string; zona?: string; provincia: string; ola: number; lat: number; lng: number; radioKm: number };
 
 const costos = { placesRequests: 0, tokensIn: 0, tokensOut: 0, llamadasClaude: 0 };
 
@@ -158,7 +158,7 @@ async function analizar(place: any, negocio: any, rubro: any): Promise<Analisis>
 
 // ───────────────────────── Una ciudad ─────────────────────────
 async function correrCiudad(db: Firestore | null, rubro: any, ciudad: Ciudad, existentes: any[]) {
-  console.log(`\n=== ${ciudad.nombre} (${ciudad.provincia}) — ola ${ciudad.ola} ===`);
+  console.log(`\n=== ${claveCiudad(ciudad)} (${ciudad.provincia}) — ola ${ciudad.ola} ===`);
   const porId = new Map(existentes.map((n) => [n.placeId || n.id, n]));
   const claves = new Set(existentes.map((n) => claveNombreCiudad(n.nombre, n.ciudad)));
 
@@ -207,7 +207,7 @@ async function correrCiudad(db: Firestore | null, rubro: any, ciudad: Ciudad, ex
         ...datos, analisis, prioridad: analisis.prioridad, gancho: analisis.gancho, ganchoCorto: analisis.ganchoCorto,
         datosPlacesFecha: hoy, creado: FieldValue.serverTimestamp(), actualizado: FieldValue.serverTimestamp(),
       });
-      await ref.collection('eventos').add({ tipo: 'nota', texto: `Alta (generador · ${ciudad.nombre})`, fecha: FieldValue.serverTimestamp(), usuario: 'generador' });
+      await ref.collection('eventos').add({ tipo: 'nota', texto: `Alta (generador · ${claveCiudad(ciudad)})`, fecha: FieldValue.serverTimestamp(), usuario: 'generador' });
       console.log(`  + ${negocio.nombre} · ${analisis.prioridad} (${analisis.score}) · ${analisis.ganchoCorto}`);
       agregados++; claves.add(clave);
     } catch (e: any) {
@@ -240,7 +240,7 @@ async function correrCiudad(db: Firestore | null, rubro: any, ciudad: Ciudad, ex
   console.log(`  ${DRY ? 'Se agregarían' : 'Agregados'}: ${agregados} · ya importados por nombre: ${duplicadosNombre} · refrescados: ${refrescados} · re-analizados: ${reanalizados} · errores: ${errores}`);
   if (db && !DRY) {
     await db.doc(`generador/${rubro.id}`).set({
-      ciudades: { [ciudad.nombre]: { fecha: FieldValue.serverTimestamp(), agregados, encontrados: places.size, pasanFiltros: nuevos.length } },
+      ciudades: { [claveCiudad(ciudad)]: { fecha: FieldValue.serverTimestamp(), agregados, encontrados: places.size, pasanFiltros: nuevos.length } },
       ultimaCorrida: FieldValue.serverTimestamp(),
     }, { merge: true });
   }
@@ -259,9 +259,11 @@ async function main() {
 
   let elegidas: Ciudad[] = [];
   if (args.ciudad) {
-    const c = ciudades.find((c) => c.nombre.toLowerCase() === args.ciudad!.toLowerCase());
-    if (!c) throw new Error(`"${args.ciudad}" no está en data/ciudades.json`);
-    elegidas = [c];
+    // "Córdoba" corre todas sus zonas; "Córdoba Norte" (o "Córdoba · Norte") solo esa. Sin importar acentos.
+    const buscada = normalizarTexto(args.ciudad);
+    elegidas = ciudades.filter((c) => normalizarTexto(claveCiudad(c)) === buscada);
+    if (!elegidas.length) elegidas = ciudades.filter((c) => normalizarTexto(c.nombre) === buscada);
+    if (!elegidas.length) throw new Error(`"${args.ciudad}" no está en data/ciudades.json`);
   } else if (args.ola) {
     elegidas = ciudades.filter((c) => String(c.ola) === args.ola);
   } else if (args.auto) {
@@ -271,7 +273,7 @@ async function main() {
     console.log(`Quedan ${quedan} sin contactar (umbral ${umbral}).`);
     if (quedan >= umbral) { console.log('No hace falta buscar más por ahora.'); return; }
     const hechas = db ? ((await db.doc(`generador/${rubro.id}`).get()).data()?.ciudades || {}) : {};
-    const proxima = [...ciudades].sort((a, b) => a.ola - b.ola).find((c) => !hechas[c.nombre]);
+    const proxima = [...ciudades].sort((a, b) => a.ola - b.ola).find((c) => !hechas[claveCiudad(c)]);
     if (!proxima) { console.log('Ya se recorrieron todas las ciudades de data/ciudades.json: sumá ciudades nuevas.'); return; }
     elegidas = [proxima];
   } else {
