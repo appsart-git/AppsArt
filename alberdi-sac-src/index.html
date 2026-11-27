@@ -792,15 +792,17 @@ const charts = {};
 
 /* ===================== Carga de datos ===================== */
 
+function claimFromDoc(d){
+  const data = d.data();
+  DATE_FIELDS.forEach(f => { if (data[f] && data[f].toDate) data[f] = data[f].toDate(); });
+  if (data.hora) data.hora = normHora(data.hora);
+  return data;
+}
+
 async function loadData(){
   if (!db) return [];
   const snap = await db.collection(COLLECTION).get();
-  return snap.docs.map(d => {
-    const data = d.data();
-    DATE_FIELDS.forEach(f => { if (data[f] && data[f].toDate) data[f] = data[f].toDate(); });
-    if (data.hora) data.hora = normHora(data.hora);
-    return data;
-  });
+  return snap.docs.map(claimFromDoc);
 }
 
 async function init(){
@@ -2225,8 +2227,11 @@ async function handleFile(file){
     const buf = await file.arrayBuffer();
     const rows = parseWorkbook(buf);
     statusEl.innerHTML = `<div class="admin-spinner">Comparando con la base actual…</div>`;
-    admin.diff = buildDiff(rows, ALL);
-    admin.diff.info = parseWorkbook.lastInfo;
+    const info = parseWorkbook.lastInfo;
+    const loaded = new Set(ALL.map(r => String(r.nroReclamo)));
+    const unseen = [...new Set(rows.map(r => String(r.nroReclamo)).filter(id => !loaded.has(id)))];
+    admin.diff = buildDiff(rows, [...ALL, ...await claimsOnServer(unseen)]);
+    admin.diff.info = info;
     renderAdmin();
   } catch (e) {
     console.error(e);
@@ -2291,14 +2296,35 @@ function sameVal(a, b){
   return String(a ?? '').trim() === String(b ?? '').trim();
 }
 
+// La lista en pantalla puede estar atrasada (se cargó un reclamo desde otra PC): los números que
+// parecen nuevos se confirman contra la base, para no tomar como nuevo uno que ya existe.
+async function claimsOnServer(ids){
+  const found = [];
+  for (let i = 0; i < ids.length; i += 20) {
+    const snaps = await Promise.all(ids.slice(i, i + 20).map(id => db.collection(COLLECTION).doc(id).get({ source:'server' })));
+    snaps.forEach(s => { if (s.exists) found.push(claimFromDoc(s)); });
+  }
+  return found;
+}
+
+// Mismo N° pero con otro cliente Y otro producto: no es una actualización, son dos reclamos distintos.
+function isOtherClaim(row, old){
+  const norm = v => stripAccents(v).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const differ = (a, b) => !!norm(a) && !!norm(b) && norm(a) !== norm(b);
+  const otherClient = differ(row.nombreCliente || row.nombreUsuario, old.nombreCliente || old.nombreUsuario);
+  const otherProduct = row.articulo && old.articulo ? differ(row.articulo, old.articulo) : differ(row.nombre, old.nombre);
+  return otherClient && otherProduct;
+}
+
 // Un reclamo que ya existe se actualiza solo con los campos que la planilla trae con valor:
 // lo que la planilla deja vacío (o lo que se cargó/editó en la app y no está en la planilla) no se pisa.
 function buildDiff(rows, existing){
   const byId = new Map(existing.map(r => [String(r.nroReclamo), r]));
-  const nuevos = [], actualizados = [], sinCambios = [];
+  const nuevos = [], actualizados = [], sinCambios = [], conflictos = [];
   for (const row of rows) {
     const match = byId.get(String(row.nroReclamo));
     if (!match) { nuevos.push(row); continue; }
+    if (isOtherClaim(row, match)) { conflictos.push({ row, match }); continue; }
     const merged = { ...match };
     let changed = false;
     XLSX_FIELDS.forEach(f => {
@@ -2308,7 +2334,7 @@ function buildDiff(rows, existing){
     });
     (changed ? actualizados : sinCambios).push(merged);
   }
-  return { nuevos, actualizados, sinCambios };
+  return { nuevos, actualizados, sinCambios, conflictos };
 }
 
 function renderAdminPreview(){
@@ -2322,8 +2348,13 @@ function renderAdminPreview(){
     info.ignored && info.ignored.length ? 'Columnas que no reconozco y no se cargan: ' + info.ignored.join(', ') + '.' : '',
     info.skipped ? info.skipped + ' fila(s) sin N° de reclamo numérico se saltearon.' : ''
   ].filter(Boolean).map(t => `<p class="admin-note">${esc(t)}</p>`).join('');
+  const who = r => [r.nombreCliente || r.nombreUsuario, r.nombre || r.articulo].filter(Boolean).join(' · ');
+  const conflicts = d.conflictos.length ? `
+    <p class="admin-error"><b>${d.conflictos.length} N° repetido(s) con otro reclamo: no se van a cargar.</b> En la base ese número es de otro cliente y producto. Corregí el número en la planilla (o editá el reclamo en la app).</p>
+    <div class="diff-list">${d.conflictos.map(c => `<p><b>N° ${esc(c.row.nroReclamo)}</b><br>En la base: ${esc(who(c.match))}<br>En la planilla: ${esc(who(c.row))}</p>`).join('')}</div>` : '';
   document.getElementById('adminBody').innerHTML = `
     ${notes}
+    ${conflicts}
     <div class="diff-summary">
       <div class="diff-stat"><div class="n">${d.nuevos.length}</div><div class="l">Nuevos</div></div>
       <div class="diff-stat"><div class="n">${d.actualizados.length}</div><div class="l">Modificados</div></div>
