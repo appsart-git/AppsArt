@@ -731,6 +731,7 @@ function renderMas() {
       <input type="file" id="archivo-csv" accept=".csv,text/csv">
       ${p ? `<div style="margin-top:.8rem">
         <p><b>${p.nuevos.length}</b> nuevos · ${p.repetidos.length} ya existían</p>
+        ${p.error ? `<div class="aviso" style="color:var(--rojo)"><b>No se pudo importar:</b> <span class="mono">${esc(p.error)}</span></div>` : ''}
         ${p.avisos.length ? `<details><summary class="aviso">${p.avisos.length} aviso${p.avisos.length === 1 ? '' : 's'}</summary><ul class="chico">${p.avisos.map((a) => `<li>${esc(a)}</li>`).join('')}</ul></details>` : ''}
         ${p.nuevos.length ? `<p class="tenue chico">Variantes: A ${p.nuevos.filter((n) => n.variante === 'A').length} · B ${p.nuevos.filter((n) => n.variante === 'B').length} — Canal: WhatsApp ${p.nuevos.filter((n) => n.canal === 'whatsapp').length} · Llamada ${p.nuevos.filter((n) => n.canal === 'llamada').length}</p>
           <div class="botones"><button class="primario grande" data-act="importar-ok">Importar ${p.nuevos.length}</button></div>` : ''}
@@ -768,7 +769,14 @@ Object.assign(acciones, {
   async 'importar-ok'() {
     const lista = S.importPlan.nuevos;
     toast(`Importando ${lista.length}…`);
-    await S.store.crearNegocios(lista, (k) => toast(`Importados ${k}/${lista.length}`));
+    try {
+      await S.store.crearNegocios(lista, (k) => toast(`Importados ${k}/${lista.length}`));
+    } catch (err) {
+      console.error(err);
+      S.importPlan.error = `${err.code ? err.code + ': ' : ''}${err.message}`;
+      renderMas();
+      return;
+    }
     S.negocios = await S.store.listarNegocios(S.rubro.id);
     S.importPlan = null;
     toast(`Listo: ${lista.length} negocios importados`);

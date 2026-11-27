@@ -16,7 +16,12 @@ async function crearFirestoreStore() {
     import(`${SDK}/firebase-app.js`), import(`${SDK}/firebase-firestore.js`), import(`${SDK}/firebase-auth.js`),
   ]);
   const app = initializeApp(FIREBASE_CONFIG);
-  const db = fs.initializeFirestore(app, { localCache: fs.persistentLocalCache() });
+  // ignoreUndefinedProperties: un campo sin valor (undefined) se omite en vez de hacer fallar toda la escritura.
+  // Caché en varias pestañas: si el panel está abierto dos veces, la segunda no queda sin base.
+  const db = fs.initializeFirestore(app, {
+    ignoreUndefinedProperties: true,
+    localCache: fs.persistentLocalCache({ tabManager: fs.persistentMultipleTabManager() }),
+  });
   const auth = au.getAuth(app);
   const ts = () => fs.serverTimestamp();
   const aFecha = (v) => (v && typeof v.toDate === 'function' ? v.toDate() : v ?? null);
