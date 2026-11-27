@@ -38,7 +38,9 @@ jobs:
 
       - name: Guardar credencial
         if: steps.check.outputs.ok == 'true'
-        run: echo '${{ secrets.PROSPECTOR_FIREBASE_SERVICE_ACCOUNT }}' > /tmp/prospector-sa.json
+        env:
+          SA_JSON: ${{ secrets.PROSPECTOR_FIREBASE_SERVICE_ACCOUNT }}
+        run: printf '%s' "$SA_JSON" > /tmp/prospector-sa.json
 
       - name: Deploy de Hosting y reglas de Firestore
         if: steps.check.outputs.ok == 'true'
