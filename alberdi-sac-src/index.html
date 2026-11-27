@@ -2180,14 +2180,19 @@ function collectNewReclamoData(){
   return obj;
 }
 
-async function getNextNroReclamo(){
-  const ref = db.collection('reclamos_sac_meta').doc('counter');
+// Asigna el correlativo y guarda el reclamo en una sola transacción, sin pisar nunca uno existente:
+// parte del mayor entre el contador y los reclamos cargados (el contador puede quedar atrasado si
+// una importación se corta a la mitad) y, si ese número ya está ocupado, prueba con el siguiente.
+async function createReclamo(data){
+  const counterRef = db.collection('reclamos_sac_meta').doc('counter');
+  const maxLoaded = ALL.reduce((m, r) => Math.max(m, parseInt(r.nroReclamo, 10) || 0), 0);
   return db.runTransaction(async tx => {
-    const snap = await tx.get(ref);
-    const last = snap.exists ? (snap.data().last || 0) : 0;
-    const next = last + 1;
-    tx.set(ref, { last: next }, { merge:true });
-    return next;
+    const snap = await tx.get(counterRef);
+    let nro = Math.max(snap.exists ? (snap.data().last || 0) : 0, maxLoaded) + 1;
+    while ((await tx.get(db.collection(COLLECTION).doc(String(nro)))).exists) nro++;
+    tx.set(counterRef, { last: nro }, { merge:true });
+    tx.set(db.collection(COLLECTION).doc(String(nro)), { ...data, nroReclamo: String(nro) });
+    return nro;
   });
 }
 
@@ -2198,9 +2203,8 @@ async function saveNewReclamo(){
   try {
     const data = collectNewReclamoData();
     if (!data.articulo && !data.causa) throw new Error('Completá al menos el artículo y la causa del reclamo.');
-    const nro = await getNextNroReclamo();
+    const nro = await createReclamo(data);
     data.nroReclamo = String(nro);
-    await db.collection(COLLECTION).doc(String(nro)).set(data);
     ALL.push(data);
     renderFilterSheetOptions();
     statusEl.innerHTML = `<p class="admin-ok">¡Listo! Se creó el reclamo N° ${nro}.</p>`;
