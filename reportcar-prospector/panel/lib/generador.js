@@ -1,7 +1,7 @@
 // @ts-check
 // Fase 4: filtros y armado de negocios a partir de resultados de Google Places (API New).
 // Funciones puras, compartidas por el script del generador (Bun) y, si hace falta, el panel.
-import { normalizarTelefono } from './phone.js';
+import { normalizarTelefono, canalSugerido } from './phone.js';
 import { normalizarTexto, slugify } from './importar.js';
 
 /** Campos pedidos a Places Text Search (cuantos menos, más barato). */
@@ -95,7 +95,7 @@ export function placeANegocio(place, ciudad, rubro, variante) {
     proximoToque: null,
     primerContacto: null,
     variante,
-    canal: tel.esCelularProbable ? 'whatsapp' : 'llamada',
+    canal: canalSugerido(tel),
     noContactar: false,
     ola: ciudad.ola ?? null,
     origen: 'places',

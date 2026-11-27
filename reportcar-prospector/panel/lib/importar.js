@@ -1,6 +1,6 @@
 // @ts-check
 // Importación de la planilla de talleres (§5.2) y export a CSV (§5.4).
-import { normalizarTelefono } from './phone.js';
+import { normalizarTelefono, canalSugerido } from './phone.js';
 import { parseFecha, hoyAR, aHabil, sumarDias } from './fechas.js';
 import { ESTADO_LABEL } from './secuencia.js';
 
@@ -73,7 +73,7 @@ export function filaANegocio(fila, ctx) {
   if (telefono && !telefonoWa) avisos.push(`${nombre}: no se pudo interpretar el teléfono "${telefono}"`);
 
   const canalTxt = normalizarTexto(col(fila, 'Canal'));
-  const canal = MAPA_CANAL[canalTxt] || (esCelularProbable ? 'whatsapp' : 'llamada');
+  const canal = MAPA_CANAL[canalTxt] || canalSugerido({ telefonoWa });
 
   const prioTxt = col(fila, 'Prioridad').trim().toUpperCase();
   const prioridad = ['A', 'B', 'C'].includes(prioTxt[0]) ? prioTxt[0] : 'B';

@@ -19,3 +19,12 @@ export function normalizarTelefono(raw) {
   const esCelular = tipo === 'MOBILE' ? true : tipo === 'FIXED_LINE' ? false : null;
   return { telefonoWa: '54' + nsn, esCelularProbable: esCelular };
 }
+
+/**
+ * Canal inicial: WhatsApp siempre que haya número armable (muchos talleres tienen WhatsApp Business en el fijo;
+ * el panel avisa que parece fijo y, si no tiene, "Sin WhatsApp" lo pasa a llamada). Sin número: llamada.
+ * @param {{ telefonoWa?: string | null }} tel
+ */
+export function canalSugerido(tel) {
+  return tel.telefonoWa ? 'whatsapp' : 'llamada';
+}

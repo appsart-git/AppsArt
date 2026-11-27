@@ -30,6 +30,8 @@
 - El `id` de los importados queda `manual_<slug de nombre+ciudad>` para siempre; si después se encuentra el lugar en Maps se guarda en el campo `placeId` (no se cambia el id, para no mover eventos).
 - La lógica compartida está en `panel/lib/` (no en `lib/`), para que Hosting la sirva sin build; los scripts de Bun la importan desde ahí.
 - Campos nuevos: `secuenciaTerminada`, `ultimoContacto`, `ciclo`, `fuente` (canal cálido: Meta, FAATRA…), `reunionFecha`, `reunionAvisada`.
+- **Canal inicial = WhatsApp siempre que haya número armable, aunque parezca fijo** (pedido de Martín, 27/11/2026; la spec decía llamada si no era celular). Muchos talleres tienen WhatsApp Business en el fijo; la tarjeta avisa "parece fijo" y "Sin WhatsApp" lo pasa a llamada. Sin número válido: llamada. Aplica a importación, alta manual y generador (`canalSugerido` en `lib/phone.js`). En Más hay un botón para pasar a WhatsApp los que ya estaban en llamada con número.
+- Firestore del panel con caché en memoria (no IndexedDB): en iPhone, abrir el selector de archivos cortaba IndexedDB y la importación fallaba con "client has already been terminated".
 - Nuevos primeros contactos por día = `maxContactosDia` − primeros contactos ya hechos hoy. Los seguimientos no tienen tope.
 
 ## Puesta en marcha de Firebase (una sola vez)

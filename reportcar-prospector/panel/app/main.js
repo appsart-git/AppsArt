@@ -1,6 +1,6 @@
 import { crearStore } from './store.js';
 import { hoyAR, fechaCorta, sumarDias } from '../lib/fechas.js';
-import { normalizarTelefono } from '../lib/phone.js';
+import { normalizarTelefono, canalSugerido } from '../lib/phone.js';
 import { mensajeParaContacto, linkWhatsApp, renderPlantilla } from '../lib/plantillas.js';
 import { csvAObjetos, aCSV } from '../lib/csv.js';
 import {
@@ -191,7 +191,7 @@ vista.addEventListener('click', async (e) => {
   const id = card?.dataset.id;
   const n = id && porId(id);
   const act = b.dataset.act;
-  if (!n && !['exportar', 'importar-ok', 'guardar-config', 'salir'].includes(act)) return;
+  if (!n && !['exportar', 'importar-ok', 'guardar-config', 'salir', 'pasar-wa'].includes(act)) return;
   e.preventDefault();
   try {
     await acciones[act]?.(n, card, b);
@@ -527,7 +527,7 @@ function renderAlta() {
       nombre, ciudad, provincia: f.provincia.trim(), telefono: f.telefono.trim() || null, ...tel,
       instagram: f.instagram.trim(), prioridad: f.prioridad, gancho: f.gancho.trim(), ganchoCorto: '', notas: f.notas.trim(),
       fuente: f.fuente.trim(), estado: 'sin_contactar', paso: 0, proximoToque: null, primerContacto: null,
-      variante: cuenta.A <= cuenta.B ? 'A' : 'B', canal: tel.esCelularProbable ? 'whatsapp' : 'llamada',
+      variante: cuenta.A <= cuenta.B ? 'A' : 'B', canal: canalSugerido(tel),
       noContactar: false, origen: 'manual',
     };
     await S.store.crearNegocios([n]);
@@ -741,6 +741,7 @@ function renderMas() {
       <p class="tenue chico">CSV con todas las columnas de la planilla + id, para respaldo.</p>
       <button data-act="exportar">Descargar CSV (${S.negocios.length})</button>
     </div>
+    ${seccionPasarAWhatsApp()}
     <div class="seccion"><h2>Mensajes</h2>
       <p class="tenue chico">Plantillas de los 4 contactos por variante, guion de llamada, links de video y firma.</p>
       <a class="btn" href="#/plantillas">Editar plantillas</a>
@@ -765,7 +766,32 @@ function renderMas() {
   };
 }
 
+/** Negocios activos que están en "llamada" pero tienen un número armable para WhatsApp. */
+const candidatosWhatsApp = () => S.negocios.filter((n) =>
+  n.canal === 'llamada' && n.telefonoWa && !n.noContactar && ['sin_contactar', 'contactado'].includes(n.estado));
+
+function seccionPasarAWhatsApp() {
+  const c = candidatosWhatsApp();
+  if (!c.length) return '';
+  const sinNumero = S.negocios.filter((n) => n.canal === 'llamada' && !n.telefonoWa && !n.noContactar && ['sin_contactar', 'contactado'].includes(n.estado)).length;
+  return `<div class="seccion"><h2>Pasar a WhatsApp</h2>
+    <p class="tenue chico">${c.length} negocio${c.length === 1 ? '' : 's'} figura${c.length === 1 ? '' : 'n'} para llamar pero tiene${c.length === 1 ? '' : 'n'} número. Muchos talleres usan WhatsApp Business en el fijo: los pasa a WhatsApp, y si alguno no tiene, en Hoy tocás "Sin WhatsApp" y vuelve a llamada. El contacto 3 sigue siendo llamada.${sinNumero ? ` ${sinNumero} sin número válido quedan en llamada.` : ''}</p>
+    <button class="primario" data-act="pasar-wa">Pasar ${c.length} a WhatsApp</button>
+  </div>`;
+}
+
 Object.assign(acciones, {
+  async 'pasar-wa'() {
+    const lista = candidatosWhatsApp();
+    if (!lista.length || !confirm(`¿Pasar ${lista.length} negocios a WhatsApp?`)) return;
+    let k = 0;
+    for (const n of lista) {
+      await aplicar(n.id, { patch: { canal: 'whatsapp' }, evento: { tipo: 'nota', texto: 'Canal: llamada → WhatsApp (pasaje masivo)' } });
+      if (++k % 10 === 0) toast(`${k}/${lista.length}…`);
+    }
+    toast(`Listo: ${lista.length} pasaron a WhatsApp`);
+    renderMas();
+  },
   async 'importar-ok'() {
     const lista = S.importPlan.nuevos;
     toast(`Importando ${lista.length}…`);
