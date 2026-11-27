@@ -17,10 +17,11 @@ async function crearFirestoreStore() {
   ]);
   const app = initializeApp(FIREBASE_CONFIG);
   // ignoreUndefinedProperties: un campo sin valor (undefined) se omite en vez de hacer fallar toda la escritura.
-  // Caché en varias pestañas: si el panel está abierto dos veces, la segunda no queda sin base.
+  // Caché en memoria, no en IndexedDB: en iPhone, iOS corta IndexedDB cuando la página pasa a segundo plano
+  // (por ejemplo al abrir el selector de archivos) y Firestore queda "terminated". El panel igual lee todo al abrir.
   const db = fs.initializeFirestore(app, {
     ignoreUndefinedProperties: true,
-    localCache: fs.persistentLocalCache({ tabManager: fs.persistentMultipleTabManager() }),
+    localCache: fs.memoryLocalCache(),
   });
   const auth = au.getAuth(app);
   const ts = () => fs.serverTimestamp();
